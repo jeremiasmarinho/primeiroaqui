@@ -25,13 +25,15 @@ import {
 } from 'lucide-react'
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState('login')
+  const [currentScreen, setCurrentScreen] = useState('home')
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [isCartOpen, setIsCartOpen] = useState(false)
+  const [apiProducts, setApiProducts] = useState([])
+  const [apiCustomers, setApiCustomers] = useState([])
   const historyStack = useRef([])
 
   useEffect(() => {
-    window.history.replaceState({ screen: 'login' }, '')
+    window.history.replaceState({ screen: 'home' }, '')
 
     const handlePopState = (event) => {
       if (event.state?.screen) {
@@ -40,8 +42,51 @@ export default function App() {
     }
 
     window.addEventListener('popstate', handlePopState)
+
+    const loadImages = async () => {
+      try {
+        const [picsumRes, usersRes] = await Promise.all([
+          fetch('https://picsum.photos/v2/list?page=2&limit=8'),
+          fetch('https://randomuser.me/api/?results=3&inc=name,picture'),
+        ])
+
+        if (picsumRes.ok) {
+          const picsumData = await picsumRes.json()
+          setApiProducts(picsumData)
+        }
+
+        if (usersRes.ok) {
+          const usersData = await usersRes.json()
+          setApiCustomers(usersData.results)
+        }
+      } catch (error) {
+        console.error('Erro ao carregar imagens de API:', error)
+      }
+    }
+
+    loadImages()
+
     return () => window.removeEventListener('popstate', handlePopState)
   }, [])
+
+  const demoProduct = {
+    title: 'Ventilador de Mesa 3 Velocidades',
+    price: 'R$ 129,90',
+    subtitle: 'Chega hoje',
+    seller: 'Loja Exemplo',
+    image: 'https://placehold.co/800x800/png',
+  }
+
+  const productImageFor = (index, fallback) => {
+    const item = apiProducts[index]
+    return item ? `https://picsum.photos/id/${item.id}/400/400` : fallback
+  }
+
+  const demoProductImage = apiProducts[0]
+    ? `https://picsum.photos/id/${apiProducts[0].id}/800/800`
+    : demoProduct.image
+
+  const currentDemoProduct = { ...demoProduct, image: demoProductImage }
 
   const navigateTo = (screen) => {
     if (screen !== currentScreen) {
@@ -63,6 +108,18 @@ export default function App() {
     setSelectedProduct(product)
   }
 
+  const customerList = apiCustomers.length
+    ? apiCustomers.map((user) => ({
+        name: `${user.name.first} ${user.name.last}`,
+        detail: 'Compra todo mês',
+        image: user.picture.large,
+      }))
+    : [
+        { name: 'Mariana', detail: 'Compra todo mês', image: 'https://placehold.co/192x192/fde68a/78350f?text=Mariana' },
+        { name: 'Lucas', detail: 'Pedido em 1h', image: 'https://placehold.co/192x192/bae6fd/0c4a6e?text=Lucas' },
+        { name: 'Ana', detail: 'Entrega garantida', image: 'https://placehold.co/192x192/c7d2fe/3730a3?text=Ana' },
+      ]
+
   const handleBuyNow = () => {
     setSelectedProduct(null)
     setIsCartOpen(true)
@@ -71,14 +128,6 @@ export default function App() {
   const handleFinalizePurchase = () => {
     setIsCartOpen(false)
     setCurrentScreen('tracking')
-  }
-
-  const demoProduct = {
-    title: 'Ventilador de Mesa 3 Velocidades',
-    price: 'R$ 129,90',
-    subtitle: 'Chega hoje',
-    seller: 'Loja Exemplo',
-    image: 'https://placehold.co/800x800/png',
   }
 
   const featuredProducts = [
@@ -212,7 +261,7 @@ export default function App() {
 
             <div className="order-last flex items-center gap-2 md:order-none">
               <button className="hidden rounded-full bg-white/90 px-4 py-2 text-sm font-bold text-slate-900 transition hover:bg-white md:inline-flex">Criar conta</button>
-              <button onClick={() => navigateTo('tracking')} className="hidden rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800 md:inline-flex">Entrar</button>
+              <button onClick={() => navigateTo('login')} className="hidden rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white transition hover:bg-slate-800 md:inline-flex">Entrar</button>
               <button onClick={() => setIsCartOpen(true)} className="rounded-full bg-white p-3 shadow-sm text-slate-900">
                 <ShoppingCart className="h-5 w-5" />
               </button>
@@ -262,12 +311,12 @@ export default function App() {
                   ))}
                 </div>
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <button onClick={() => handleOpenProduct(demoProduct)} className="rounded-full bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800">Ver ofertas</button>
+                  <button onClick={() => handleOpenProduct(currentDemoProduct)} className="rounded-full bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800">Ver ofertas</button>
                   <button className="rounded-full border border-slate-900 bg-white px-6 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100">Ver cupons</button>
                 </div>
               </div>
               <div className="relative mx-auto h-72 w-full max-w-[420px] overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-2xl">
-                <img src="https://placehold.co/640x640/fff7ed/92400e?text=Entrega+Rápida" alt="Destaque" className="h-full w-full object-cover" />
+                <img src={productImageFor(0, 'https://placehold.co/640x640/fff7ed/92400e?text=Entrega+Rápida')} alt="Destaque" className="h-full w-full object-cover" />
               </div>
             </div>
           </section>
@@ -321,11 +370,7 @@ export default function App() {
               <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">Compras mais rápidas, suporte humano e avaliações reais de quem mora na sua região.</p>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              {[
-                { name: 'Mariana', detail: 'Compra todo mês', image: 'https://placehold.co/192x192/fde68a/78350f?text=Mariana' },
-                { name: 'Lucas', detail: 'Pedido em 1h', image: 'https://placehold.co/192x192/bae6fd/0c4a6e?text=Lucas' },
-                { name: 'Ana', detail: 'Entrega garantida', image: 'https://placehold.co/192x192/c7d2fe/3730a3?text=Ana' },
-              ].map((customer) => (
+              {customerList.map((customer) => (
                 <div key={customer.name} className="rounded-[24px] border border-slate-200 bg-slate-50 p-4 text-center shadow-sm">
                   <img src={customer.image} alt={customer.name} className="mx-auto mb-3 h-20 w-20 rounded-3xl object-cover shadow-md" />
                   <p className="font-bold text-slate-900">{customer.name}</p>
@@ -345,10 +390,10 @@ export default function App() {
             <span className="text-sm font-semibold text-blue-600">Ver tudo</span>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((item) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((item, index) => (
               <div key={item} onClick={() => handleOpenProduct(demoProduct)} className="cursor-pointer rounded-[20px] border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-1 hover:shadow-lg">
                 <div className="mb-2 h-24 overflow-hidden rounded-xl bg-slate-100">
-                  <img src="https://placehold.co/400x400/png" alt="Produto" className="h-full w-full object-cover" />
+                  <img src={productImageFor(index, 'https://placehold.co/400x400/png')} alt="Produto" className="h-full w-full object-cover" />
                 </div>
                 <div className="mb-2 inline-flex items-center gap-1 rounded-full bg-yellow-50 px-2 py-1 text-[11px] font-semibold text-yellow-700">
                   <span>Frete grátis</span>
@@ -389,10 +434,10 @@ export default function App() {
             <span className="text-sm font-semibold text-blue-600">Ver tudo</span>
           </div>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-5">
-            {featuredProducts.map((product) => (
+            {featuredProducts.map((product, index) => (
               <div key={product.title} onClick={() => handleOpenProduct(product)} className="cursor-pointer rounded-[20px] border border-gray-100 bg-white p-3 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg">
                 <div className="mb-2 h-24 overflow-hidden rounded-xl bg-gray-100">
-                  <img src={product.image} alt={product.title} className="h-full w-full object-cover" />
+                  <img src={productImageFor(index, product.image)} alt={product.title} className="h-full w-full object-cover" />
                 </div>
                 <div className="mb-1 flex items-center gap-1 text-amber-500">
                   <Star className="h-3.5 w-3.5 fill-current" />
