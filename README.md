@@ -1,16 +1,63 @@
-# React + Vite
+# Primeiro Aqui MVP
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Marketplace React + Vite com foco em uma experiência local rápida e conversão de vendas.
 
-Currently, two official plugins are available:
+## O que tem aqui
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- SPA leve em React 19 com navegação interna baseada em estado
+- UI responsiva com Tailwind CSS
+- Tela inicial de vitrine aberta para o usuário explorar antes de logar
+- Mock de produtos e fluxo de carrinho / finalização de compra
+- Asset de logo local (`public/logo.png`)
 
-## React Compiler
+## Comandos úteis
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+npm install
+npm run dev
+npm run build
+npm run preview
+npm run lint
+```
 
-## Expanding the ESLint configuration
+## Como rodar localmente
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+1. Instale dependências:
+
+```bash
+npm install
+```
+
+2. Inicie o servidor de desenvolvimento:
+
+```bash
+npm run dev
+```
+
+3. Abra `http://localhost:5173`
+
+## Deploy
+
+### GitHub + Vercel
+
+1. Garanta que o código está no GitHub.
+2. Conecte o repositório no Vercel.
+3. Use `npm run build` como comando de build.
+4. A pasta de saída padrão do Vite é `dist`.
+
+### GitHub Actions
+
+O projeto já tem workflow de build que roda o `npm install` e `npm run build` em cada push para `main`.
+
+## Estrutura básica
+
+- `src/App.jsx` - aplicação principal e navegação entre telas
+- `src/index.css` - estilos globais e Tailwind
+- `public/` - arquivos estáticos, incluindo `logo.png`
+- `tailwind.config.js` - configuração do Tailwind
+- `vite.config.js` - configuração do Vite
+
+## Observações
+
+- A vitrine deve ser a página inicial para reduzir atrito de conversão.
+- O build foi validado com sucesso após as últimas alterações.
