@@ -1,0 +1,238 @@
+import { avatarImage, productImage, storeImage } from '../lib/images'
+import type { Category, Customer, Product, Review, Store } from '../types'
+
+/**
+ * Catálogo, lojas e clientes de demonstração.
+ *
+ * As imagens vêm de serviços gratuitos e determinísticos por seed — ver
+ * `src/lib/images.js` e docs/adr/0001-banco-de-imagens.md. Cada <img> tem
+ * fallback local, então a UI não quebra offline nem se o serviço cair.
+ * Ao ligar o backend (WU-23), trocar por URLs do storage S3-compatível.
+ */
+
+export const products: Product[] = [
+  {
+    id: 1,
+    title: 'Ventilador de Mesa Premium 6 Pás Silencioso',
+    bestSeller: true,
+    price: 199.9,
+    listPrice: 289.9,
+    seller: 'Loja Vizinhança',
+    rating: 4.9,
+    reviews: 982,
+    sold: 1000,
+    category: 'Casa',
+    freeShipping: true,
+    express: true,
+    arrival: 'Chega grátis amanhã',
+    image: productImage(['electric','fan'], 'ventilador'),
+  },
+  {
+    id: 2,
+    title: 'Kit Supermercado Express — 18 itens essenciais',
+    price: 129.9,
+    listPrice: 159.9,
+    seller: 'Mercado Central',
+    rating: 4.8,
+    reviews: 1240,
+    sold: 5000,
+    category: 'Supermercado',
+    freeShipping: true,
+    express: true,
+    arrival: 'Chega grátis hoje',
+    image: productImage(['grocery','bag'], 'kit-supermercado'),
+  },
+  {
+    id: 3,
+    title: 'Smartwatch Fitness GPS à Prova d’Água',
+    price: 379.9,
+    listPrice: 549.0,
+    seller: 'Tech Shop',
+    rating: 4.7,
+    reviews: 860,
+    sold: 500,
+    category: 'Eletrônico',
+    freeShipping: true,
+    express: false,
+    arrival: 'Chega grátis quinta-feira',
+    image: productImage(['smartwatch'], 'smartwatch'),
+  },
+  {
+    id: 4,
+    title: 'Box de Cuidados Pessoais com 12 Produtos',
+    price: 84.9,
+    listPrice: 106.0,
+    seller: 'Farmácia Local',
+    rating: 4.8,
+    reviews: 1120,
+    sold: 2000,
+    category: 'Farmácia',
+    freeShipping: false,
+    express: true,
+    arrival: 'Retirada em 30 min',
+    image: productImage(['cosmetics','skincare'], 'box-cuidados'),
+  },
+  {
+    id: 5,
+    title: 'Barraca de Camping 4 Pessoas Impermeável',
+    price: 199.9,
+    listPrice: 249.9,
+    seller: 'Aventura Store',
+    rating: 4.6,
+    reviews: 430,
+    sold: 5000,
+    category: 'Casa',
+    freeShipping: true,
+    express: true,
+    arrival: 'Chega grátis quinta-feira',
+    image: productImage(['camping','tent'], 'barraca-camping'),
+  },
+  {
+    id: 6,
+    title: 'Conjunto de Jantar Mesa 6 Cadeiras Madeira',
+    price: 2629.0,
+    listPrice: 4103.0,
+    seller: 'Mobília e Decor',
+    rating: 4.5,
+    reviews: 210,
+    sold: 100,
+    category: 'Casa',
+    freeShipping: true,
+    express: false,
+    arrival: 'Chega grátis em 5 dias',
+    image: productImage(['dining','table'], 'conjunto-jantar'),
+  },
+  {
+    id: 7,
+    title: 'Whey Concentrado 900g Sabor Baunilha',
+    bestSeller: true,
+    price: 137.69,
+    listPrice: 161.0,
+    seller: 'Suplementos Bairro',
+    rating: 4.7,
+    reviews: 3400,
+    sold: 10000,
+    category: 'Farmácia',
+    freeShipping: false,
+    express: true,
+    arrival: 'Chega hoje',
+    image: productImage(['protein','supplement'], 'whey-concentrado'),
+  },
+  {
+    id: 8,
+    title: 'Painel para TV até 65" com Nicho e LED',
+    price: 527.0,
+    listPrice: 731.9,
+    seller: 'Mobília e Decor',
+    rating: 4.4,
+    reviews: 156,
+    sold: 500,
+    category: 'Casa',
+    freeShipping: true,
+    express: false,
+    arrival: 'Chega grátis sexta-feira',
+    image: productImage(['tv','stand'], 'painel-tv'),
+  },
+]
+
+export const categories: Category[] = ['Tudo', 'Supermercado', 'Farmácia', 'Casa', 'Eletrônico']
+
+export const banners = [
+  {
+    id: 'b1',
+    eyebrow: 'Semana do bairro',
+    title: 'Cupons relâmpago',
+    subtitle: 'Novos cupons liberados às 09h, 12h e 15h',
+    cta: 'Resgatar cupom',
+    tone: 'brand',
+  },
+  {
+    id: 'b2',
+    eyebrow: 'Primeiro Aqui+',
+    title: 'Frete grátis o mês inteiro',
+    subtitle: 'Assine e receba sem custo em todo o bairro',
+    cta: 'Conhecer o plano',
+    tone: 'ink',
+  },
+  {
+    id: 'b3',
+    eyebrow: 'Entrega turbo',
+    title: 'Seu pedido em até 2 horas',
+    subtitle: 'Agentes locais saindo da loja mais perto de você',
+    cta: 'Ver lojas próximas',
+    tone: 'ship',
+  },
+]
+
+export const shortcuts = [
+  { id: 's1', label: 'Ofertaço', icon: 'percent', tag: 'NOVO' },
+  { id: 's2', label: 'Cupons', icon: 'ticket' },
+  { id: 's3', label: 'Pontos', icon: 'award', tag: 'GANHE' },
+  { id: 's4', label: 'Indique', icon: 'users', tag: 'GANHE $' },
+  { id: 's5', label: 'Lojas locais', icon: 'store' },
+  { id: 's6', label: 'Mercado', icon: 'cart' },
+]
+
+/** Percentual de desconto arredondado; null quando não há preço de lista válido. */
+export const discountPercent = (product: Product | null | undefined): number | null => {
+  if (!product?.listPrice || !product?.price) return null
+  if (product.listPrice <= product.price) return null
+  return Math.round((1 - product.price / product.listPrice) * 100)
+}
+
+/** "+1000 vendidos" / "+5mil vendidos" — abreviação usada nos cards. */
+export const soldLabel = (sold: number): string | null => {
+  if (!sold) return null
+  if (sold >= 1000) return `+${sold / 1000 >= 10 ? `${sold / 1000}mil` : `${sold}`} vendidos`
+  return `+${sold} vendidos`
+}
+
+export const stores: Store[] = [
+  { id: 'st1', slug: 'loja-vizinhanca', name: 'Loja Vizinhança', category: 'Casa', rating: 4.9, deliveries: 1820, neighborhood: 'Centro', cover: storeImage(['home','appliance','shop'], 'loja-vizinhanca') },
+  { id: 'st2', slug: 'mercado-central', name: 'Mercado Central', category: 'Supermercado', rating: 4.8, deliveries: 3410, neighborhood: 'Zona Norte', cover: storeImage(['grocery','store'], 'mercado-central') },
+  { id: 'st3', slug: 'farmacia-local', name: 'Farmácia Local', category: 'Farmácia', rating: 4.8, deliveries: 2260, neighborhood: 'Zona Sul', cover: storeImage(['pharmacy'], 'farmacia-local') },
+  { id: 'st4', slug: 'tech-shop', name: 'Tech Shop', category: 'Eletrônico', rating: 4.7, deliveries: 940, neighborhood: 'Centro', cover: storeImage(['electronics','store'], 'tech-shop') },
+  { id: 'st5', slug: 'aventura-store', name: 'Aventura Store', category: 'Casa', rating: 4.6, deliveries: 380, neighborhood: 'Zona Oeste', cover: storeImage(['outdoor','shop'], 'aventura-store') },
+  { id: 'st6', slug: 'suplementos-bairro', name: 'Suplementos Bairro', category: 'Farmácia', rating: 4.7, deliveries: 1240, neighborhood: 'Centro', cover: storeImage(['supplement','shop'], 'suplementos-bairro') },
+  { id: 'st7', slug: 'mobilia-e-decor', name: 'Mobília e Decor', category: 'Casa', rating: 4.5, deliveries: 610, neighborhood: 'Zona Leste', cover: storeImage(['furniture','store'], 'mobilia-e-decor') },
+]
+
+/** Privado de proposito: o acesso publico e por `customerById`. */
+const customers: Customer[] = [
+  { id: 'c1', name: 'Ana Paula', neighborhood: 'Centro', orders: 24, avatar: avatarImage('ana-paula') },
+  { id: 'c2', name: 'Bruno Costa', neighborhood: 'Zona Norte', orders: 11, avatar: avatarImage('bruno-costa') },
+  { id: 'c3', name: 'Cecília Mendes', neighborhood: 'Zona Sul', orders: 38, avatar: avatarImage('cecilia-mendes') },
+  { id: 'c4', name: 'Diego Ramos', neighborhood: 'Zona Leste', orders: 7, avatar: avatarImage('diego-ramos') },
+]
+
+/**
+ * Avaliações de demonstração. `customerId` aponta para `customers`, então a
+ * lista de avaliações mostra quem escreveu — é o que liga os dois conjuntos.
+ */
+export const reviews: Review[] = [
+  { id: 'r1', productId: 1, customerId: 'c1', rating: 5, comment: 'Silencioso de verdade, chegou no mesmo dia.', date: '2026-07-20' },
+  { id: 'r2', productId: 1, customerId: 'c3', rating: 5, comment: 'Ótimo custo-benefício, recomendo.', date: '2026-07-22' },
+  { id: 'r3', productId: 1, customerId: 'c2', rating: 4, comment: 'Bom, mas a embalagem veio amassada.', date: '2026-07-25' },
+  { id: 'r4', productId: 2, customerId: 'c2', rating: 5, comment: 'Kit completo, veio tudo certinho.', date: '2026-07-18' },
+  { id: 'r5', productId: 3, customerId: 'c4', rating: 5, comment: 'Bateria dura o dia inteiro.', date: '2026-07-28' },
+  { id: 'r6', productId: 7, customerId: 'c3', rating: 5, comment: 'Sabor bom e dissolve fácil.', date: '2026-07-30' },
+]
+
+/** Avaliações de um produto, da mais recente para a mais antiga. */
+export const reviewsForProduct = (productId: number): Review[] =>
+  reviews.filter((review) => review.productId === productId).sort((a, b) => b.date.localeCompare(a.date))
+
+/** Média das avaliações; `null` quando o produto ainda não tem nenhuma. */
+export const averageRating = (productId: number): number | null => {
+  const list = reviewsForProduct(productId)
+  if (list.length === 0) return null
+  return Math.round((list.reduce((sum, review) => sum + review.rating, 0) / list.length) * 10) / 10
+}
+
+/** Loja pelo nome do vendedor, para ligar produto → loja. */
+export const storeBySeller = (seller: string): Store | undefined =>
+  stores.find((store) => store.name === seller)
+
+/** Cliente pelo id, usado na lista de avaliações. */
+export const customerById = (id: string): Customer | undefined =>
+  customers.find((customer) => customer.id === id)
