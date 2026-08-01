@@ -24,7 +24,7 @@ export const products = [
     freeShipping: true,
     express: true,
     arrival: 'Chega grátis amanhã',
-    image: productImage('Ventilador'),
+    image: productImage(['electric','fan'], 'ventilador'),
   },
   {
     id: 2,
@@ -39,7 +39,7 @@ export const products = [
     freeShipping: true,
     express: true,
     arrival: 'Chega grátis hoje',
-    image: productImage('Mercado'),
+    image: productImage(['grocery','bag'], 'kit-supermercado'),
   },
   {
     id: 3,
@@ -54,7 +54,7 @@ export const products = [
     freeShipping: true,
     express: false,
     arrival: 'Chega grátis quinta-feira',
-    image: productImage('Smartwatch'),
+    image: productImage(['smartwatch'], 'smartwatch'),
   },
   {
     id: 4,
@@ -69,7 +69,7 @@ export const products = [
     freeShipping: false,
     express: true,
     arrival: 'Retirada em 30 min',
-    image: productImage('Cuidados'),
+    image: productImage(['cosmetics','skincare'], 'box-cuidados'),
   },
   {
     id: 5,
@@ -84,7 +84,7 @@ export const products = [
     freeShipping: true,
     express: true,
     arrival: 'Chega grátis quinta-feira',
-    image: productImage('Barraca'),
+    image: productImage(['camping','tent'], 'barraca-camping'),
   },
   {
     id: 6,
@@ -99,7 +99,7 @@ export const products = [
     freeShipping: true,
     express: false,
     arrival: 'Chega grátis em 5 dias',
-    image: productImage('Jantar'),
+    image: productImage(['dining','table'], 'conjunto-jantar'),
   },
   {
     id: 7,
@@ -115,7 +115,7 @@ export const products = [
     freeShipping: false,
     express: true,
     arrival: 'Chega hoje',
-    image: productImage('Whey'),
+    image: productImage(['protein','supplement'], 'whey-concentrado'),
   },
   {
     id: 8,
@@ -130,7 +130,7 @@ export const products = [
     freeShipping: true,
     express: false,
     arrival: 'Chega grátis sexta-feira',
-    image: productImage('Painel'),
+    image: productImage(['tv','stand'], 'painel-tv'),
   },
 ]
 
@@ -187,11 +187,11 @@ export const soldLabel = (sold) => {
 }
 
 export const stores = [
-  { id: 'st1', name: 'Loja Vizinhança', category: 'Casa', rating: 4.9, deliveries: 1820, neighborhood: 'Centro', cover: storeImage('loja-vizinhanca') },
-  { id: 'st2', name: 'Mercado Central', category: 'Supermercado', rating: 4.8, deliveries: 3410, neighborhood: 'Zona Norte', cover: storeImage('mercado-central') },
-  { id: 'st3', name: 'Farmácia Local', category: 'Farmácia', rating: 4.8, deliveries: 2260, neighborhood: 'Zona Sul', cover: storeImage('farmacia-local') },
-  { id: 'st4', name: 'Tech Shop', category: 'Eletrônico', rating: 4.7, deliveries: 940, neighborhood: 'Centro', cover: storeImage('tech-shop') },
-  { id: 'st5', name: 'Mobília e Decor', category: 'Casa', rating: 4.5, deliveries: 610, neighborhood: 'Zona Leste', cover: storeImage('mobilia-e-decor') },
+  { id: 'st1', name: 'Loja Vizinhança', category: 'Casa', rating: 4.9, deliveries: 1820, neighborhood: 'Centro', cover: storeImage(['home','appliance','shop'], 'loja-vizinhanca') },
+  { id: 'st2', name: 'Mercado Central', category: 'Supermercado', rating: 4.8, deliveries: 3410, neighborhood: 'Zona Norte', cover: storeImage(['grocery','store'], 'mercado-central') },
+  { id: 'st3', name: 'Farmácia Local', category: 'Farmácia', rating: 4.8, deliveries: 2260, neighborhood: 'Zona Sul', cover: storeImage(['pharmacy'], 'farmacia-local') },
+  { id: 'st4', name: 'Tech Shop', category: 'Eletrônico', rating: 4.7, deliveries: 940, neighborhood: 'Centro', cover: storeImage(['electronics','store'], 'tech-shop') },
+  { id: 'st5', name: 'Mobília e Decor', category: 'Casa', rating: 4.5, deliveries: 610, neighborhood: 'Zona Leste', cover: storeImage(['furniture','store'], 'mobilia-e-decor') },
 ]
 
 export const customers = [

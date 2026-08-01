@@ -4,37 +4,53 @@ import { avatarImage, fallbackTo, localImage, productImage, storeImage } from '.
 describe('images', () => {
   describe('determinismo', () => {
     it('a mesma entidade recebe sempre a mesma URL', () => {
-      expect(productImage('Ventilador')).toBe(productImage('Ventilador'))
-      expect(storeImage('Loja Vizinhança')).toBe(storeImage('Loja Vizinhança'))
+      expect(productImage(['fan'], 'ventilador')).toBe(productImage(['fan'], 'ventilador'))
+      expect(storeImage(['shop'], 'loja')).toBe(storeImage(['shop'], 'loja'))
       expect(avatarImage('Ana Paula')).toBe(avatarImage('Ana Paula'))
     })
 
-    it('entidades diferentes recebem URLs diferentes', () => {
-      expect(productImage('Ventilador')).not.toBe(productImage('Smartwatch'))
+    it('seeds diferentes recebem fotos diferentes mesmo com a mesma palavra-chave', () => {
+      expect(productImage(['fan'], 'ventilador-a')).not.toBe(productImage(['fan'], 'ventilador-b'))
       expect(avatarImage('Ana Paula')).not.toBe(avatarImage('Bruno Costa'))
     })
 
-    it('normaliza acento, caixa e espaco no seed', () => {
-      expect(productImage('Farmácia Local')).toContain('/farmacia-local/')
-      expect(productImage('FARMACIA LOCAL')).toBe(productImage('farmácia local'))
+    it('normaliza acento, caixa e espaco nas palavras-chave', () => {
+      expect(productImage(['Farmácia'], 'x')).toContain('/farmacia/')
+      expect(productImage(['FARMACIA'], 'x')).toBe(productImage(['farmácia'], 'x'))
     })
 
-    it('nao deixa hifen sobrando nas bordas do seed', () => {
-      expect(productImage('  Painel de TV!  ')).toContain('/painel-de-tv/')
+    it('nao deixa hifen sobrando nas bordas do termo', () => {
+      expect(productImage(['  Painel de TV!  '], 'x')).toContain('/painel-de-tv/')
     })
 
     it('produto e loja com o mesmo nome nao colidem', () => {
-      expect(productImage('Tech Shop')).not.toBe(storeImage('Tech Shop'))
+      expect(productImage(['shop'], 'Tech Shop')).not.toBe(storeImage(['shop'], 'Tech Shop'))
     })
   })
 
   describe('formato das URLs', () => {
     it('produto pede imagem quadrada no tamanho informado', () => {
-      expect(productImage('Whey', 200)).toBe('https://picsum.photos/seed/whey/200/200')
+      expect(productImage(['whey'], 'whey', 200)).toMatch(
+        /^https:\/\/loremflickr\.com\/200\/200\/whey\/all\?lock=\d+$/,
+      )
     })
 
     it('loja pede imagem panoramica', () => {
-      expect(storeImage('Mercado', 640, 360)).toBe('https://picsum.photos/seed/mercado-loja/640/360')
+      expect(storeImage(['grocery'], 'mercado', 640, 360)).toMatch(
+        /^https:\/\/loremflickr\.com\/640\/360\/grocery\/all\?lock=\d+$/,
+      )
+    })
+
+    it('varias palavras-chave viram busca E, nao OU', () => {
+      // Sem /all o servico faz OU e devolve foto de so um dos termos.
+      const url = productImage(['electric', 'fan'], 'ventilador')
+      expect(url).toContain('/electric,fan/all')
+    })
+
+    it('lock e sempre um inteiro positivo, para a foto nao trocar a cada render', () => {
+      const lock = Number(new URL(productImage(['fan'], 'ventilador')).searchParams.get('lock'))
+      expect(Number.isInteger(lock)).toBe(true)
+      expect(lock).toBeGreaterThan(0)
     })
 
     it('avatar usa estilo ilustrado, nao foto de pessoa real', () => {
@@ -57,13 +73,13 @@ describe('images', () => {
     })
 
     it('fallbackTo troca a src pelo placeholder local', () => {
-      const img = { dataset: {}, src: 'https://picsum.photos/seed/x/400/400' }
+      const img = { dataset: {}, src: 'https://loremflickr.com/400/400/fan/all?lock=1' }
       fallbackTo('Ventilador')({ currentTarget: img })
       expect(img.src).toMatch(/^data:image\/svg\+xml/)
     })
 
     it('fallbackTo nao entra em laco se o proprio fallback falhar', () => {
-      const img = { dataset: {}, src: 'https://picsum.photos/seed/x/400/400' }
+      const img = { dataset: {}, src: 'https://loremflickr.com/400/400/fan/all?lock=1' }
       const handler = fallbackTo('Ventilador')
 
       handler({ currentTarget: img })
@@ -86,7 +102,7 @@ describe('images', () => {
 
       const sources = await Promise.all(Object.values(modules).map((load) => load()))
       const offenders = sources.filter(
-        (source) => source.includes('picsum.photos') || source.includes('api.dicebear.com'),
+        (source) => source.includes('loremflickr.com') || source.includes('api.dicebear.com'),
       )
 
       expect(offenders).toHaveLength(0)

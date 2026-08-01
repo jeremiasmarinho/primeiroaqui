@@ -1,7 +1,7 @@
 # ADR 0001 — Banco de imagens para dados de demonstração
 
 - **Data:** 2026-08-01
-- **Status:** Aceito
+- **Status:** Aceito — **revisado em 2026-08-01, ver "Revisão" ao final**
 - **Escopo:** imagens de produto, loja e cliente no ambiente de demonstração
 
 ## Contexto
@@ -90,3 +90,60 @@ A referência informa; o teste prova. Cobertura exigida em `src/lib/images.test.
 - `productImage`/`storeImage`/`avatarImage` produzem URL determinística
 - `localImage` devolve data URI válido
 - `fallbackTo` troca `src` uma única vez e não entra em laço
+
+---
+
+## Revisão — 2026-08-01
+
+**A decisão original foi revertida por escolha explícita do responsável pelo
+projeto.** A fonte de produtos e lojas passou de Lorem Picsum para **LoremFlickr**.
+
+### O que motivou
+
+Picsum entregou o que prometia — foto real, rápida, licença limpa — mas o
+resultado visual reprovou: o card "Ventilador de Mesa Premium" exibia uma
+paisagem com pôr do sol. Numa vitrine de marketplace isso não lê como
+"placeholder", lê como erro. Foto genérica ao lado de um nome de produto
+específico prejudica a credibilidade da demonstração mais do que ajuda.
+
+### Comparação apresentada na decisão
+
+| Opção | Temático | Licença | Latência medida |
+|---|---|---|---|
+| Curar fotos do Unsplash | sim | comercial livre, sem atribuição | 0,42s |
+| Manter Picsum | **não** | comercial livre, sem atribuição | 0,86s |
+| Voltar ao SVG local | n/a | n/a | 0ms |
+| **LoremFlickr (escolhida)** | **sim** | **CC variável — risco** | **3,30s** |
+
+### Risco aceito conscientemente
+
+O risco de licença descrito acima **não foi eliminado, foi aceito**. Registro
+explícito do que isso significa:
+
+- As fotos vêm do Flickr sob Creative Commons que varia por imagem. Parte é
+  CC BY (exige atribuição ao autor) e parte é CC BY-SA (propaga a licença a
+  trabalhos derivados).
+- Não há como auditar imagem a imagem: o serviço pode rotacionar a foto por
+  trás da mesma URL, então uma conferência hoje não garante conformidade amanhã.
+- Mitigação parcial do próprio serviço: LoremFlickr grava a licença no canto
+  superior esquerdo e o autor no canto inferior esquerdo da própria imagem, o
+  que satisfaz atribuição enquanto a imagem for exibida como veio.
+- A latência de 3,3s é ~4x a do Picsum. Mitigado com `loading="eager"` +
+  `fetchPriority="high"` nas imagens acima da dobra e `lazy` nas demais.
+
+### Condição de saída — obrigatória
+
+**Esta fonte é válida apenas para demonstração.** Antes de qualquer uso em
+produção, ou de entregar a build a um cliente final como produto, a fonte
+precisa ser trocada. O acoplamento está isolado em `src/lib/images.js`: trocar
+significa reescrever `productImage` e `storeImage`. Nenhum componente conhece o
+provedor — há teste garantindo isso (`isolamento do provedor`).
+
+Na WU-23 as URLs passam a vir do storage S3-compatível com imagens do próprio
+lojista, e este risco deixa de existir.
+
+### Não alterado
+
+Avatares de cliente seguem no DiceBear. Associar foto de pessoa real a nome
+fictício, endereço e histórico de pedidos é problema de privacidade e de
+percepção independentemente da fonte.
