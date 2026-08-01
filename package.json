@@ -7,7 +7,14 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:unit": "vitest run",
+    "test:cov": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:db": "vitest run src/test/db",
+    "gate": "npm run lint && npm run typecheck && npm run test:unit && npm run build"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -15,17 +22,34 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@prisma/client": "^7.9.1",
+    "@testing-library/jest-dom": "^7.0.0",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^26.1.2",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
+    "@vitest/coverage-v8": "^4.1.10",
     "autoprefixer": "^10.5.4",
     "eslint": "^10.8.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.3",
     "globals": "^17.7.0",
+    "hono": "^4.12.33",
+    "jsdom": "^29.1.1",
     "lucide-react": "^1.28.0",
+    "msw": "^2.15.0",
     "postcss": "^8.5.25",
+    "prisma": "^7.9.1",
+    "supertest": "^7.2.2",
     "tailwindcss": "^3.4.17",
-    "vite": "^8.2.0"
+    "testcontainers": "^12.0.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.0",
+    "vitest": "^4.1.10",
+    "vitest-axe": "^0.1.0",
+    "zod": "^4.4.3"
   }
 }
