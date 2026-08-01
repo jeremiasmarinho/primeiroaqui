@@ -25,6 +25,6 @@ dist-ssr
 
 .vercel
 .env*
-coverage
-test-results
-playwright-report
+coverage/
+test-results/
+playwright-report/

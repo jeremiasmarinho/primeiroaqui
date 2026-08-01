@@ -1,27 +1,19 @@
+import { avatarImage, productImage, storeImage } from '../lib/images.js'
+
 /**
- * Catálogo mock.
+ * Catálogo, lojas e clientes de demonstração.
  *
- * As imagens são SVG inline em data URI de propósito: o app não depende de
- * serviço externo de placeholder (corrige B6 do ORQUESTRACAO-AGENTES.md),
- * funciona offline e não gera requisição de rede em teste.
- * Ao ligar o backend (WU-23), trocar `image` pela URL do storage S3-compatível.
+ * As imagens vêm de serviços gratuitos e determinísticos por seed — ver
+ * `src/lib/images.js` e docs/adr/0001-banco-de-imagens.md. Cada <img> tem
+ * fallback local, então a UI não quebra offline nem se o serviço cair.
+ * Ao ligar o backend (WU-23), trocar por URLs do storage S3-compatível.
  */
-const placeholder = (label, bg, fg) => {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="presentation">
-    <rect width="400" height="400" fill="${bg}"/>
-    <circle cx="200" cy="168" r="76" fill="${fg}" opacity="0.14"/>
-    <text x="200" y="188" font-family="Rubik, system-ui, sans-serif" font-size="88"
-          font-weight="700" fill="${fg}" text-anchor="middle">${label.slice(0, 2).toUpperCase()}</text>
-    <text x="200" y="300" font-family="Nunito Sans, system-ui, sans-serif" font-size="26"
-          font-weight="600" fill="${fg}" opacity="0.65" text-anchor="middle">${label}</text>
-  </svg>`
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg.replace(/\s+/g, ' '))}`
-}
 
 export const products = [
   {
     id: 1,
     title: 'Ventilador de Mesa Premium 6 Pás Silencioso',
+    bestSeller: true,
     price: 199.9,
     listPrice: 289.9,
     seller: 'Loja Vizinhança',
@@ -32,7 +24,7 @@ export const products = [
     freeShipping: true,
     express: true,
     arrival: 'Chega grátis amanhã',
-    image: placeholder('Ventilador', '#FFF3D6', '#8A5A00'),
+    image: productImage('Ventilador'),
   },
   {
     id: 2,
@@ -47,7 +39,7 @@ export const products = [
     freeShipping: true,
     express: true,
     arrival: 'Chega grátis hoje',
-    image: placeholder('Mercado', '#DCEBFF', '#123A78'),
+    image: productImage('Mercado'),
   },
   {
     id: 3,
@@ -62,7 +54,7 @@ export const products = [
     freeShipping: true,
     express: false,
     arrival: 'Chega grátis quinta-feira',
-    image: placeholder('Smartwatch', '#DFF3FB', '#0B4A63'),
+    image: productImage('Smartwatch'),
   },
   {
     id: 4,
@@ -77,7 +69,7 @@ export const products = [
     freeShipping: false,
     express: true,
     arrival: 'Retirada em 30 min',
-    image: placeholder('Cuidados', '#EDE7FF', '#4A2A9C'),
+    image: productImage('Cuidados'),
   },
   {
     id: 5,
@@ -92,7 +84,7 @@ export const products = [
     freeShipping: true,
     express: true,
     arrival: 'Chega grátis quinta-feira',
-    image: placeholder('Barraca', '#DDEBF7', '#12395E'),
+    image: productImage('Barraca'),
   },
   {
     id: 6,
@@ -107,11 +99,12 @@ export const products = [
     freeShipping: true,
     express: false,
     arrival: 'Chega grátis em 5 dias',
-    image: placeholder('Jantar', '#F0E6DA', '#6A4A28'),
+    image: productImage('Jantar'),
   },
   {
     id: 7,
     title: 'Whey Concentrado 900g Sabor Baunilha',
+    bestSeller: true,
     price: 137.69,
     listPrice: 161.0,
     seller: 'Suplementos Bairro',
@@ -122,7 +115,7 @@ export const products = [
     freeShipping: false,
     express: true,
     arrival: 'Chega hoje',
-    image: placeholder('Whey', '#E6F6E9', '#0B5B2A'),
+    image: productImage('Whey'),
   },
   {
     id: 8,
@@ -137,7 +130,7 @@ export const products = [
     freeShipping: true,
     express: false,
     arrival: 'Chega grátis sexta-feira',
-    image: placeholder('Painel', '#E8E4DE', '#3B342C'),
+    image: productImage('Painel'),
   },
 ]
 
@@ -192,3 +185,18 @@ export const soldLabel = (sold) => {
   if (sold >= 1000) return `+${sold / 1000 >= 10 ? `${sold / 1000}mil` : `${sold}`} vendidos`
   return `+${sold} vendidos`
 }
+
+export const stores = [
+  { id: 'st1', name: 'Loja Vizinhança', category: 'Casa', rating: 4.9, deliveries: 1820, neighborhood: 'Centro', cover: storeImage('loja-vizinhanca') },
+  { id: 'st2', name: 'Mercado Central', category: 'Supermercado', rating: 4.8, deliveries: 3410, neighborhood: 'Zona Norte', cover: storeImage('mercado-central') },
+  { id: 'st3', name: 'Farmácia Local', category: 'Farmácia', rating: 4.8, deliveries: 2260, neighborhood: 'Zona Sul', cover: storeImage('farmacia-local') },
+  { id: 'st4', name: 'Tech Shop', category: 'Eletrônico', rating: 4.7, deliveries: 940, neighborhood: 'Centro', cover: storeImage('tech-shop') },
+  { id: 'st5', name: 'Mobília e Decor', category: 'Casa', rating: 4.5, deliveries: 610, neighborhood: 'Zona Leste', cover: storeImage('mobilia-e-decor') },
+]
+
+export const customers = [
+  { id: 'c1', name: 'Ana Paula', neighborhood: 'Centro', orders: 24, avatar: avatarImage('ana-paula') },
+  { id: 'c2', name: 'Bruno Costa', neighborhood: 'Zona Norte', orders: 11, avatar: avatarImage('bruno-costa') },
+  { id: 'c3', name: 'Cecília Mendes', neighborhood: 'Zona Sul', orders: 38, avatar: avatarImage('cecilia-mendes') },
+  { id: 'c4', name: 'Diego Ramos', neighborhood: 'Zona Leste', orders: 7, avatar: avatarImage('diego-ramos') },
+]

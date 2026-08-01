@@ -88,11 +88,12 @@ export default function HomeScreen({
             <section aria-labelledby="recomendados">
               <SectionHeader id="recomendados" title="Entrega turbo perto de você" action="Ver mais" />
               <ul className="rail no-scrollbar px-3 pb-1">
-                {recommended.map((product) => (
+                {recommended.map((product, index) => (
                   <li key={product.id}>
                     <ProductCard
                       product={product}
                       variant="wide"
+                      priority={index < 3}
                       isFavorite={isFavorite(product)}
                       onOpen={onOpenProduct}
                       onToggleFavorite={onToggleFavorite}
@@ -135,10 +136,11 @@ export default function HomeScreen({
             </div>
           ) : (
             <ul className="grid grid-cols-2 gap-2 px-3 md:grid-cols-3 lg:grid-cols-4">
-              {products.map((product) => (
+              {products.map((product, index) => (
                 <li key={product.id}>
                   <ProductCard
                     product={product}
+                    priority={index < 4}
                     isFavorite={isFavorite(product)}
                     onOpen={onOpenProduct}
                     onToggleFavorite={onToggleFavorite}

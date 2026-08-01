@@ -30,6 +30,7 @@ import { clearSession } from './state/session'
 
 import HomeScreen from './screens/HomeScreen.jsx'
 import { products as initialProducts } from './data/catalog.js'
+import { fallbackTo } from './lib/images.js'
 
 const initialAgents = [
   { id: 1, name: 'João Almeida', region: 'Centro', specialty: 'Entregas urbanas', status: 'Ativo', commission: 12 },
@@ -419,7 +420,7 @@ export default function MarketplaceApp() {
 
         <div className="mt-6 rounded-[28px] bg-slate-900 p-6 text-white">
           <h1 className="text-3xl font-black">Gerencie vendas, entregas e agentes em um só lugar</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-300">Uma experiência inspirada no Mercado Livre, pensada para operações locais e crescimento futuro.</p>
+          <p className="mt-3 text-sm leading-6 text-slate-300">Uma experiência de compra rápida, pensada para operações locais e crescimento futuro.</p>
         </div>
 
         <form onSubmit={handleAuthSubmit} className="mt-6 rounded-[28px] border border-slate-200 p-4">
@@ -526,7 +527,7 @@ export default function MarketplaceApp() {
               <button onClick={() => setSelectedProduct(null)} className="rounded-full bg-slate-100 p-2"><X className="h-5 w-5 text-slate-700" /></button>
             </div>
             <div className="mt-4 grid gap-5 md:grid-cols-[0.9fr_1.1fr]">
-              <img src={selectedProduct.image} alt={selectedProduct.title} className="h-56 w-full rounded-[24px] object-cover" />
+              <img src={selectedProduct.image} alt={selectedProduct.title} onError={fallbackTo(selectedProduct.title)} className="h-56 w-full rounded-[24px] object-cover" />
               <div>
                 <p className="text-sm text-slate-500">{selectedProduct.seller}</p>
                 <p className="mt-3 text-3xl font-black text-slate-900">{formatCurrency(selectedProduct.price)}</p>

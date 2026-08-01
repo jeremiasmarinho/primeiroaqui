@@ -1,6 +1,7 @@
 import { Heart, ShoppingCart, Star, Zap } from 'lucide-react'
 import Price from './Price.jsx'
 import { soldLabel } from '../data/catalog.js'
+import { fallbackTo } from '../lib/images.js'
 
 /**
  * Card de produto. Variante `tall` para o grid principal e `wide` para trilhos
@@ -17,6 +18,7 @@ export default function ProductCard({
   onOpen,
   onToggleFavorite,
   onAddToCart,
+  priority = false,
 }) {
   const sold = soldLabel(product.sold)
 
@@ -32,8 +34,10 @@ export default function ProductCard({
           alt={product.title}
           width={400}
           height={400}
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'auto'}
           decoding="async"
+          onError={fallbackTo(product.title)}
           className="h-full w-full object-cover transition-transform duration-300
                      motion-safe:group-hover:scale-[1.03]"
         />
@@ -50,7 +54,7 @@ export default function ProductCard({
           <Heart className={`h-5 w-5 ${isFavorite ? 'fill-promo text-promo' : ''}`} aria-hidden="true" />
         </button>
 
-        {product.sold >= 1000 && (
+        {product.bestSeller && (
           <span className="absolute bottom-0 left-0 bg-brand px-2 py-1 text-micro font-extrabold uppercase tracking-wide text-ink">
             Mais vendido
           </span>

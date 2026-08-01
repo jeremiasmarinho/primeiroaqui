@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react'
 import Countdown from './Countdown.jsx'
 import Price from './Price.jsx'
 import { discountPercent } from '../data/catalog.js'
+import { fallbackTo } from '../lib/images.js'
 
 /**
  * Bloco de ofertas relâmpago: cabeçalho amarelo com contador e lista compacta
@@ -38,8 +39,10 @@ export default function FlashDeals({ products, onOpen, secondsRemaining = 2379 }
                   alt=""
                   width={64}
                   height={64}
-                  loading="lazy"
+                  loading="eager"
+                  fetchPriority="high"
                   decoding="async"
+                  onError={fallbackTo(product.title)}
                   className="h-16 w-16 shrink-0 rounded bg-surface-sunken object-cover"
                 />
                 <div className="min-w-0 flex-1">
