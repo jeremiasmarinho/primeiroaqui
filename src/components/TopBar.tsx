@@ -1,7 +1,12 @@
+import { useMemo, useRef, useState } from 'react'
+import type { KeyboardEvent } from 'react'
 import { Bell, Camera, ChevronRight, MapPin, Search } from 'lucide-react'
 import { Link } from 'wouter'
-import { categories } from '../data/catalog'
+import { categories, products, stores } from '../data/catalog'
 import { ROUTES, toCategorySlug } from '../router/routes'
+import { buildSearchSuggestions } from '../state/searchSuggestions'
+import { useSearchHistory } from '../state/useSearchHistory'
+import SearchSuggestions from './SearchSuggestions'
 import type { Category } from '../types'
 
 /**
@@ -17,13 +22,13 @@ interface TopBarProps {
   searchRef?: React.RefObject<HTMLInputElement | null>
   category: Category
   onSearchSubmit?: (term: string) => void
+  /** Endereço padrão da pessoa. Sem endereço salvo, mostra o convite genérico. */
   address?: string
   userInitials?: string
   userName?: string
   notificationCount?: number
   onProfile?: () => void
   onNotifications?: () => void
-  onAddressClick?: () => void
 }
 
 export default function TopBar({
@@ -32,14 +37,71 @@ export default function TopBar({
   searchRef,
   category,
   onSearchSubmit,
-  address = 'Avenida Guanabara, 148',
+  address,
   userInitials = 'PA',
   userName,
   notificationCount = 0,
   onProfile,
   onNotifications,
-  onAddressClick,
 }: TopBarProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
+  const { history, addTerm, removeTerm, clear } = useSearchHistory()
+
+  // Derivado do catálogo carregado — nada de rede, então recalcular a cada
+  // tecla é barato. `useMemo` evita refazer o trabalho em re-renders que não
+  // mudaram o termo digitado.
+  const suggestions = useMemo(
+    () => buildSearchSuggestions(searchQuery, { products, categories, stores }),
+    [searchQuery],
+  )
+
+  const setInputRef = (node: HTMLInputElement | null) => {
+    inputRef.current = node
+    if (searchRef) {
+      searchRef.current = node
+    }
+  }
+
+  const commitSearch = (term: string) => {
+    onSearchSubmit?.(term)
+    if (term.trim()) addTerm(term)
+    setIsSuggestionsOpen(false)
+  }
+
+  const applySuggestion = (term: string) => {
+    onSearchChange(term)
+    commitSearch(term)
+    inputRef.current?.focus()
+  }
+
+  const closeSuggestions = () => {
+    setIsSuggestionsOpen(false)
+    inputRef.current?.focus()
+  }
+
+  const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault()
+      setIsSuggestionsOpen(true)
+      const firstOption = containerRef.current?.querySelector<HTMLButtonElement>(
+        '[data-suggestion-option="true"]',
+      )
+      firstOption?.focus()
+    } else if (event.key === 'Escape') {
+      setIsSuggestionsOpen(false)
+    }
+  }
+
+  const handleBlur = (event: React.FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget
+    const staysInside = next instanceof Node && containerRef.current?.contains(next)
+    if (!staysInside) {
+      setIsSuggestionsOpen(false)
+    }
+  }
+
   return (
     <header className="safe-top sticky top-0 z-40 bg-brand">
       <div className="mx-auto max-w-6xl px-3 pb-2 pt-2">
@@ -54,41 +116,58 @@ export default function TopBar({
             {userInitials}
           </button>
 
-          <form
-            role="search"
-            onSubmit={(event) => {
-              event.preventDefault()
-              onSearchSubmit?.(searchQuery)
-            }}
-            className="relative flex-1"
-          >
-            <label htmlFor="busca-global" className="sr-only">
-              Buscar produtos, lojas ou categorias
-            </label>
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
-              aria-hidden="true"
-            />
-            <input
-              id="busca-global"
-              ref={searchRef}
-              type="search"
-              value={searchQuery}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="Buscar no Primeiro Aqui"
-              enterKeyHint="search"
-              className="h-11 w-full rounded-full border-0 bg-surface pl-9 pr-11 text-sm
-                         text-ink shadow-card outline-none placeholder:text-ink-faint"
-            />
-            <button
-              type="button"
-              aria-label="Buscar por foto"
-              className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center
-                         rounded-full text-ink-muted transition-colors duration-150 hover:text-ink"
+          <div ref={containerRef} onBlur={handleBlur} className="relative flex-1">
+            <form
+              role="search"
+              onSubmit={(event) => {
+                event.preventDefault()
+                commitSearch(searchQuery)
+              }}
             >
-              <Camera className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </form>
+              <label htmlFor="busca-global" className="sr-only">
+                Buscar produtos, lojas ou categorias
+              </label>
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted"
+                aria-hidden="true"
+              />
+              <input
+                id="busca-global"
+                ref={setInputRef}
+                type="search"
+                value={searchQuery}
+                onChange={(event) => onSearchChange(event.target.value)}
+                onFocus={() => setIsSuggestionsOpen(true)}
+                onKeyDown={handleInputKeyDown}
+                placeholder="Buscar no Primeiro Aqui"
+                enterKeyHint="search"
+                autoComplete="off"
+                className="h-11 w-full rounded-full border-0 bg-surface pl-9 pr-11 text-sm
+                           text-ink shadow-card outline-none placeholder:text-ink-faint"
+              />
+              <button
+                type="button"
+                aria-label="Buscar por foto"
+                className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center
+                           rounded-full text-ink-muted transition-colors duration-150 hover:text-ink"
+              >
+                <Camera className="h-4 w-4" aria-hidden="true" />
+              </button>
+            </form>
+
+            {isSuggestionsOpen && (
+              <SearchSuggestions
+                query={searchQuery}
+                suggestions={suggestions}
+                history={history}
+                onSelect={applySuggestion}
+                onRemoveHistoryItem={removeTerm}
+                onClearHistory={clear}
+                onEscape={closeSuggestions}
+                containerRef={containerRef}
+              />
+            )}
+          </div>
 
           <button
             type="button"
@@ -110,15 +189,18 @@ export default function TopBar({
           </button>
         </div>
 
-        <button
-          type="button"
-          onClick={onAddressClick}
-          className="mt-1.5 flex min-h-[36px] items-center gap-1 text-xs text-ink"
+        {/* Era texto fixo — "Avenida Guanabara, 148" fingia ser endereço da
+            pessoa. Agora reflete o endereço padrão e leva ao cadastro. */}
+        <Link
+          href={ROUTES.addresses}
+          className="mt-1.5 flex min-h-[44px] items-center gap-1 text-xs text-ink"
         >
           <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="truncate">Enviar para {address}</span>
+          <span className="truncate">
+            {address ? `Enviar para ${address}` : 'Escolher endereço de entrega'}
+          </span>
           <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-        </button>
+        </Link>
       </div>
 
       <nav aria-label="Categorias" className="border-t border-ink/10">

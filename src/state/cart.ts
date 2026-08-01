@@ -21,6 +21,12 @@ export const setQuantity = (productId: number, quantity: number): CartAction => 
   payload: { productId, quantity },
 })
 
+/** Troca o carrinho inteiro — usado por "repetir pedido" (WU-48). */
+export const replaceCart = (items: CartItem[]): CartAction => ({
+  type: 'REPLACE_CART',
+  payload: items,
+})
+
 export const clearCart = (): CartAction => ({ type: 'CLEAR_CART' })
 
 export const cartReducer = (state: CartState, action: CartAction): CartState => {
@@ -71,6 +77,9 @@ export const cartReducer = (state: CartState, action: CartAction): CartState => 
         ),
       }
     }
+
+    case 'REPLACE_CART':
+      return createInitialCartState(action.payload)
 
     case 'CLEAR_CART':
       return createInitialCartState()

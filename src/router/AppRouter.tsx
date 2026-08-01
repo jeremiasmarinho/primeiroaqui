@@ -1,75 +1,41 @@
 import { Compass } from 'lucide-react'
+import { lazy, Suspense } from 'react'
 import { Redirect, Route, Switch, useLocation } from 'wouter'
 
 import EmptyState from '../components/EmptyState'
+import AddressesScreen from '../screens/AddressesScreen'
 import CategoriesScreen from '../screens/CategoriesScreen'
+import FavoritesScreen from '../screens/FavoritesScreen'
 import HomeScreen from '../screens/HomeScreen'
-import LoginScreen, { type AuthForm } from '../screens/LoginScreen'
+import LoginScreen from '../screens/LoginScreen'
+import OrdersScreen from '../screens/OrdersScreen'
 import ProductScreen from '../screens/ProductScreen'
 import ProfileScreen from '../screens/ProfileScreen'
 import StoreScreen from '../screens/StoreScreen'
 import TrackingScreen from '../screens/TrackingScreen'
-import AdminScreen, { type AdminTab } from '../screens/admin/AdminScreen'
-import type { AgentForm } from '../screens/admin/AgentsTab'
-import type { Metric } from '../screens/admin/OverviewTab'
+import type { AdminTab } from '../screens/admin/AdminScreen'
 
+import type { AppRouterProps } from './AppRouterProps'
 import { ROUTE_PATTERNS, ROUTES, isProtected, toCategorySlug } from './routes'
 import { categories, products } from '../data/catalog'
-import type {
-  Agent,
-  BusinessProfile,
-  Category,
-  Order,
-  OrderStatus,
-  Product,
-  Role,
-  ScheduleItem,
-  User,
-} from '../types'
+import type { Category } from '../types'
 
-export interface AppRouterProps {
-  // sessão
-  authUser: User | null
-  userRole: Role
-  isDevMode: boolean
+export type { AppRouterProps }
 
-  // login
-  authMode: 'login' | 'signup'
-  onAuthModeChange: (mode: 'login' | 'signup') => void
-  authForm: AuthForm
-  onAuthFormChange: (patch: Partial<AuthForm>) => void
-  authError: string
-  onAuthSubmit: (event: React.FormEvent<HTMLFormElement>) => void
-  onQuickLogin: (role: Role) => void
-  onLogout: () => void
+/**
+ * Code splitting do painel admin (WU perf/A-SETUP): quem compra nunca abre
+ * `/admin`, então o bundle da operação não deveria pesar no carregamento
+ * inicial do comprador. `React.lazy` baixa esse chunk só quando a rota é
+ * visitada.
+ */
+const AdminScreen = lazy(() => import('../screens/admin/AdminScreen'))
 
-  // vitrine
-  searchQuery: string
-  onSearchChange: (value: string) => void
-  searchRef?: React.RefObject<HTMLInputElement | null>
-  favorites: Product[]
-  onToggleFavorite: (product: Product) => void
-  onAddToCart: (product: Product) => void
-  onBuyNow: (product: Product) => void
-  cartCount: number
-  notificationCount: number
-  onOpenCart: () => void
-
-  // pedidos e painel
-  orders: Order[]
-  currentOrder: Order | null
-  agents: Agent[]
-  schedule: ScheduleItem[]
-  metrics: Metric[]
-  agentForm: AgentForm
-  onAgentFormChange: (patch: Partial<AgentForm>) => void
-  onAgentSubmit: (event: React.FormEvent<HTMLFormElement>) => void
-  onAgentReset: () => void
-  onAgentEdit: (agent: Agent) => void
-  onAgentDelete: (agentId: number) => void
-  onStatusChange: (orderId: string, status: OrderStatus) => void
-  businessProfile: BusinessProfile | null
-}
+/** Fallback acessível enquanto o chunk do painel admin carrega. */
+const AdminScreenFallback = () => (
+  <div role="status" className="grid min-h-dvh place-items-center bg-surface-page p-6">
+    <p className="text-sm font-semibold text-ink-muted">Carregando…</p>
+  </div>
+)
 
 const categoryFromSlug = (slug: string): Category | null =>
   categories.find((category) => toCategorySlug(category) === slug) ?? null
@@ -95,6 +61,8 @@ export default function AppRouter(props: AppRouterProps) {
     return <Redirect href={ROUTES.home} replace />
   }
 
+  const moreHref = userRole === 'admin' ? ROUTES.admin() : ROUTES.profile
+
   const vitrine = (category: Category) => (
     <HomeScreen
       products={products.filter((product) => {
@@ -118,8 +86,9 @@ export default function AppRouter(props: AppRouterProps) {
       cartCount={props.cartCount}
       notificationCount={props.notificationCount}
       userName={authUser?.name}
+      address={props.addressLine}
       onOpenCart={props.onOpenCart}
-      moreHref={userRole === 'admin' ? ROUTES.admin() : ROUTES.profile}
+      moreHref={moreHref}
     />
   )
 
@@ -195,6 +164,41 @@ export default function AppRouter(props: AppRouterProps) {
         }}
       </Route>
 
+      <Route path={ROUTE_PATTERNS.favorites}>
+        <FavoritesScreen
+          favorites={props.favorites}
+          onToggleFavorite={props.onToggleFavorite}
+          onAddToCart={props.onAddToCart}
+          onOpenCart={props.onOpenCart}
+          cartCount={props.cartCount}
+          moreHref={moreHref}
+        />
+      </Route>
+
+      <Route path={ROUTE_PATTERNS.orders}>
+        <OrdersScreen
+          orders={props.orders}
+          onRepeatOrder={props.onRepeatOrder}
+          repeatError={props.repeatError}
+          onOpenCart={props.onOpenCart}
+          cartCount={props.cartCount}
+          favoritesCount={props.favorites.length}
+          moreHref={moreHref}
+        />
+      </Route>
+
+      <Route path={ROUTE_PATTERNS.addresses}>
+        <AddressesScreen
+          addresses={props.addresses}
+          addressForm={props.addressForm}
+          addressError={props.addressError}
+          onAddressFormChange={props.onAddressFormChange}
+          onAddressSubmit={props.onAddressSubmit}
+          onSetDefaultAddress={props.onSetDefaultAddress}
+          onRemoveAddress={props.onRemoveAddress}
+        />
+      </Route>
+
       <Route path={ROUTE_PATTERNS.profile}>
         <ProfileScreen
           authUser={authUser}
@@ -210,23 +214,25 @@ export default function AppRouter(props: AppRouterProps) {
 
       <Route path={ROUTE_PATTERNS.admin}>
         {(params) => (
-          <AdminScreen
-            userRole={userRole}
-            adminTab={(params.tab as AdminTab | undefined) ?? 'overview'}
-            onTabChange={(tab) => navigate(ROUTES.admin(tab))}
-            metrics={props.metrics}
-            schedule={props.schedule}
-            orders={props.orders}
-            agents={props.agents}
-            agentForm={props.agentForm}
-            onAgentFormChange={props.onAgentFormChange}
-            onAgentSubmit={props.onAgentSubmit}
-            onAgentReset={props.onAgentReset}
-            onAgentEdit={props.onAgentEdit}
-            onAgentDelete={props.onAgentDelete}
-            onStatusChange={props.onStatusChange}
-            onBack={() => navigate(ROUTES.home)}
-          />
+          <Suspense fallback={<AdminScreenFallback />}>
+            <AdminScreen
+              userRole={userRole}
+              adminTab={(params.tab as AdminTab | undefined) ?? 'overview'}
+              onTabChange={(tab) => navigate(ROUTES.admin(tab))}
+              metrics={props.metrics}
+              schedule={props.schedule}
+              orders={props.orders}
+              agents={props.agents}
+              agentForm={props.agentForm}
+              onAgentFormChange={props.onAgentFormChange}
+              onAgentSubmit={props.onAgentSubmit}
+              onAgentReset={props.onAgentReset}
+              onAgentEdit={props.onAgentEdit}
+              onAgentDelete={props.onAgentDelete}
+              onStatusChange={props.onStatusChange}
+              onBack={() => navigate(ROUTES.home)}
+            />
+          </Suspense>
         )}
       </Route>
 

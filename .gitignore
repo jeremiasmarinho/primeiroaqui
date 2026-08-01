@@ -28,3 +28,6 @@ dist-ssr
 coverage/
 test-results/
 playwright-report/
+dist-clean-check/
+dist-clean-check2/
+dist-clean-check3/

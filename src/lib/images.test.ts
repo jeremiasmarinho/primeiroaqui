@@ -14,13 +14,18 @@ describe('images', () => {
       expect(avatarImage('Ana Paula')).not.toBe(avatarImage('Bruno Costa'))
     })
 
-    it('normaliza acento, caixa e espaco nas palavras-chave', () => {
-      expect(productImage(['Farmácia'], 'x')).toContain('/farmacia/')
-      expect(productImage(['FARMACIA'], 'x')).toBe(productImage(['farmácia'], 'x'))
+    it('normaliza acento, caixa e espaco no seed', () => {
+      // Picsum usa seed para determinismo, não keywords. O seed é normalizado.
+      const url1 = productImage(['Farmácia'], 'Farmácia')
+      const url2 = productImage(['FARMACIA'], 'farmácia')
+      expect(url1).toBe(url2)
+      expect(url1).toContain('/seed/farmacia/')
     })
 
-    it('nao deixa hifen sobrando nas bordas do termo', () => {
-      expect(productImage(['  Painel de TV!  '], 'x')).toContain('/painel-de-tv/')
+    it('nao deixa hifen sobrando nas bordas do seed', () => {
+      // O seed é normalizado para remover hífens das bordas
+      const url = productImage(['TV'], '  Painel de TV!  ')
+      expect(url).toContain('/seed/painel-de-tv/')
     })
 
     it('produto e loja com o mesmo nome nao colidem', () => {
@@ -31,26 +36,21 @@ describe('images', () => {
   describe('formato das URLs', () => {
     it('produto pede imagem quadrada no tamanho informado', () => {
       expect(productImage(['whey'], 'whey', 200)).toMatch(
-        /^https:\/\/loremflickr\.com\/200\/200\/whey\/all\?lock=\d+$/,
+        /^https:\/\/picsum\.photos\/seed\/whey\/200\/200$/,
       )
     })
 
     it('loja pede imagem panoramica', () => {
       expect(storeImage(['grocery'], 'mercado', 640, 360)).toMatch(
-        /^https:\/\/loremflickr\.com\/640\/360\/grocery\/all\?lock=\d+$/,
+        /^https:\/\/picsum\.photos\/seed\/mercado-loja\/640\/360$/,
       )
     })
 
-    it('varias palavras-chave viram busca E, nao OU', () => {
-      // Sem /all o servico faz OU e devolve foto de so um dos termos.
+    it('varias palavras-chave existem para compatibilidade mas nao afetam a URL', () => {
+      // Picsum usa seed para determinismo, não busca temática
+      // Múltiplas keywords não mudam o resultado
       const url = productImage(['electric', 'fan'], 'ventilador')
-      expect(url).toContain('/electric,fan/all')
-    })
-
-    it('lock e sempre um inteiro positivo, para a foto nao trocar a cada render', () => {
-      const lock = Number(new URL(productImage(['fan'], 'ventilador')).searchParams.get('lock'))
-      expect(Number.isInteger(lock)).toBe(true)
-      expect(lock).toBeGreaterThan(0)
+      expect(url).toBe(productImage(['fan'], 'ventilador'))
     })
 
     it('avatar usa estilo ilustrado, nao foto de pessoa real', () => {
@@ -73,13 +73,13 @@ describe('images', () => {
     })
 
     it('fallbackTo troca a src pelo placeholder local', () => {
-      const img: { dataset: Record<string, string>; src: string } = { dataset: {}, src: 'https://loremflickr.com/400/400/fan/all?lock=1' }
+      const img: { dataset: Record<string, string>; src: string } = { dataset: {}, src: 'https://picsum.photos/seed/ventilador/400/400' }
       fallbackTo('Ventilador')({ currentTarget: img })
       expect(img.src).toMatch(/^data:image\/svg\+xml/)
     })
 
     it('fallbackTo nao entra em laco se o proprio fallback falhar', () => {
-      const img: { dataset: Record<string, string>; src: string } = { dataset: {}, src: 'https://loremflickr.com/400/400/fan/all?lock=1' }
+      const img: { dataset: Record<string, string>; src: string } = { dataset: {}, src: 'https://picsum.photos/seed/ventilador/400/400' }
       const handler = fallbackTo('Ventilador')
 
       handler({ currentTarget: img })
@@ -102,7 +102,7 @@ describe('images', () => {
 
       const sources = await Promise.all(Object.values(modules).map((load) => load()))
       const offenders = sources.filter(
-        (source) => source.includes('loremflickr.com') || source.includes('api.dicebear.com'),
+        (source) => source.includes('picsum.photos') || source.includes('loremflickr.com') || source.includes('api.dicebear.com'),
       )
 
       expect(offenders).toHaveLength(0)

@@ -3,14 +3,13 @@
  *
  * Decisão registrada em docs/adr/0001-banco-de-imagens.md.
  *
- * - Produtos e lojas: LoremFlickr — busca por palavra-chave, então a foto tem
- *   relação com o item.
+ * - Produtos e lojas: Picsum Photos — acervo Unsplash, licença comercial
+ *   livre, sem atribuição obrigatória. Determinístico via `/seed/<slug>`.
+ *   Foto genérica, não temática, mas licença limpa e sem risco jurídico.
  *
- *   ATENÇÃO: as imagens vêm do Flickr sob licenças Creative Commons que variam
- *   por foto. Parte é CC BY (exige atribuição ao autor) e parte é CC BY-SA
- *   (propaga a licença). O serviço grava a licença e o autor na própria imagem.
- *   Uso restrito a dado de DEMONSTRAÇÃO — ver docs/adr/0001-banco-de-imagens.md.
- *   Não promover para produção sem trocar a fonte.
+ *   Uso em demonstração apenas — para produção trocar por storage S3 com
+ *   imagens do próprio lojista (WU-23).
+ *
  * - Clientes: DiceBear, estilo `avataaars` (uso pessoal e comercial livre,
  *   sem atribuição). Avatar ilustrado em vez de foto de pessoa real — dado
  *   falso não deve carregar rosto de alguém de verdade.
@@ -20,29 +19,17 @@
  * offline, a interface degrada para o placeholder embutido em vez de quebrar.
  */
 
-const FLICKR = 'https://loremflickr.com'
+const PICSUM = 'https://picsum.photos'
 const DICEBEAR = 'https://api.dicebear.com/9.x/avataaars/svg'
 
 /** Slug estável: a mesma entidade sempre recebe a mesma imagem. */
 const toSeed = (value: string): string =>
   String(value)
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-
-/**
- * Hash determinístico (djb2) para o parâmetro `lock` do LoremFlickr. Sem ele o
- * serviço devolve foto diferente a cada request e o catálogo embaralha sozinho.
- */
-const lockFor = (seed: string): number => {
-  let hash = 5381
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = ((hash << 5) + hash + seed.charCodeAt(i)) >>> 0
-  }
-  return (hash % 100000) + 1
-}
 
 /** Placeholder local em data URI — sem rede, funciona offline e em teste. */
 export const localImage = (label: string, bg = '#E8E8E8', fg = '#5C6670'): string => {
@@ -58,8 +45,10 @@ export const localImage = (label: string, bg = '#E8E8E8', fg = '#5C6670'): strin
 }
 
 /**
- * Foto por palavra-chave, estável para o mesmo par (keywords, seed).
- * O sufixo `/all` faz busca E entre os termos em vez de OU — mais preciso.
+ * Foto determinística via Picsum, estável para o mesmo par (keywords, seed).
+ * Keywords aqui existem apenas para compatibilidade com a interface anterior —
+ * Picsum não faz busca temática, então o seed determinístico é o que garante
+ * que a mesma entidade sempre receba a mesma imagem.
  */
 const photo = (
   keywords: string | string[],
@@ -67,11 +56,8 @@ const photo = (
   width: number,
   height: number,
 ): string => {
-  const terms = (Array.isArray(keywords) ? keywords : [keywords])
-    .map(toSeed)
-    .filter(Boolean)
-    .join(',')
-  return `${FLICKR}/${width}/${height}/${terms}/all?lock=${lockFor(toSeed(seed))}`
+  const slug = toSeed(seed)
+  return `${PICSUM}/seed/${slug}/${width}/${height}`
 }
 
 /** Foto quadrada de produto. `keywords` descreve o item de fato. */

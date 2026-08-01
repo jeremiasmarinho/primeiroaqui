@@ -1,5 +1,14 @@
+import { Link } from 'wouter'
+
 import { formatCurrency } from '../lib/format'
+import { ROUTES } from '../router/routes'
 import type { BusinessProfile, Order, Product, Role, User } from '../types'
+
+const SHORTCUTS = [
+  { href: ROUTES.favorites, label: 'Meus favoritos' },
+  { href: ROUTES.orders, label: 'Meus pedidos' },
+  { href: ROUTES.addresses, label: 'Meus endereços' },
+] as const
 
 interface ProfileScreenProps {
   authUser: User | null
@@ -45,6 +54,15 @@ export default function ProfileScreen({
           <div className="rounded-[24px] border border-slate-200 p-4">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">Ações</p>
             <div className="mt-4 space-y-3">
+              {SHORTCUTS.map((shortcut) => (
+                <Link
+                  key={shortcut.href}
+                  href={shortcut.href}
+                  className="flex min-h-[44px] w-full items-center rounded-[18px] border border-slate-200 px-4 text-sm font-semibold text-slate-700"
+                >
+                  {shortcut.label}
+                </Link>
+              ))}
               <button onClick={() => onBack()} className="w-full rounded-[18px] bg-slate-900 px-4 py-3 text-sm font-bold text-white">Voltar ao marketplace</button>
               <button onClick={onLogout} className="w-full rounded-[18px] border border-slate-200 px-4 py-3 text-sm font-semibold text-slate-700">Sair da conta</button>
             </div>

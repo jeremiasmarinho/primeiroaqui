@@ -1,4 +1,12 @@
-import type { CartState, DeliveryForm, Order, OrderStatus, Role } from '../types'
+import type {
+  CartItem,
+  CartState,
+  DeliveryForm,
+  Order,
+  OrderStatus,
+  Product,
+  Role,
+} from '../types'
 
 export const ORDER_STATUS = {
   PROCESSING: 'Processando',
@@ -66,11 +74,53 @@ export const createOrder = ({
     agent: agentName || 'Agente',
     value,
     items: cartState.items.map((item) => item.product.title),
+    lines: cartState.items.map((item) => ({
+      productId: item.product.id,
+      quantity: item.quantity,
+    })),
     payment: delivery.payment || 'Pix',
     status: ORDER_STATUS.PROCESSING,
     region: delivery.city || 'Centro',
+    ...(delivery.address ? { address: delivery.address } : {}),
     ...(couponCode ? { couponCode, discount } : {}),
   }
+}
+
+export type RepeatOrderResult =
+  | { ok: true; items: CartItem[] }
+  | { ok: false; message: string }
+
+/**
+ * Monta o carrinho de "repetir pedido".
+ *
+ * O preço vem sempre do catálogo atual, nunca do histórico: recomprar um
+ * pedido de meses atrás com o preço congelado seria cobrar errado. Se algum
+ * produto saiu do ar, a operação inteira falha — carrinho pela metade é pior
+ * que recusa explicada.
+ */
+export const repeatOrder = (order: Order, catalog: Product[]): RepeatOrderResult => {
+  const lines = order.lines ?? []
+
+  if (lines.length === 0) {
+    return {
+      ok: false,
+      message: 'Este pedido não guarda os itens comprados. Adicione os produtos manualmente.',
+    }
+  }
+
+  const items: CartItem[] = []
+  for (const line of lines) {
+    const product = catalog.find((item) => item.id === line.productId)
+    if (!product) {
+      return {
+        ok: false,
+        message: 'Um dos produtos deste pedido saiu do catálogo. Confira as ofertas atuais.',
+      }
+    }
+    items.push({ product, quantity: line.quantity })
+  }
+
+  return { ok: true, items }
 }
 
 export const changeOrderStatus = (order: Order, nextStatus: OrderStatus): Order => {

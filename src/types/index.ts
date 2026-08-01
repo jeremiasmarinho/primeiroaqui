@@ -39,9 +39,19 @@ export type CartAction =
   | { type: 'ADD_TO_CART'; payload: Product }
   | { type: 'REMOVE_FROM_CART'; payload: number }
   | { type: 'SET_QUANTITY'; payload: { productId: number; quantity: number } }
+  | { type: 'REPLACE_CART'; payload: CartItem[] }
   | { type: 'CLEAR_CART' }
 
 export type OrderStatus = 'Processando' | 'Em rota' | 'Entregue'
+
+/**
+ * Linha do pedido: guarda o que foi comprado e quanto, sem congelar preço.
+ * `items` (só títulos) serve para exibir; `lines` é o que permite recomprar.
+ */
+export interface OrderLine {
+  productId: number
+  quantity: number
+}
 
 export interface Order {
   id: string
@@ -51,6 +61,8 @@ export interface Order {
   status: OrderStatus
   region: string
   items?: string[]
+  lines?: OrderLine[]
+  address?: string
   payment?: PaymentMethod
   couponCode?: string
   discount?: number

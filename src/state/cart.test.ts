@@ -6,6 +6,7 @@ import {
   getCartItemsCount,
   getCartSubtotal,
   removeFromCart,
+  replaceCart,
   setQuantity,
 } from './cart'
 import { makeProduct } from '../test/factories'
@@ -78,5 +79,25 @@ describe('cart reducer', () => {
     const state = createInitialCartState()
     const next = cartReducer(state, { type: 'UNKNOWN' } as never)
     expect(next).toBe(state)
+  })
+
+  // WU-48 — "repetir pedido" troca o carrinho inteiro de uma vez. Sem esta
+  // action seria preciso despachar ADD_TO_CART uma vez por unidade.
+  describe('replaceCart', () => {
+    it('troca o carrinho inteiro pelos itens informados', () => {
+      let state = createInitialCartState()
+      state = cartReducer(state, addToCart(productB))
+      state = cartReducer(state, replaceCart([{ product: productA, quantity: 3 }]))
+
+      expect(state.items).toEqual([{ product: productA, quantity: 3 }])
+      expect(getCartItemsCount(state)).toBe(3)
+    })
+
+    it('lista vazia esvazia o carrinho', () => {
+      let state = createInitialCartState()
+      state = cartReducer(state, addToCart(productA))
+      state = cartReducer(state, replaceCart([]))
+      expect(state.items).toEqual([])
+    })
   })
 })

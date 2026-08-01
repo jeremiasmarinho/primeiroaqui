@@ -147,3 +147,49 @@ lojista, e este risco deixa de existir.
 Avatares de cliente seguem no DiceBear. Associar foto de pessoa real a nome
 fictício, endereço e histórico de pedidos é problema de privacidade e de
 percepção independentemente da fonte.
+
+---
+
+## Revisão — 2026-08-01 (segunda revisão)
+
+**A decisão foi revertida novamente: voltar de LoremFlickr para Picsum Photos.**
+
+### O que motivou
+
+A latência de 3,3s do LoremFlickr e o risco jurídico de licenças variáveis por
+imagem (CC BY, CC BY-SA sem auditoria possível) foram considerados elevados
+demais, mesmo para demonstração. A experiência comercial sofreu — a imagem
+temática não compensava a instabilidade e o risco.
+
+### A decisão
+
+**Produtos e lojas → Picsum Photos**, via `productImage(seed)` e `storeImage(seed)`.
+
+### Motivo
+
+- Licença limpa: Unsplash — uso comercial livre, sem atribuição obrigatória.
+- Determinístico: `/seed/<slug>/<w>/<h>` garante a mesma entidade recebe sempre
+  a mesma imagem.
+- Foto genérica é aceitável em demonstração — comunica "placeholder" melhor que
+  foto temática ao lado de nome específico.
+- Risco jurídico eliminado: não há variação de licença por imagem.
+- Latência: ~0,86s (melhor que LoremFlickr, ligeiramente pior que SVG local).
+- Mitigação de risco de dependência externa continua idêntica: fallback local
+  em data URI, guard contra laço infinito, jsdom não carrega imagens.
+
+### O que mudou no código
+
+- Removida função `lockFor` (específica de LoremFlickr).
+- Simplificada função `photo`: agora usa `/seed/<slug>/<w>/<h>` ao invés de
+  busca temática.
+- Keywords na interface pública (`productImage`, `storeImage`) mantidas por
+  compatibilidade, mas não afetam a URL — Picsum não faz busca temática.
+
+### Condição de saída — obrigatória
+
+Idem à revisão anterior: **válida apenas para demonstração.** Na WU-23, as URLs
+passam a vir do storage S3-compatível com imagens do próprio lojista.
+
+### Não alterado
+
+Avatares de cliente seguem no DiceBear.

@@ -96,13 +96,16 @@ describe('rotas', () => {
   })
 
   describe('guarda por papel', () => {
-    it('/admin sem sessao de operacao nao renderiza o painel', () => {
+    it('/admin sem sessao de operacao nao renderiza o painel', async () => {
       login()
       goTo(ROUTES.admin())
       render(<MarketplaceApp />)
 
+      // AdminScreen agora carrega via React.lazy (code splitting) — o
+      // conteúdo aparece só depois que o chunk resolve, daí o findBy* em vez
+      // de getBy* aqui.
+      expect(await screen.findByText(/acesso restrito/i)).toBeInTheDocument()
       expect(screen.queryByRole('tab', { name: /agentes/i })).not.toBeInTheDocument()
-      expect(screen.getByText(/acesso restrito/i)).toBeInTheDocument()
     })
 
     it('rota desconhecida cai em pagina nao encontrada com saida', () => {

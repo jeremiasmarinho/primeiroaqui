@@ -75,6 +75,8 @@ jobs:
         run: npm ci
       - name: Build
         run: npm run build
+      - name: Check bundle size
+        run: npm run check:bundle
 
   e2e:
     runs-on: ubuntu-latest

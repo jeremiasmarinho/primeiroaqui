@@ -3,6 +3,9 @@ import { fireEvent, render, screen, within } from '@testing-library/react'
 import { axe } from 'vitest-axe'
 import type { AxeResults, Result } from 'axe-core'
 import MarketplaceApp from '../MarketplaceApp'
+import { products } from '../data/catalog'
+import { ROUTES } from '../router/routes'
+import { STORAGE_KEYS } from '../state/session'
 
 /**
  * WU-50 — acessibilidade. Fecha a WU-15 do plano original.
@@ -25,6 +28,16 @@ describe('acessibilidade', () => {
 
   const enterAsClient = () => {
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
+  }
+
+  /** Abre uma rota protegida direto, como um deep link com sessão ativa. */
+  const openAsClient = (path: string) => {
+    localStorage.setItem(
+      STORAGE_KEYS.user,
+      JSON.stringify({ name: 'Ana Paula', email: 'ana@teste.com', role: 'client' }),
+    )
+    window.history.pushState({}, '', path)
+    return render(<MarketplaceApp />)
   }
 
   it('tela de login sem violacao critica ou seria', async () => {
@@ -55,6 +68,35 @@ describe('acessibilidade', () => {
     enterAsClient()
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+
+    const violations = blocking((await axe(container)) as AxeResults)
+    expect(describeViolations(violations)).toBe('')
+  })
+
+  it('favoritos com itens sem violacao critica ou seria', async () => {
+    localStorage.setItem(STORAGE_KEYS.favorites, JSON.stringify(products.slice(0, 2)))
+    const { container } = openAsClient(ROUTES.favorites)
+
+    const violations = blocking((await axe(container)) as AxeResults)
+    expect(describeViolations(violations)).toBe('')
+  })
+
+  it('favoritos vazio sem violacao critica ou seria', async () => {
+    const { container } = openAsClient(ROUTES.favorites)
+
+    const violations = blocking((await axe(container)) as AxeResults)
+    expect(describeViolations(violations)).toBe('')
+  })
+
+  it('historico de pedidos sem violacao critica ou seria', async () => {
+    const { container } = openAsClient(ROUTES.orders)
+
+    const violations = blocking((await axe(container)) as AxeResults)
+    expect(describeViolations(violations)).toBe('')
+  })
+
+  it('enderecos sem violacao critica ou seria', async () => {
+    const { container } = openAsClient(ROUTES.addresses)
 
     const violations = blocking((await axe(container)) as AxeResults)
     expect(describeViolations(violations)).toBe('')

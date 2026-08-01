@@ -54,6 +54,8 @@ interface HomeScreenProps {
   cartCount: number
   notificationCount: number
   userName?: string
+  /** Endereço padrão da pessoa, quando houver. */
+  address?: string
   onOpenCart: () => void
   moreHref?: string
 }
@@ -72,6 +74,7 @@ export default function HomeScreen({
   cartCount,
   notificationCount,
   userName,
+  address,
   onOpenCart,
   moreHref,
 }: HomeScreenProps) {
@@ -99,6 +102,7 @@ export default function HomeScreen({
         category={category}
         userInitials={initials}
         userName={userName}
+        address={address}
         notificationCount={notificationCount}
       />
 
@@ -177,7 +181,13 @@ export default function HomeScreen({
         </p>
       </main>
 
-      <BottomNav active="home" cartCount={cartCount} moreHref={moreHref} onNavigate={onOpenCart} />
+      <BottomNav
+        active="home"
+        cartCount={cartCount}
+        favoritesCount={favorites.length}
+        moreHref={moreHref}
+        onNavigate={onOpenCart}
+      />
     </div>
   )
 }

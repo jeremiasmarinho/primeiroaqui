@@ -1,4 +1,13 @@
-import type { Agent, CartItem, CartState, DeliveryForm, Order, Product, User } from '../types'
+import type {
+  Address,
+  Agent,
+  CartItem,
+  CartState,
+  DeliveryForm,
+  Order,
+  Product,
+  User,
+} from '../types'
 
 /**
  * Factories de teste.
@@ -63,6 +72,16 @@ export const makeAgent = (overrides: Partial<Agent> = {}): Agent => ({
   specialty: 'Entregas urbanas',
   status: 'Ativo',
   commission: 12,
+  ...overrides,
+})
+
+export const makeAddress = (overrides: Partial<Address> = {}): Address => ({
+  id: 'end-1',
+  label: 'Casa',
+  street: 'Avenida Guanabara, 148',
+  city: 'Centro',
+  cep: '12345-678',
+  isDefault: false,
   ...overrides,
 })
 

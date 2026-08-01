@@ -1,8 +1,8 @@
-import { Home, LayoutGrid, Menu, PlaySquare, ShoppingCart } from 'lucide-react'
+import { Heart, Home, LayoutGrid, Menu, ShoppingCart } from 'lucide-react'
 import { Link } from 'wouter'
 import { ROUTES } from '../router/routes'
 
-export type NavId = 'home' | 'categories' | 'cart' | 'videos' | 'more'
+export type NavId = 'home' | 'categories' | 'cart' | 'favorites' | 'more'
 
 /**
  * Navegação inferior — máximo 5 itens, ícone + rótulo sempre visível
@@ -18,6 +18,7 @@ export type NavId = 'home' | 'categories' | 'cart' | 'videos' | 'more'
 interface BottomNavProps {
   active?: NavId
   cartCount?: number
+  favoritesCount?: number
   /** Destino do item "Mais". Operação vai ao painel; cliente, ao perfil. */
   moreHref?: string
   onNavigate?: (id: NavId) => void
@@ -26,6 +27,7 @@ interface BottomNavProps {
 export default function BottomNav({
   active = 'home',
   cartCount = 0,
+  favoritesCount = 0,
   moreHref = ROUTES.profile,
   onNavigate,
 }: BottomNavProps) {
@@ -38,7 +40,9 @@ export default function BottomNav({
     { id: 'home', label: 'Início', Icon: Home, href: ROUTES.home },
     { id: 'categories', label: 'Categorias', Icon: LayoutGrid, href: ROUTES.categories },
     { id: 'cart', label: 'Carrinho', Icon: ShoppingCart },
-    { id: 'videos', label: 'Vídeos', Icon: PlaySquare },
+    // "Vídeos" era um item que não levava a lugar nenhum. Favoritos ocupa a
+    // vaga com destino real e contador (WU-48).
+    { id: 'favorites', label: 'Favoritos', Icon: Heart, href: ROUTES.favorites },
     { id: 'more', label: 'Mais', Icon: Menu, href: moreHref },
   ]
 
@@ -50,7 +54,7 @@ export default function BottomNav({
       <ul className="mx-auto flex max-w-6xl">
         {items.map(({ id, label, Icon, href }) => {
           const isActive = active === id
-          const badge = id === 'cart' ? cartCount : 0
+          const badge = id === 'cart' ? cartCount : id === 'favorites' ? favoritesCount : 0
           const accessibleName = badge > 0 ? `${label} — ${badge} itens` : label
 
           const className = `flex min-h-[56px] w-full flex-col items-center justify-center gap-0.5
