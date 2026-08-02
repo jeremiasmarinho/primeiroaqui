@@ -1,0 +1,177 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  extensions = [pg_trgm, unaccent, postgis, pgcrypto, citext]
+}
+
+enum UserRole {
+  BUYER
+  STORE_OWNER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  READY
+  DELIVERED
+  CANCELED
+}
+
+model User {
+  id           String    @id @default(uuid())
+  authUserId   String    @unique
+  email        String    @unique @db.Citext
+  name         String
+  role         UserRole  @default(BUYER)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  stores       Store[]
+  addresses    Address[]
+  favorites    Favorite[]
+  orders       Order[]
+  reviews      Review[]
+
+  @@map("users")
+}
+
+model Store {
+  id          String    @id @default(uuid())
+  ownerId     String
+  owner       User      @relation(fields: [ownerId], references: [id])
+  name        String
+  slug        String    @unique
+  description String?
+  latitude    Float
+  longitude   Float
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  products    Product[]
+  orders      Order[]
+
+  @@index([ownerId])
+  @@map("stores")
+}
+
+model Product {
+  id          String         @id @default(uuid())
+  storeId     String
+  store       Store          @relation(fields: [storeId], references: [id])
+  title       String
+  description String?
+  category    String
+  priceCents  Int
+  stock       Int            @default(0)
+  isActive    Boolean        @default(true)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  photos      ProductPhoto[]
+  favorites   Favorite[]
+  orderItems  OrderItem[]
+  reviews     Review[]
+
+  @@index([storeId])
+  @@index([category])
+  @@map("products")
+}
+
+model ProductPhoto {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String
+  thumbUrl  String
+  path      String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("product_photos")
+}
+
+model Address {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  label      String
+  street     String
+  city       String
+  state      String
+  zipCode    String
+  latitude   Float
+  longitude  Float
+  isDefault  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  orders     Order[]
+
+  @@index([userId])
+  @@map("addresses")
+}
+
+model Favorite {
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([userId, productId])
+  @@map("favorites")
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  buyerId     String
+  buyer       User        @relation(fields: [buyerId], references: [id])
+  storeId     String
+  store       Store       @relation(fields: [storeId], references: [id])
+  addressId   String
+  address     Address     @relation(fields: [addressId], references: [id])
+  status      OrderStatus @default(PENDING)
+  totalCents  Int
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  items       OrderItem[]
+
+  @@index([buyerId])
+  @@index([storeId])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String  @id @default(uuid())
+  orderId        String
+  order          Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId      String
+  product        Product @relation(fields: [productId], references: [id])
+  quantity       Int
+  unitPriceCents Int
+
+  @@index([orderId])
+  @@map("order_items")
+}
+
+model Review {
+  id        String   @id @default(uuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  @@index([productId])
+  @@map("reviews")
+}
