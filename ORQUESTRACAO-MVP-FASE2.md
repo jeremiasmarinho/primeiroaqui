@@ -413,14 +413,16 @@ Além das do documento original:
 
 ---
 
-## 8. Pendência aberta fora deste plano
+## 8. Pendência aberta fora deste plano — RESOLVIDA em 2026-08-01
 
-`docs/adr/0001-banco-de-imagens.md` registra que a fonte de imagens
-(LoremFlickr) tem **risco de licença não resolvido**: verificação por amostragem
-encontrou imagem `cc-nc-nd`, que proíbe uso comercial. Vale só para
-demonstração. **Trocar a fonte é condição de saída antes de qualquer entrega a
-cliente final.** Não é uma WU aqui porque é decisão de negócio, não de
-engenharia — mas não pode ser esquecida.
+**Superada.** `docs/adr/0001-banco-de-imagens.md` registra duas revisões: a
+fonte de imagens passou de Lorem Picsum para LoremFlickr (risco de licença
+`cc-nc-nd` encontrado por amostragem) e depois **voltou para Lorem Picsum**,
+por latência (3,3s → 0,86s) e pela mesma questão de licença. `src/lib/images.ts`
+hoje usa exclusivamente Picsum Photos (acervo Unsplash, uso comercial livre,
+sem atribuição obrigatória) e DiceBear para avatares. Nenhuma ocorrência de
+LoremFlickr resta no código — confirmado por `grep -r loremflickr src/` vazio.
+Ver seção 9 e o ADR para o histórico completo da decisão.
 
 
 ---
@@ -485,7 +487,7 @@ pelos testes de componente, que rodam em modo de desenvolvimento.
 | **WU-47, WU-48** | Não iniciadas, dependem da WU-44. |
 | **WU-41 — monólito** | `MarketplaceApp.tsx` caiu de 957 para 547 linhas e `CartDrawer.tsx` tem 351. O restante do `MarketplaceApp` é estado e handlers; a saída é extrair um hook `useMarketplaceState`. |
 | **WU-52 — orçamento de bundle e Lighthouse CI** | Não configurados. Cobertura e thresholds, sim. |
-| **Fonte de imagens** | Segue o registro da seção 8: risco de licença `cc-nc-nd` não resolvido. |
+| **Fonte de imagens** | Resolvida — ver seção 8. Voltou para Picsum, sem risco de licença pendente. |
 
 ---
 
