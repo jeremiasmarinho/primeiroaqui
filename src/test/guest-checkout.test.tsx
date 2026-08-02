@@ -91,7 +91,7 @@ describe('visitante — checkout', () => {
     // gaveta de entrega (que já está aberta), não pela barra inferior.
     expect(screen.getByLabelText('Seu nome')).toBeInTheDocument()
     const deliveryDrawer = screen.getByRole('dialog', { name: /dados de entrega/i })
-    expect(within(deliveryDrawer).getByText('Itens').nextElementSibling).toHaveTextContent('1')
+    expect(within(deliveryDrawer).getByText('Itens').nextElementSibling).toHaveTextContent(/^1$/)
   })
 })
 

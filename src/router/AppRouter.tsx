@@ -71,7 +71,7 @@ export default function AppRouter(props: AppRouterProps) {
     return <Redirect href={ROUTES.home} replace />
   }
 
-  const moreHref = userRole === 'admin' ? ROUTES.admin() : ROUTES.profile
+  const moreHref = !authUser ? ROUTES.login : userRole === 'admin' ? ROUTES.admin() : ROUTES.profile
 
   const vitrine = (category: Category) => (
     <HomeScreen

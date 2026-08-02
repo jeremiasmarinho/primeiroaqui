@@ -221,7 +221,9 @@ describe('TopBar', () => {
   it('sem sessao, o avatar vira ponto de entrada para login', () => {
     render(<TopBar {...baseProps} isAuthenticated={false} />)
     const entrar = screen.getByRole('link', { name: /entrar ou criar conta/i })
-    expect(entrar).toHaveAttribute('href', '/perfil') // profileHref por padrao; AppRouter passa /entrar quando visitante
+    // TopBar so troca label/icone conforme isAuthenticated; quem decide o href
+    // para visitante e o AppRouter (moreHref = ROUTES.login quando !authUser).
+    expect(entrar).toHaveAttribute('href', '/perfil')
   })
 })
 

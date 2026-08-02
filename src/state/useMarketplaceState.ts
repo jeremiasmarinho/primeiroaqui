@@ -61,11 +61,11 @@ export function useMarketplaceState() {
     writeStoredJSON(STORAGE_KEYS.user, session.authUser)
   }, [session.authUser])
 
-  // Dados que pertencem à pessoa só persistem com sessão ativa: sem isso o
-  // carrinho de quem saiu vaza para o próximo login (regressões B3 e B4).
   useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.cart, cartCheckout.cartState)
   }, [cartCheckout.cartState])
+  // Favoritos só persistem com sessão ativa: sem isso, os favoritos de quem
+  // saiu vazam para o próximo login (regressões B3 e B4).
   useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.favorites, session.authUser ? catalog.favorites : null)
   }, [session.authUser, catalog.favorites])
@@ -131,11 +131,7 @@ export function useMarketplaceState() {
   const guardedCartContinue = () => {
     if (cartCheckout.cartItemsCount === 0) return
     if (!session.authUser) {
-      // Fechar a gaveta antes de navegar é responsabilidade de
-      // `redirectToLogin` (via `onBeforeRedirect`): o backdrop fixo da
-      // gaveta, se deixado aberto, fica por cima do formulário de login e
-      // bloqueia o clique (browser real — testes com fireEvent não pegam
-      // isso).
+      // Fechamento da gaveta: ver onBeforeRedirect em redirectToLogin.
       session.redirectToLogin(location, { type: 'resume-checkout' })
       return
     }

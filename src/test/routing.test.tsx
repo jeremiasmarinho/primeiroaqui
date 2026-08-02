@@ -148,6 +148,17 @@ describe('rotas', () => {
 
       expect(screen.getByLabelText('Senha')).toBeInTheDocument()
     })
+
+    it('apos login, retoma a rota protegida de origem (nao a vitrine)', () => {
+      goTo(ROUTES.orders)
+      render(<MarketplaceApp />)
+
+      expect(screen.getByLabelText('Senha')).toBeInTheDocument()
+      fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
+
+      expect(window.location.pathname).toBe(ROUTES.orders)
+      expect(screen.getByRole('heading', { name: /pedidos/i })).toBeInTheDocument()
+    })
   })
 
   describe('navegacao entre telas atualiza a URL', () => {
