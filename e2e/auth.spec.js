@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 test.describe('autenticacao', () => {
   test('criar conta, entrar e sair limpa a sessao', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/entrar')
 
     await page.getByRole('button', { name: /^criar conta$/i }).first().click()
     await page.getByLabel('Seu nome').fill('Ana Paula')
@@ -23,7 +23,7 @@ test.describe('autenticacao', () => {
   })
 
   test('rejeita e-mail malformado sem autenticar', async ({ page }) => {
-    await page.goto('/')
+    await page.goto('/entrar')
 
     await page.getByLabel('E-mail').fill('nao-e-email')
     await page.getByLabel('Senha').fill('segredo123')

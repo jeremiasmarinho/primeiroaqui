@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 /** Autentica pelo formulario real: o build de producao nao expoe atalhos de dev. */
 const entrar = async (page, nome = 'Ana Paula') => {
-  await page.goto('/')
+  await page.goto('/entrar')
   // "Criar conta" aparece duas vezes: a aba e o submit. O submit e o ultimo.
   await page.getByRole('button', { name: /^criar conta$/i }).first().click()
   await page.getByLabel('Seu nome').fill(nome)

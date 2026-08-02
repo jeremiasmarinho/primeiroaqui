@@ -129,6 +129,10 @@ export function useMarketplaceState() {
   const guardedCartContinue = () => {
     if (cartCheckout.cartItemsCount === 0) return
     if (!session.authUser) {
+      // Fecha a gaveta antes de navegar: o backdrop fixo da gaveta, se
+      // deixado aberto, fica por cima do formulário de login e bloqueia o
+      // clique (browser real — testes com fireEvent não pegam isso).
+      cartCheckout.setIsCartOpen(false)
       session.redirectToLogin(location, { type: 'resume-checkout' })
       return
     }
@@ -138,6 +142,7 @@ export function useMarketplaceState() {
   const guardedBuyNow = (product: Product) => {
     if (!session.authUser) {
       cartCheckout.handleAddToCart(product)
+      cartCheckout.setIsCartOpen(false)
       session.redirectToLogin(location, { type: 'resume-checkout' })
       return
     }

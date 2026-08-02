@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 /** Autentica pelo formulario real: o build de producao nao expoe atalhos de dev. */
 const entrar = async (page, nome = 'Ana Paula') => {
-  await page.goto('/')
+  await page.goto('/entrar')
   // "Criar conta" aparece duas vezes: a aba e o submit. O submit e o ultimo.
   await page.getByRole('button', { name: /^criar conta$/i }).first().click()
   await page.getByLabel('Seu nome').fill(nome)
@@ -81,13 +81,13 @@ test.describe('navegacao', () => {
     await expect(page.getByLabel('Senha')).toBeVisible()
   })
 
-  test('/product/:id sem sessao redireciona para login', async ({ page }) => {
-    // Acessa /produto/1 sem estar autenticado
+  test('/produto/:id continua acessivel sem sessao — rota publica', async ({ page }) => {
     await page.goto('/produto/1')
 
-    // Valida que foi redirecionado para login
-    await expect(page.getByLabel('E-mail')).toBeVisible()
-    await expect(page.getByLabel('Senha')).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: /ventilador de mesa premium/i }),
+    ).toBeVisible()
+    await expect(page.getByLabel('Senha')).toBeHidden()
   })
 
   test('categoria inexistente mostra estado "não encontrado"', async ({ page }) => {
