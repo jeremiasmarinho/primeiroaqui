@@ -89,6 +89,7 @@ export default function AppRouter(props: AppRouterProps) {
       address={props.addressLine}
       onOpenCart={props.onOpenCart}
       moreHref={moreHref}
+      isAuthenticated={!!authUser}
     />
   )
 

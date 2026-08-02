@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { Bell, Camera, ChevronRight, MapPin, Search } from 'lucide-react'
+import { Bell, Camera, ChevronRight, LogIn, MapPin, Search } from 'lucide-react'
 import { Link } from 'wouter'
 import { categories, products, stores } from '../data/catalog'
 import { ROUTES, toCategorySlug } from '../router/routes'
@@ -30,6 +30,8 @@ interface TopBarProps {
   /** Destino do avatar. Operação vai ao painel; cliente, ao perfil. */
   profileHref?: string
   onNotifications?: () => void
+  /** Guest (sem sessão) mostra ícone de entrada em vez de iniciais. */
+  isAuthenticated?: boolean
 }
 
 export default function TopBar({
@@ -44,6 +46,7 @@ export default function TopBar({
   notificationCount = 0,
   profileHref,
   onNotifications,
+  isAuthenticated = true,
 }: TopBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -150,11 +153,11 @@ export default function TopBar({
           */}
           <Link
             href={profileHref ?? ROUTES.profile}
-            aria-label={`Abrir perfil de ${userName || 'convidado'}`}
+            aria-label={isAuthenticated ? `Abrir perfil de ${userName || 'convidado'}` : 'Entrar ou criar conta'}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-surface
                        text-sm font-extrabold text-ink shadow-card"
           >
-            {userInitials}
+            {isAuthenticated ? userInitials : <LogIn className="h-5 w-5" aria-hidden="true" />}
           </Link>
 
           <div ref={containerRef} onBlur={handleBlur} className="relative flex-1">

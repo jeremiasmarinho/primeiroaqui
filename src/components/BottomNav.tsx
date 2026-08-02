@@ -1,4 +1,4 @@
-import { Heart, Home, LayoutGrid, Menu, ShoppingCart } from 'lucide-react'
+import { Heart, Home, LayoutGrid, LogIn, Menu, ShoppingCart } from 'lucide-react'
 import { Link } from 'wouter'
 import { ROUTES } from '../router/routes'
 
@@ -22,6 +22,8 @@ interface BottomNavProps {
   /** Destino do item "Mais". Operação vai ao painel; cliente, ao perfil. */
   moreHref?: string
   onNavigate?: (id: NavId) => void
+  /** Guest (sem sessão): item "Mais" vira "Entrar" e aponta para /entrar. */
+  isAuthenticated?: boolean
 }
 
 export default function BottomNav({
@@ -30,6 +32,7 @@ export default function BottomNav({
   favoritesCount = 0,
   moreHref = ROUTES.profile,
   onNavigate,
+  isAuthenticated = true,
 }: BottomNavProps) {
   const items: {
     id: NavId
@@ -43,7 +46,9 @@ export default function BottomNav({
     // "Vídeos" era um item que não levava a lugar nenhum. Favoritos ocupa a
     // vaga com destino real e contador (WU-48).
     { id: 'favorites', label: 'Favoritos', Icon: Heart, href: ROUTES.favorites },
-    { id: 'more', label: 'Mais', Icon: Menu, href: moreHref },
+    isAuthenticated
+      ? { id: 'more', label: 'Mais', Icon: Menu, href: moreHref }
+      : { id: 'more', label: 'Entrar', Icon: LogIn, href: ROUTES.login },
   ]
 
   return (

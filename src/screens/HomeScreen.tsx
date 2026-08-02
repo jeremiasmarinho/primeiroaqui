@@ -58,6 +58,7 @@ interface HomeScreenProps {
   address?: string
   onOpenCart: () => void
   moreHref?: string
+  isAuthenticated: boolean
 }
 
 export default function HomeScreen({
@@ -77,6 +78,7 @@ export default function HomeScreen({
   address,
   onOpenCart,
   moreHref,
+  isAuthenticated,
 }: HomeScreenProps) {
   const isFavorite = (product: Product): boolean => favorites.some((item) => item.id === product.id)
   const initials = (userName || 'Primeiro Aqui')
@@ -105,6 +107,7 @@ export default function HomeScreen({
         address={address}
         notificationCount={notificationCount}
         profileHref={moreHref}
+        isAuthenticated={isAuthenticated}
       />
 
       <main className="mx-auto max-w-6xl">
@@ -188,6 +191,7 @@ export default function HomeScreen({
         favoritesCount={favorites.length}
         moreHref={moreHref}
         onNavigate={onOpenCart}
+        isAuthenticated={isAuthenticated}
       />
     </div>
   )

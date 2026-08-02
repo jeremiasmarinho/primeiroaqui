@@ -217,6 +217,12 @@ describe('TopBar', () => {
     expect(screen.getByRole('link', { name: 'Farmácia' })).toHaveAttribute('aria-current', 'true')
     expect(screen.getByRole('link', { name: 'Casa' })).not.toHaveAttribute('aria-current')
   })
+
+  it('sem sessao, o avatar vira ponto de entrada para login', () => {
+    render(<TopBar {...baseProps} isAuthenticated={false} />)
+    const entrar = screen.getByRole('link', { name: /entrar ou criar conta/i })
+    expect(entrar).toHaveAttribute('href', '/perfil') // profileHref por padrao; AppRouter passa /entrar quando visitante
+  })
 })
 
 describe('BottomNav', () => {
@@ -238,6 +244,18 @@ describe('BottomNav', () => {
   it('o item ativo marca aria-current="page"', () => {
     render(<BottomNav active="cart" />)
     expect(screen.getByRole('button', { name: 'Carrinho' })).toHaveAttribute('aria-current', 'page')
+  })
+
+  it('sem sessao, o item "Mais" vira "Entrar" e aponta para /entrar', () => {
+    render(<BottomNav isAuthenticated={false} />)
+    const entrar = screen.getByRole('link', { name: 'Entrar' })
+    expect(entrar).toHaveAttribute('href', '/entrar')
+    expect(screen.queryByRole('link', { name: 'Mais' })).not.toBeInTheDocument()
+  })
+
+  it('autenticado (padrao), o item continua "Mais"', () => {
+    render(<BottomNav moreHref="/perfil" />)
+    expect(screen.getByRole('link', { name: 'Mais' })).toBeInTheDocument()
   })
 })
 
