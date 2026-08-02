@@ -88,3 +88,21 @@ no `.env.local`.
 - Se o bundle disparar de tamanho sem motivo aparente depois de editar
   `.env.local`, confira primeiro se uma linha `NODE_ENV=` foi reintroduzida
   ali antes de investigar código.
+
+## Gap conhecido: servidor ainda não tem build/empacotamento de produção
+
+`start:server` roda `tsx src/server/index.ts` — ou seja, executa o
+TypeScript-fonte direto via `tsx`, uma ferramenta de desenvolvimento (não
+transpila para um artefato de produção nem empacota o servidor). Isso
+funciona hoje porque o servidor só roda localmente/neste ambiente de
+desenvolvimento, mas é um gap para quando o projeto for containerizado de
+verdade: um `Dockerfile` que rode `npm ci --omit=dev && npm run start:server`
+ainda dependeria de `tsx` (hoje em `devDependencies`, corretamente, pois é
+ferramenta de build/dev) para rodar em produção, o que não faz sentido para
+uma imagem de produção enxuta.
+
+Quando a containerização real for tratada (Fase 8/9 ou uma tarefa de deploy
+dedicada), resolver isso com um passo de build explícito (ex.: compilar
+`src/server` para `dist/server` com `tsc`/`esbuild`/`tsup` e rodar
+`node dist/server/index.js` em produção) antes de gerar a imagem Docker. Não
+é necessário resolver agora — apenas registrado como débito conhecido.

@@ -42,8 +42,21 @@ describe('POST /auth/signup', () => {
     // O Supabase Auth deste projeto (free tier) tem um limite baixo de
     // envio de e-mail por hora, compartilhado entre todos os testes que
     // chamam /auth/signup de verdade. Sob rate limit nao ha o que validar
-    // aqui — pular em vez de falhar (nao e um bug do codigo).
-    if (res.status === 429) return ctx.skip()
+    // aqui — pular em vez de falhar localmente (nao e um bug do codigo).
+    // Em CI, porem, esse rate limit e efetivamente permanente (nao "reseta
+    // em breve") e um skip silencioso mascararia a suite quebrada
+    // indefinidamente — falhar explicitamente para forcar a resolucao
+    // (SMTP customizado ou desabilitar "Confirm email" no dashboard do
+    // Supabase) antes de confiar nesta suite em CI.
+    if (res.status === 429) {
+      if (process.env.CI) {
+        throw new Error(
+          'Rate limit de e-mail do Supabase atingido em CI — resolva no dashboard do Supabase ' +
+            '(SMTP customizado ou desabilitar "Confirm email") antes de rodar este teste em CI.',
+        )
+      }
+      return ctx.skip()
+    }
 
     expect(res.status).toBe(201)
     const body = (await res.json()) as { user: { authUserId: string; role: string; email: string } }
@@ -73,6 +86,23 @@ describe('POST /auth/signup', () => {
     expect(res.status).toBe(400)
   })
 
+  it('body JSON malformado retorna 400 (nunca 500)', async () => {
+    const res = await app.request('/auth/signup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: 'isso-nao-e-json{{{',
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('sem body retorna 400 (nunca 500)', async () => {
+    const res = await app.request('/auth/signup', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(res.status).toBe(400)
+  })
+
   it('signup com e-mail duplicado falha', async (ctx) => {
     const email = `teste-fase4-signup-dup-${Date.now()}-${Math.random().toString(36).slice(2)}@teste.com`
 
@@ -81,7 +111,15 @@ describe('POST /auth/signup', () => {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ email, password: 'senha-teste-123', name: 'Primeiro' }),
     })
-    if (first.status === 429) return ctx.skip()
+    if (first.status === 429) {
+      if (process.env.CI) {
+        throw new Error(
+          'Rate limit de e-mail do Supabase atingido em CI — resolva no dashboard do Supabase ' +
+            '(SMTP customizado ou desabilitar "Confirm email") antes de rodar este teste em CI.',
+        )
+      }
+      return ctx.skip()
+    }
     expect(first.status).toBe(201)
     const firstBody = (await first.json()) as { user: { authUserId: string } }
     createdAuthUserIds.push(firstBody.user.authUserId)
@@ -140,6 +178,23 @@ describe('POST /auth/login', () => {
       body: JSON.stringify({ email: 'nao-existe-fase4@example.com', password: 'qualquer-coisa' }),
     })
     expect(res.status).toBe(401)
+  })
+
+  it('body JSON malformado retorna 400 (nunca 500)', async () => {
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: 'isso-nao-e-json{{{',
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('sem body retorna 400 (nunca 500)', async () => {
+    const res = await app.request('/auth/login', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(res.status).toBe(400)
   })
 })
 

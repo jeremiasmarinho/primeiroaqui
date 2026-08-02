@@ -1,10 +1,25 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { supabasePublic, supabaseAdmin } from '../lib/supabaseClient'
 import { prisma } from '../lib/prismaClient'
 import { requireUser, type AuthEnv } from '../middleware/auth'
 
 export const authRoutes = new Hono<AuthEnv>()
+
+/**
+ * Faz parse do corpo JSON da requisicao sem lancar excecao. Corpo malformado
+ * (JSON invalido) ou ausente retorna `undefined` em vez de propagar o erro do
+ * Hono/`Request.json()`, permitindo que o chamador responda 400 em vez de um
+ * 500 nao tratado — importante em rotas publicas (signup/login), acessiveis
+ * por qualquer anonimo.
+ */
+async function parseJsonBody(c: Context<AuthEnv>): Promise<unknown> {
+  try {
+    return await c.req.json()
+  } catch {
+    return undefined
+  }
+}
 
 const signupSchema = z.object({
   email: z.string().email('E-mail invalido'),
@@ -24,7 +39,11 @@ const loginSchema = z.object({
 const GENERIC_AUTH_ERROR = 'E-mail ou senha invalidos'
 
 authRoutes.post('/auth/signup', async (c) => {
-  const parsed = signupSchema.safeParse(await c.req.json())
+  const body = await parseJsonBody(c)
+  if (body === undefined) {
+    return c.json({ error: 'Body invalido ou ausente' }, 400)
+  }
+  const parsed = signupSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ error: 'Dados invalidos', details: parsed.error.flatten() }, 400)
   }
@@ -82,7 +101,11 @@ authRoutes.post('/auth/signup', async (c) => {
 })
 
 authRoutes.post('/auth/login', async (c) => {
-  const parsed = loginSchema.safeParse(await c.req.json())
+  const body = await parseJsonBody(c)
+  if (body === undefined) {
+    return c.json({ error: 'Body invalido ou ausente' }, 400)
+  }
+  const parsed = loginSchema.safeParse(body)
   if (!parsed.success) {
     return c.json({ error: 'Dados invalidos', details: parsed.error.flatten() }, 400)
   }
