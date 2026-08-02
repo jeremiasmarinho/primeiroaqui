@@ -2,11 +2,35 @@ import { defineConfig } from 'vitest/config'
 
 export default defineConfig({
   test: {
-    include: ['src/**/*.test.{js,jsx,ts,tsx}'],
-    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: './src/test/setup.ts',
+    // Fase 4: testes de servidor (src/server/**) rodam em ambiente `node`,
+    // sem o MSW da suite de UI, e batem no Supabase/Postgres reais via
+    // .env.local (ver src/server/test/setup.ts). `test.projects` deixa
+    // `vitest run`/`npm run test:unit` cobrindo os dois mundos numa so
+    // chamada.
+    projects: [
+      {
+        extends: true,
+        test: {
+          name: 'client',
+          include: ['src/**/*.test.{js,jsx,ts,tsx}'],
+          exclude: ['e2e/**', 'node_modules/**', 'dist/**', 'src/server/**/*.test.ts'],
+          environment: 'jsdom',
+          globals: true,
+          setupFiles: './src/test/setup.ts',
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: 'server',
+          include: ['src/server/**/*.test.ts'],
+          exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
+          environment: 'node',
+          globals: true,
+          setupFiles: './src/server/test/setup.ts',
+        },
+      },
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'html', 'lcov'],
