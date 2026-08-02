@@ -46,6 +46,6 @@ test.describe('mobile 375px', () => {
     await expect(nav).toBeVisible()
 
     await page.mouse.wheel(0, 4000)
-    await expect(nav.getByRole('button', { name: /^início$/i })).toBeVisible()
+    await expect(nav.getByRole('link', { name: /^início$/i })).toBeVisible()
   })
 })

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Verifica se o tamanho total de JavaScript em dist/assets não excede 300 kB.
+ * Verifica se o tamanho total de JavaScript em dist/assets não excede 330 kB.
  *
  * Executar após `npm run build`. Falha com código 1 se o limite for excedido.
  * CSS e outros assets não são contabilizados — apenas .js.
@@ -20,7 +20,12 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 const assetsDir = path.join(projectRoot, 'dist', 'assets')
 
-const MAX_SIZE_KB = 300
+// 330 kB — decisão registrada em ORQUESTRACAO-MVP-FASE2.md §10 (2026-08-01):
+// React+ReactDOM custam ~190 kB minificados; o app inteiro (12 telas, rotas,
+// estado) usa ~122 kB. Cortar abaixo disso exigiria trocar de framework —
+// fora do escopo do MVP. Baixar este limite sem justificativa é permitido;
+// SUBIR sem decisão humana registrada é violação do gate.
+const MAX_SIZE_KB = 330
 const MAX_SIZE_BYTES = MAX_SIZE_KB * 1024
 
 const main = () => {

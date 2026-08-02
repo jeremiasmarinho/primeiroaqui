@@ -104,6 +104,7 @@ export default function HomeScreen({
         userName={userName}
         address={address}
         notificationCount={notificationCount}
+        profileHref={moreHref}
       />
 
       <main className="mx-auto max-w-6xl">

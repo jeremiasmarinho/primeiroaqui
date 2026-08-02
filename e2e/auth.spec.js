@@ -10,7 +10,7 @@ test.describe('autenticacao', () => {
     await page.getByLabel('Senha').fill('segredo123')
     await page.getByRole('button', { name: /^criar conta$/i }).last().click()
 
-    const profile = page.getByRole('button', { name: /abrir perfil de ana paula/i })
+    const profile = page.getByRole('link', { name: /abrir perfil de ana paula/i })
     await expect(profile).toBeVisible()
 
     await profile.click()
@@ -42,7 +42,7 @@ test.describe('autenticacao', () => {
     })
     await page.reload()
 
-    await page.getByRole('button', { name: /^mais$/i }).click()
+    await page.getByRole('link', { name: /^mais$/i }).click()
     await expect(page.getByRole('tab', { name: /agentes/i })).toBeHidden()
   })
 })

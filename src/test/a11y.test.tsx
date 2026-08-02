@@ -102,10 +102,39 @@ describe('acessibilidade', () => {
     expect(describeViolations(violations)).toBe('')
   })
 
+  it('categorias sem violacao critica ou seria', async () => {
+    const { container } = openAsClient(ROUTES.categories)
+
+    const violations = blocking((await axe(container)) as AxeResults)
+    expect(describeViolations(violations)).toBe('')
+  })
+
+  it('busca com sugestoes abertas sem violacao critica ou seria', async () => {
+    const { container } = openAsClient(ROUTES.search)
+    const input = screen.getByLabelText(/buscar produtos, lojas ou categorias/i)
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: 'casa' } })
+
+    const violations = blocking((await axe(container)) as AxeResults)
+    expect(describeViolations(violations)).toBe('')
+  })
+
+  it('busca com historico aberto sem violacao critica ou seria', async () => {
+    localStorage.setItem(STORAGE_KEYS.searchHistory, JSON.stringify(['ventilador', 'whey']))
+    const { container } = openAsClient(ROUTES.search)
+    fireEvent.focus(screen.getByLabelText(/buscar produtos, lojas ou categorias/i))
+
+    const violations = blocking((await axe(container)) as AxeResults)
+    expect(describeViolations(violations)).toBe('')
+  })
+
   it('painel admin sem violacao critica ou seria', async () => {
     const { container } = render(<MarketplaceApp />)
     fireEvent.click(screen.getByRole('button', { name: /entrar como operação/i }))
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
+    // AdminScreen carrega via React.lazy — espera o chunk resolver antes de
+    // rodar o axe, em vez de depender do timing implícito do `await axe()`.
+    await screen.findByRole('heading', { level: 1 })
 
     const violations = blocking((await axe(container)) as AxeResults)
     expect(describeViolations(violations)).toBe('')
@@ -154,10 +183,13 @@ describe('semantica dos controles', () => {
     expect(dialog).toHaveAccessibleName()
   })
 
-  it('a hierarquia de titulos comeca em h1 e nao pula nivel', () => {
+  it('a hierarquia de titulos comeca em h1 e nao pula nivel', async () => {
     render(<MarketplaceApp />)
     fireEvent.click(screen.getByRole('button', { name: /entrar como operação/i }))
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
+    // AdminScreen carrega via React.lazy — espera o chunk resolver antes de
+    // inspecionar a hierarquia de headings.
+    await screen.findByRole('heading', { level: 1 })
 
     const levels = screen
       .getAllByRole('heading')

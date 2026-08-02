@@ -8,11 +8,15 @@ describe('painel admin', () => {
     localStorage.clear()
   })
 
-  const enterAsAdmin = () => {
+  // AdminScreen carrega via React.lazy (code splitting — o comprador nunca
+  // baixa o painel). `enterAsAdmin` por isso é assíncrono: espera o chunk
+  // resolver e o painel de fato aparecer antes de devolver o controle.
+  const enterAsAdmin = async () => {
     render(<MarketplaceApp />)
     fireEvent.click(screen.getByRole('button', { name: /entrar como operação/i }))
     // Para operação, o item "Mais" da barra leva ao painel.
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
+    await screen.findByRole('tab', { name: /agentes/i })
   }
 
   const openTab = (name: RegExp) => {
@@ -30,8 +34,8 @@ describe('painel admin', () => {
       expect(window.location.pathname).toBe('/perfil')
     })
 
-    it('operacao acessa o painel', () => {
-      enterAsAdmin()
+    it('operacao acessa o painel', async () => {
+      await enterAsAdmin()
       expect(screen.getByRole('tab', { name: /agentes/i })).toBeInTheDocument()
     })
   })
@@ -52,8 +56,8 @@ describe('painel admin', () => {
       })
     }
 
-    it('cria um agente novo', () => {
-      enterAsAdmin()
+    it('cria um agente novo', async () => {
+      await enterAsAdmin()
       openTab(/agentes/i)
 
       fillAgent()
@@ -62,8 +66,8 @@ describe('painel admin', () => {
       expect(screen.getByText('Carla Nunes')).toBeInTheDocument()
     })
 
-    it('nao cria agente sem campos obrigatorios', () => {
-      enterAsAdmin()
+    it('nao cria agente sem campos obrigatorios', async () => {
+      await enterAsAdmin()
       openTab(/agentes/i)
 
       fireEvent.change(screen.getByPlaceholderText('Nome'), { target: { value: 'Sem o resto' } })
@@ -72,8 +76,8 @@ describe('painel admin', () => {
       expect(screen.queryByText('Sem o resto')).not.toBeInTheDocument()
     })
 
-    it('rejeita comissao fora da faixa 0..100', () => {
-      enterAsAdmin()
+    it('rejeita comissao fora da faixa 0..100', async () => {
+      await enterAsAdmin()
       openTab(/agentes/i)
 
       fillAgent({ name: 'Comissao Absurda', commission: '150' })
@@ -82,8 +86,8 @@ describe('painel admin', () => {
       expect(screen.queryByText('Comissao Absurda')).not.toBeInTheDocument()
     })
 
-    it('deleta um agente', () => {
-      enterAsAdmin()
+    it('deleta um agente', async () => {
+      await enterAsAdmin()
       openTab(/agentes/i)
 
       expect(screen.getByText('João Almeida')).toBeInTheDocument()
@@ -93,8 +97,8 @@ describe('painel admin', () => {
       expect(screen.queryByText('João Almeida')).not.toBeInTheDocument()
     })
 
-    it('IDs novos nao colidem com os existentes', () => {
-      enterAsAdmin()
+    it('IDs novos nao colidem com os existentes', async () => {
+      await enterAsAdmin()
       openTab(/agentes/i)
 
       fillAgent({ name: 'Agente Um' })
@@ -108,8 +112,8 @@ describe('painel admin', () => {
   })
 
   describe('pedidos', () => {
-    it('muda o status de um pedido', () => {
-      enterAsAdmin()
+    it('muda o status de um pedido', async () => {
+      await enterAsAdmin()
       openTab(/pedidos/i)
 
       const selects = screen.getAllByRole('combobox')
@@ -118,8 +122,8 @@ describe('painel admin', () => {
       expect((selects[2] as HTMLSelectElement).value).toBe('Em rota')
     })
 
-    it('transicao invalida nao corrompe o pedido', () => {
-      enterAsAdmin()
+    it('transicao invalida nao corrompe o pedido', async () => {
+      await enterAsAdmin()
       openTab(/pedidos/i)
 
       // Pedido 1001 ja esta Entregue: voltar para Processando e invalido.
@@ -131,8 +135,8 @@ describe('painel admin', () => {
   })
 
   describe('desempenho', () => {
-    it('o ranking ordena por comissao decrescente', () => {
-      enterAsAdmin()
+    it('o ranking ordena por comissao decrescente', async () => {
+      await enterAsAdmin()
       openTab(/desempenho/i)
 
       const ranking = screen.getByText(/ranking/i).parentElement as HTMLElement

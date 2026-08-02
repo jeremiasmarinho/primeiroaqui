@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Bell, Camera, ChevronRight, MapPin, Search } from 'lucide-react'
 import { Link } from 'wouter'
@@ -27,7 +27,8 @@ interface TopBarProps {
   userInitials?: string
   userName?: string
   notificationCount?: number
-  onProfile?: () => void
+  /** Destino do avatar. Operação vai ao painel; cliente, ao perfil. */
+  profileHref?: string
   onNotifications?: () => void
 }
 
@@ -41,11 +42,16 @@ export default function TopBar({
   userInitials = 'PA',
   userName,
   notificationCount = 0,
-  onProfile,
+  profileHref,
   onNotifications,
 }: TopBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const focusFirstOptionRef = useRef(false)
+  // Refoco programático (depois de aplicar sugestão ou apertar Escape) não
+  // pode reabrir a lista — senão fechar vira reabrir na hora, e a pessoa
+  // nunca sai do dropdown.
+  const suppressFocusOpenRef = useRef(false)
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
   const { history, addTerm, removeTerm, clear } = useSearchHistory()
 
@@ -70,29 +76,57 @@ export default function TopBar({
     setIsSuggestionsOpen(false)
   }
 
+  const focusInputWithoutReopening = () => {
+    // `.focus()` num elemento já focado não dispara evento — só arma a
+    // supressão quando o foco realmente vai se mover, senão a flag fica
+    // pendurada e engole o próximo foco legítimo.
+    if (document.activeElement !== inputRef.current) {
+      suppressFocusOpenRef.current = true
+    }
+    inputRef.current?.focus()
+  }
+
   const applySuggestion = (term: string) => {
     onSearchChange(term)
     commitSearch(term)
-    inputRef.current?.focus()
+    focusInputWithoutReopening()
   }
 
   const closeSuggestions = () => {
     setIsSuggestionsOpen(false)
-    inputRef.current?.focus()
+    focusInputWithoutReopening()
   }
 
+  // A lista só existe no DOM depois que `isSuggestionsOpen` vira true e o
+  // React comita o render — por isso ArrowDown não pode focar a primeira
+  // opção na hora: se a lista já estiver aberta, o botão já existe e o foco
+  // funciona direto; senão, marca a intenção e o efeito abaixo termina o
+  // trabalho assim que a lista aparecer.
   const handleInputKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'ArrowDown') {
       event.preventDefault()
-      setIsSuggestionsOpen(true)
       const firstOption = containerRef.current?.querySelector<HTMLButtonElement>(
         '[data-suggestion-option="true"]',
       )
-      firstOption?.focus()
+      if (firstOption) {
+        firstOption.focus()
+        return
+      }
+      focusFirstOptionRef.current = true
+      setIsSuggestionsOpen(true)
     } else if (event.key === 'Escape') {
       setIsSuggestionsOpen(false)
     }
   }
+
+  useEffect(() => {
+    if (!isSuggestionsOpen || !focusFirstOptionRef.current) return
+    focusFirstOptionRef.current = false
+    const firstOption = containerRef.current?.querySelector<HTMLButtonElement>(
+      '[data-suggestion-option="true"]',
+    )
+    firstOption?.focus()
+  }, [isSuggestionsOpen, suggestions, history])
 
   const handleBlur = (event: React.FocusEvent<HTMLDivElement>) => {
     const next = event.relatedTarget
@@ -106,15 +140,22 @@ export default function TopBar({
     <header className="safe-top sticky top-0 z-40 bg-brand">
       <div className="mx-auto max-w-6xl px-3 pb-2 pt-2">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onProfile}
+          {/*
+            Link real para /perfil — igual ao padrão de navegação já usado nas
+            abas de categoria e no item "Mais" da barra inferior. Antes da
+            migração para roteamento por URL isto era um botão com callback
+            (`onOpenProfile`); o callback ficou órfão na migração e o avatar
+            parou de navegar. `profileHref` permite ao pai apontar para o
+            painel quando o papel for de operação, mesma regra do "Mais".
+          */}
+          <Link
+            href={profileHref ?? ROUTES.profile}
             aria-label={`Abrir perfil de ${userName || 'convidado'}`}
             className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-surface
                        text-sm font-extrabold text-ink shadow-card"
           >
             {userInitials}
-          </button>
+          </Link>
 
           <div ref={containerRef} onBlur={handleBlur} className="relative flex-1">
             <form
@@ -136,8 +177,17 @@ export default function TopBar({
                 ref={setInputRef}
                 type="search"
                 value={searchQuery}
-                onChange={(event) => onSearchChange(event.target.value)}
-                onFocus={() => setIsSuggestionsOpen(true)}
+                onChange={(event) => {
+                  onSearchChange(event.target.value)
+                  setIsSuggestionsOpen(true)
+                }}
+                onFocus={() => {
+                  if (suppressFocusOpenRef.current) {
+                    suppressFocusOpenRef.current = false
+                    return
+                  }
+                  setIsSuggestionsOpen(true)
+                }}
                 onKeyDown={handleInputKeyDown}
                 placeholder="Buscar no Primeiro Aqui"
                 enterKeyHint="search"

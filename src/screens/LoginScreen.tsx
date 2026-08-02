@@ -115,7 +115,7 @@ export default function LoginScreen({
           <button type="submit" className="mt-4 w-full rounded-[20px] bg-slate-900 px-4 py-3 font-bold text-white">{authMode === 'signup' ? 'Criar conta' : 'Entrar'}</button>
         </form>
 
-        {isDevMode ? (
+        {import.meta.env.DEV && isDevMode ? (
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <button onClick={() => onQuickLogin('client')} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-left transition hover:-translate-y-1">
             <div className="flex items-center gap-3">
@@ -126,7 +126,7 @@ export default function LoginScreen({
               </div>
             </div>
           </button>
-          {isDevMode ? (
+          {import.meta.env.DEV && isDevMode ? (
             <button onClick={() => onQuickLogin('admin')} className="rounded-[24px] border border-slate-200 bg-slate-50 p-5 text-left transition hover:-translate-y-1">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700"><Settings className="h-5 w-5" /></div>

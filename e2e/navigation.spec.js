@@ -39,9 +39,11 @@ test.describe('navegacao', () => {
   test('voltar do navegador retorna à tela anterior', async ({ page }) => {
     await entrar(page)
 
-    // Navega para a primeira tela (home)
-    const homeTitle = page.getByText('Primeiro Aqui')
-    await expect(homeTitle).toBeVisible()
+    // Navega para a primeira tela (home). A busca por texto solto "Primeiro
+    // Aqui" e ambigua (aparece em varios rotulos sr-only dos cards) — a barra
+    // de navegacao inferior e o marcador estavel e unico da home.
+    const homeNav = page.getByRole('navigation', { name: /navegação principal/i })
+    await expect(homeNav).toBeVisible()
 
     // Clica no primeiro produto para navegar
     await page
@@ -67,7 +69,7 @@ test.describe('navegacao', () => {
     await page.goBack()
 
     // Valida que voltou para a home
-    await expect(homeTitle).toBeVisible()
+    await expect(homeNav).toBeVisible()
   })
 
   test('/admin sem sessao redireciona para login', async ({ page }) => {
