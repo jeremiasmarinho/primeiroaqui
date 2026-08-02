@@ -70,3 +70,21 @@ O fluxo correto para aplicar novas migrações é:
 - `migrate diff ... --script` = Gere o SQL para revisar.
 - `migrate deploy` = Aplique o SQL já revisado (seguro, sem prompts).
 - `generate` = Sincronize o Prisma Client após qualquer mudança no schema.
+
+## `.env.local` nunca deve definir `NODE_ENV`
+
+O Vite (usado pelo frontend) carrega `.env`/`.env.local` e, se essas variáveis
+incluírem `NODE_ENV`, ele **sobrescreve** o modo real do comando — inclusive
+em `vite build` (produção). Um `.env.local` com `NODE_ENV=development`
+(colocado ali por engano na Fase 0 deste playbook de backend) fez `npm run
+build` gerar um bundle de `react-dom` em modo desenvolvimento, quase
+dobrando o tamanho (313 KB → 553 KB) sem nenhum erro visível — só o
+`check:bundle` acusa, e só se alguém rodar o gate completo depois de tocar
+no `.env.local`.
+
+- **Nunca** adicione `NODE_ENV=` a `.env.local` ou `.env.example` neste
+  projeto. O Vite já infere o modo certo sozinho (`dev` no servidor de
+  desenvolvimento, `production` em `vite build`).
+- Se o bundle disparar de tamanho sem motivo aparente depois de editar
+  `.env.local`, confira primeiro se uma linha `NODE_ENV=` foi reintroduzida
+  ali antes de investigar código.
