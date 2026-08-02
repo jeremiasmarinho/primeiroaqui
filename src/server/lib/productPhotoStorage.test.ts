@@ -29,22 +29,30 @@ describe('validateProductPhoto', () => {
 
 describe('buildStoragePath', () => {
   it('retorna path no formato <productId>/<uuid>.<ext>', () => {
-    const path = buildStoragePath('produto-123', 'foto.jpg')
+    const path = buildStoragePath('produto-123', 'image/jpeg')
     expect(path).toMatch(
       /^produto-123\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jpg$/,
     )
   })
 
-  it('usa o proprio nome do arquivo como extensao quando nao ha ponto', () => {
-    // split('.').pop() nunca retorna undefined para uma string nao vazia
-    // (o array sempre tem ao menos um elemento) — o fallback so protege
-    // contra fileName vazio, que produz string vazia, nao undefined.
-    const path = buildStoragePath('produto-123', 'foto-sem-extensao')
-    expect(path.endsWith('.foto-sem-extensao')).toBe(true)
+  it('deriva extensao .jpg para image/jpeg', () => {
+    const path = buildStoragePath('produto-123', 'image/jpeg')
+    expect(path.endsWith('.jpg')).toBe(true)
   })
 
-  it('preserva a extensao original do arquivo', () => {
-    const path = buildStoragePath('produto-123', 'foto.png')
+  it('deriva extensao .png para image/png', () => {
+    const path = buildStoragePath('produto-123', 'image/png')
     expect(path.endsWith('.png')).toBe(true)
+  })
+
+  it('deriva extensao .webp para image/webp', () => {
+    const path = buildStoragePath('produto-123', 'image/webp')
+    expect(path.endsWith('.webp')).toBe(true)
+  })
+
+  it('rejeita MIME type nao suportado, mesmo com nome de arquivo com extensao valida', () => {
+    expect(() => buildStoragePath('produto-123', 'application/pdf')).toThrow(
+      StorageValidationError,
+    )
   })
 })

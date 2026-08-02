@@ -14,6 +14,7 @@ export default defineConfig({
       // que inflava o número — 96% medindo só lib/state não diz nada sobre a UI.
       include: [
         'src/lib/**/*.ts',
+        'src/server/**/*.ts',
         'src/state/**/*.ts',
         'src/data/**/*.ts',
         'src/components/**/*.tsx',
@@ -33,6 +34,12 @@ export default defineConfig({
           statements: 90,
         },
         'src/lib/**/*.ts': {
+          lines: 80,
+          functions: 80,
+          branches: 70,
+          statements: 80,
+        },
+        'src/server/**/*.ts': {
           lines: 80,
           functions: 80,
           branches: 70,

@@ -20,6 +20,42 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const projectRoot = path.resolve(__dirname, '..')
 const assetsDir = path.join(projectRoot, 'dist', 'assets')
 
+// Gate: NODE_ENV nunca deve ser definido em .env.local/.env.example. O Vite
+// carrega essas variaveis e, se NODE_ENV estiver setado, sobrescreve o modo
+// real do comando — inclusive em `vite build` (producao) — forcando um bundle
+// de react-dom em modo desenvolvimento e quase dobrando o tamanho, sem erro
+// visivel. Ja aconteceu neste projeto (ver docs/runbook.md, seção
+// "`.env.local` nunca deve definir `NODE_ENV`"). Documentação sozinha não
+// impede que alguém reintroduza a linha; este gate falha o build antes que
+// isso passe despercebido.
+const ENV_FILES_TO_CHECK = ['.env.local', '.env.example']
+const NODE_ENV_LINE_PATTERN = /^\s*NODE_ENV\s*=\s*(.*)\s*$/
+
+const checkNodeEnvNotSet = () => {
+  for (const fileName of ENV_FILES_TO_CHECK) {
+    const filePath = path.join(projectRoot, fileName)
+    if (!fs.existsSync(filePath)) continue
+
+    const lines = fs.readFileSync(filePath, 'utf-8').split('\n')
+    for (const line of lines) {
+      const match = line.match(NODE_ENV_LINE_PATTERN)
+      if (match && match[1].trim() !== '') {
+        console.error(`\n❌ FALHOU: ${fileName} define NODE_ENV=${match[1].trim()}.`)
+        console.error(
+          'O Vite carrega essa variável e sobrescreve o modo real do comando — ' +
+            'inclusive em `vite build` (produção) — gerando um bundle de ' +
+            'react-dom em modo desenvolvimento e quebrando o orçamento de bundle ' +
+            'silenciosamente. Remova a linha NODE_ENV= deste arquivo. ' +
+            'Ver docs/runbook.md, seção "`.env.local` nunca deve definir `NODE_ENV`".',
+        )
+        process.exit(1)
+      }
+    }
+  }
+}
+
+checkNodeEnvNotSet()
+
 // 330 kB — decisão registrada em ORQUESTRACAO-MVP-FASE2.md §10 (2026-08-01):
 // React+ReactDOM custam ~190 kB minificados; o app inteiro (12 telas, rotas,
 // estado) usa ~122 kB. Cortar abaixo disso exigiria trocar de framework —
