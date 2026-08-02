@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
 import { STORAGE_KEYS } from '../state/session'
+import { enterAsClient } from './authTestHelpers'
 
 /** WU-50 — persistência. Fecha a WU-16 do plano original. */
 describe('persistencia', () => {
@@ -13,20 +14,19 @@ describe('persistencia', () => {
     vi.restoreAllMocks()
   })
 
-  const enterAsClient = () => {
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-  }
-
   const addFirstProduct = () => {
     fireEvent.click(
       screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement,
     )
   }
 
+  const clickEnterAsClientButton = () => {
+    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
+  }
+
   describe('sobrevive ao reload', () => {
     it('carrinho e sessao voltam depois de remontar', () => {
-      const first = render(<MarketplaceApp />)
-      enterAsClient()
+      const first = enterAsClient()
       addFirstProduct()
       first.unmount()
 
@@ -36,13 +36,24 @@ describe('persistencia', () => {
     })
 
     it('favoritos voltam depois de remontar', () => {
-      const first = render(<MarketplaceApp />)
-      enterAsClient()
+      const first = enterAsClient()
       fireEvent.click(screen.getAllByRole('button', { name: /^salvar .+ nos favoritos$/i })[0] as HTMLElement)
       first.unmount()
 
       render(<MarketplaceApp />)
       expect(screen.getAllByRole('button', { name: /^remover .+ dos favoritos$/i }).length).toBeGreaterThan(0)
+    })
+
+    it('carrinho de visitante sobrevive ao reload sem sessao', () => {
+      const first = render(<MarketplaceApp />)
+      fireEvent.click(
+        screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement,
+      )
+      first.unmount()
+
+      render(<MarketplaceApp />)
+      const nav = screen.getByRole('navigation', { name: /navegação principal/i })
+      expect(within(nav).getByRole('button', { name: /carrinho — 1 itens/i })).toBeInTheDocument()
     })
   })
 
@@ -52,7 +63,7 @@ describe('persistencia', () => {
       localStorage.setItem(STORAGE_KEYS.orders, 'null null')
 
       expect(() => render(<MarketplaceApp />)).not.toThrow()
-      expect(screen.getByRole('button', { name: /entrar como cliente/i })).toBeInTheDocument()
+      expect(screen.getByRole('navigation', { name: /navegação principal/i })).toBeInTheDocument()
     })
 
     it('JSON valido com formato errado nao concede sessao', () => {
@@ -60,7 +71,8 @@ describe('persistencia', () => {
       localStorage.setItem(STORAGE_KEYS.user, JSON.stringify({ apelido: 'Fulano' }))
 
       render(<MarketplaceApp />)
-      expect(screen.getByRole('button', { name: /entrar como cliente/i })).toBeInTheDocument()
+      const nav = screen.getByRole('navigation', { name: /navegação principal/i })
+      expect(within(nav).getByRole('link', { name: 'Entrar' })).toBeInTheDocument()
     })
 
     it('carrinho no formato antigo (array cru) e migrado com quantidade 1', () => {
@@ -91,7 +103,7 @@ describe('persistencia', () => {
 
       try {
         expect(() => render(<MarketplaceApp />)).not.toThrow()
-        expect(screen.getByRole('button', { name: /entrar como cliente/i })).toBeInTheDocument()
+        expect(screen.getByRole('navigation', { name: /navegação principal/i })).toBeInTheDocument()
       } finally {
         if (original) Object.defineProperty(window, 'localStorage', original)
       }
@@ -105,7 +117,7 @@ describe('persistencia', () => {
       try {
         render(<MarketplaceApp />)
         // Sem storage funcional o app ainda tem que renderizar a entrada.
-        expect(screen.getByRole('button', { name: /entrar como cliente/i })).toBeInTheDocument()
+        expect(screen.getByRole('navigation', { name: /navegação principal/i })).toBeInTheDocument()
       } finally {
         setItem.mockRestore()
       }
@@ -115,7 +127,7 @@ describe('persistencia', () => {
   describe('logout limpa o que e da pessoa (regressoes B3 e B4)', () => {
     it('carrinho e favoritos nao vazam para o proximo login', () => {
       render(<MarketplaceApp />)
-      enterAsClient()
+      clickEnterAsClientButton()
       addFirstProduct()
       fireEvent.click(screen.getByRole('button', { name: /fechar carrinho/i }))
 
@@ -126,7 +138,8 @@ describe('persistencia', () => {
       expect(localStorage.getItem(STORAGE_KEYS.favorites)).toBeNull()
       expect(localStorage.getItem(STORAGE_KEYS.user)).toBeNull()
 
-      enterAsClient()
+      render(<MarketplaceApp />)
+      clickEnterAsClientButton()
       const nav = screen.getByRole('navigation', { name: /navegação principal/i })
       expect(within(nav).getByRole('button', { name: 'Carrinho' })).toBeInTheDocument()
     })
