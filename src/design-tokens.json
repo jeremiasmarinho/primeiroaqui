@@ -1,0 +1,17 @@
+{
+  "primary": "#3483FA",
+  "primaryHover": "#2968C8",
+  "primaryActive": "#1F58A8",
+  "primaryDisabled": "#A6C7F7",
+  "accentYellow": "#FFE600",
+  "navyInk": "#0B1F5C",
+  "background": "#FFFFFF",
+  "surface": "#F8FAFC",
+  "border": "#E2E8F0",
+  "textPrimary": "#0F172A",
+  "textSecondary": "#475569",
+  "success": "#00A650",
+  "error": "#D32F2F",
+  "warning": "#FFB800",
+  "focusRing": "rgba(52,131,250,.35)"
+}

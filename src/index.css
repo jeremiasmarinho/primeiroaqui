@@ -42,11 +42,13 @@
     font: inherit;
   }
 
-  /* Foco visível e consistente — nunca remover (WCAG 2.4.7). */
+  /* Foco visível e consistente — nunca remover (WCAG 2.4.7).
+     Contorno sólido garante contraste (1.4.11); o anel de 3px é o token focusRing. */
   :focus-visible {
-    outline: 2px solid theme('colors.ink.DEFAULT');
+    outline: 2px solid theme('colors.primary.DEFAULT');
     outline-offset: 2px;
     border-radius: 4px;
+    box-shadow: theme('boxShadow.focus');
   }
 }
 
@@ -62,8 +64,29 @@
   }
 
   .chip {
-    @apply inline-flex min-h-[44px] items-center rounded-full px-4 text-sm font-bold
-           transition-colors duration-150;
+    @apply inline-flex min-h-[44px] items-center rounded-full border border-line px-4 text-sm
+           font-bold text-ink-muted transition-colors duration-150;
+  }
+
+  /* Estado selecionado: borda e rótulo na cor primária (#3483FA). */
+  .chip[aria-selected='true'],
+  .chip[aria-pressed='true'],
+  .chip[data-selected='true'] {
+    @apply border-primary bg-primary/10 text-primary;
+  }
+
+  /* Botão primário: normal -> hover -> active -> disabled, sempre com label branca. */
+  .btn-primary {
+    @apply inline-flex min-h-[44px] items-center justify-center rounded-full bg-primary px-5
+           text-sm font-bold text-white transition-colors duration-150
+           hover:bg-primary-hover active:bg-primary-active
+           disabled:cursor-not-allowed disabled:bg-primary-disabled;
+  }
+
+  /* Campo de formulário: borda neutra, foco na primária. */
+  .field-input {
+    @apply h-12 w-full rounded-[16px] border border-line bg-surface px-3 text-ink outline-none
+           transition-colors duration-150 focus:border-primary;
   }
 }
 

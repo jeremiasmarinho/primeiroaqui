@@ -1,27 +1,58 @@
+import { createRequire } from 'node:module'
+
+/** Paleta oficial "Primeiro Aqui" — fonte da verdade em src/design-tokens.json. */
+const tokens = createRequire(import.meta.url)('./src/design-tokens.json')
+
+/**
+ * Valores derivados: nao constam nos tokens oficiais, mas sao necessarios para
+ * estados (hover do amarelo, texto terciario, superficie afundada).
+ */
+const derived = {
+  accentYellowHover: '#E6CF00',
+  accentYellowSoft: '#FFF27A',
+  textTertiary: '#64748B',
+  surfaceSunken: '#F1F5F9',
+  promo: '#E63946',
+}
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
-        brand: {
-          DEFAULT: '#FFD91F',
-          soft: '#FFE873',
-          deep: '#F5C400',
+        primary: {
+          DEFAULT: tokens.primary,
+          hover: tokens.primaryHover,
+          active: tokens.primaryActive,
+          disabled: tokens.primaryDisabled,
         },
+        brand: {
+          DEFAULT: tokens.accentYellow,
+          soft: derived.accentYellowSoft,
+          deep: derived.accentYellowHover,
+        },
+        navy: tokens.navyInk,
         ink: {
-          DEFAULT: '#101418',
-          muted: '#5C6670',
-          faint: '#8A939C',
+          DEFAULT: tokens.textPrimary,
+          muted: tokens.textSecondary,
+          faint: derived.textTertiary,
         },
         surface: {
-          DEFAULT: '#FFFFFF',
-          page: '#EBEBEB',
-          sunken: '#F5F5F5',
+          DEFAULT: tokens.background,
+          page: tokens.surface,
+          sunken: derived.surfaceSunken,
         },
-        ship: '#12A150',
-        promo: '#E63946',
-        line: '#E0E0E0',
+        success: tokens.success,
+        ship: tokens.success,
+        error: tokens.error,
+        warning: tokens.warning,
+        promo: derived.promo,
+        border: tokens.border,
+        line: tokens.border,
+      },
+      ringColor: {
+        focus: tokens.focusRing,
       },
       fontFamily: {
         sans: ['"Nunito Sans"', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'],
@@ -34,6 +65,7 @@ export default {
         card: '0 1px 2px rgba(16, 20, 24, 0.10)',
         raised: '0 2px 10px rgba(16, 20, 24, 0.12)',
         nav: '0 -1px 8px rgba(16, 20, 24, 0.10)',
+        focus: `0 0 0 3px ${tokens.focusRing}`,
       },
       borderRadius: {
         card: '0.5rem',
