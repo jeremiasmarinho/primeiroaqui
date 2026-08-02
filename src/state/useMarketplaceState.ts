@@ -14,13 +14,14 @@ import {
 import { clearCart, replaceCart } from './cart'
 import { createOrder, createOrderIdGenerator, repeatOrder } from './orders'
 import { STORAGE_KEYS, clearSession } from './session'
+import { pendingIntentMessage } from './pendingIntent'
 import { EMPTY_DELIVERY, initialThreads, EMPTY_BUSINESS } from './marketplaceSeed'
 import { useSessionState } from './useSessionState'
 import { useCatalogState } from './useCatalogState'
 import { useCartCheckoutState } from './useCartCheckoutState'
 import { useOrdersAdminState } from './useOrdersAdminState'
 import { useAddressesState } from './useAddressesState'
-import type { Order } from '../types'
+import type { Order, Product, Role } from '../types'
 
 /**
  * Estado e handlers do marketplace inteiro: sessão, vitrine, carrinho,
@@ -33,7 +34,7 @@ import type { Order } from '../types'
  * finalizar compra).
  */
 export function useMarketplaceState() {
-  const [, navigate] = useLocation()
+  const [location, navigate] = useLocation()
 
   const session = useSessionState(navigate)
   const catalog = useCatalogState()
@@ -61,8 +62,8 @@ export function useMarketplaceState() {
   // Dados que pertencem à pessoa só persistem com sessão ativa: sem isso o
   // carrinho de quem saiu vaza para o próximo login (regressões B3 e B4).
   useEffect(() => {
-    writeStoredJSON(STORAGE_KEYS.cart, session.authUser ? cartCheckout.cartState : null)
-  }, [session.authUser, cartCheckout.cartState])
+    writeStoredJSON(STORAGE_KEYS.cart, cartCheckout.cartState)
+  }, [cartCheckout.cartState])
   useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.favorites, session.authUser ? catalog.favorites : null)
   }, [session.authUser, catalog.favorites])
@@ -115,6 +116,56 @@ export function useMarketplaceState() {
     }
 
     cartCheckout.setCheckoutStep('delivery')
+  }
+
+  const guardedToggleFavorite = (product: Product) => {
+    if (!session.authUser) {
+      session.redirectToLogin(location, { type: 'favorite', productId: product.id })
+      return
+    }
+    catalog.toggleFavorite(product)
+  }
+
+  const guardedCartContinue = () => {
+    if (cartCheckout.cartItemsCount === 0) return
+    if (!session.authUser) {
+      session.redirectToLogin(location, { type: 'resume-checkout' })
+      return
+    }
+    handleCartContinue()
+  }
+
+  const guardedBuyNow = (product: Product) => {
+    if (!session.authUser) {
+      cartCheckout.handleAddToCart(product)
+      session.redirectToLogin(location, { type: 'resume-checkout' })
+      return
+    }
+    cartCheckout.handleBuyNow(product)
+  }
+
+  /** Roda depois de login/cadastro bem-sucedido: resolve a intenção pendente e volta para onde a pessoa estava. */
+  const resolvePendingLoginAndNavigate = () => {
+    const intent = session.pendingIntent
+    if (intent?.type === 'favorite') {
+      const product = products.find((item) => item.id === intent.productId)
+      if (product) catalog.toggleFavorite(product)
+    } else if (intent?.type === 'resume-checkout') {
+      handleCartContinue()
+      cartCheckout.setIsCartOpen(true)
+    }
+    navigate(session.pendingReturnTo ?? ROUTES.home)
+    session.clearPendingLogin()
+  }
+
+  const onAuthSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    const success = session.handleAuthSubmit(event)
+    if (success) resolvePendingLoginAndNavigate()
+  }
+
+  const onQuickLogin = (role: Role) => {
+    session.handleQuickLogin(role)
+    resolvePendingLoginAndNavigate()
   }
 
   const handleRepeatOrder = (order: Order) => {
@@ -177,8 +228,10 @@ export function useMarketplaceState() {
     authForm: session.authForm,
     onAuthFormChange: (patch: Partial<AuthForm>) => session.setAuthForm((prev) => ({ ...prev, ...patch })),
     authError: session.authError,
-    onAuthSubmit: session.handleAuthSubmit,
-    onQuickLogin: session.handleQuickLogin,
+    onAuthSubmit,
+    onQuickLogin,
+    onRequireLogin: session.recordReturnTo,
+    loginContextMessage: pendingIntentMessage(session.pendingIntent),
     onLogout: handleLogout,
 
     // vitrine / busca
@@ -186,9 +239,9 @@ export function useMarketplaceState() {
     onSearchChange: catalog.setSearchQuery,
     searchInputRef: catalog.searchInputRef,
     favorites: catalog.favorites,
-    onToggleFavorite: catalog.toggleFavorite,
+    onToggleFavorite: guardedToggleFavorite,
     onAddToCart: cartCheckout.handleAddToCart,
-    onBuyNow: cartCheckout.handleBuyNow,
+    onBuyNow: guardedBuyNow,
     cartCount: cartCheckout.cartItemsCount,
     notificationCount: catalog.notifications.length,
     onOpenCart: () => cartCheckout.setIsCartOpen(true),
@@ -237,7 +290,7 @@ export function useMarketplaceState() {
     onCouponCodeChange: cartCheckout.setCouponCode,
     onApplyCoupon: cartCheckout.handleApplyCoupon,
     onRemoveCoupon: cartCheckout.handleRemoveCoupon,
-    onCartContinue: handleCartContinue,
+    onCartContinue: guardedCartContinue,
     onCartConfirm: handleFinalizePurchase,
 
     // endereços

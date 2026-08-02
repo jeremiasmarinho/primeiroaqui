@@ -36,6 +36,8 @@ export interface AppRouterProps {
   onAuthSubmit: (event: React.FormEvent<HTMLFormElement>) => void
   onQuickLogin: (role: Role) => void
   onLogout: () => void
+  onRequireLogin: (path: string) => void
+  loginContextMessage: string
 
   // vitrine
   searchQuery: string

@@ -1,5 +1,5 @@
 import { Compass } from 'lucide-react'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect } from 'react'
 import { Redirect, Route, Switch, useLocation } from 'wouter'
 
 import EmptyState from '../components/EmptyState'
@@ -51,9 +51,19 @@ export default function AppRouter(props: AppRouterProps) {
   const [location, navigate] = useLocation()
   const { authUser, userRole } = props
 
+  const requiresLogin = !authUser && isProtected(location)
+
   // Guarda de sessão: rota protegida sem usuário volta para o login. `replace`
-  // evita que o botão voltar caia de novo na rota bloqueada.
-  if (!authUser && isProtected(location)) {
+  // evita que o botão voltar caia de novo na rota bloqueada. O efeito registra
+  // o destino de retorno; o fechamento (`location`) captura o valor desta
+  // renderização, então a ordem entre este efeito e o do <Redirect> não importa.
+  useEffect(() => {
+    if (requiresLogin) {
+      props.onRequireLogin(location)
+    }
+  }, [requiresLogin, location, props.onRequireLogin])
+
+  if (requiresLogin) {
     return <Redirect href={ROUTES.login} replace />
   }
 
@@ -105,6 +115,7 @@ export default function AppRouter(props: AppRouterProps) {
           onSubmit={props.onAuthSubmit}
           onQuickLogin={props.onQuickLogin}
           isDevMode={props.isDevMode}
+          contextMessage={props.loginContextMessage}
         />
       </Route>
 

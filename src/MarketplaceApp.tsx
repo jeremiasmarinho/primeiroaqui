@@ -24,6 +24,8 @@ export default function MarketplaceApp() {
         onAuthSubmit={state.onAuthSubmit}
         onQuickLogin={state.onQuickLogin}
         onLogout={state.onLogout}
+        onRequireLogin={state.onRequireLogin}
+        loginContextMessage={state.loginContextMessage}
         searchQuery={state.searchQuery}
         onSearchChange={state.onSearchChange}
         searchRef={state.searchInputRef}

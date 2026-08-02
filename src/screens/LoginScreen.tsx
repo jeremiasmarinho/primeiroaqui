@@ -16,6 +16,7 @@ interface LoginScreenProps {
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
   onQuickLogin: (role: Role) => void
   isDevMode: boolean
+  contextMessage: string
 }
 
 /**
@@ -31,6 +32,7 @@ export default function LoginScreen({
   onSubmit,
   onQuickLogin,
   isDevMode,
+  contextMessage,
 }: LoginScreenProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#ffe600] p-6">
@@ -49,6 +51,12 @@ export default function LoginScreen({
           <h1 className="text-3xl font-black">Gerencie vendas, entregas e agentes em um só lugar</h1>
           <p className="mt-3 text-sm leading-6 text-slate-300">Uma experiência de compra rápida, pensada para operações locais e crescimento futuro.</p>
         </div>
+
+        {contextMessage ? (
+          <p className="mt-4 rounded-[16px] bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+            {contextMessage}
+          </p>
+        ) : null}
 
         <form
           onSubmit={onSubmit}
