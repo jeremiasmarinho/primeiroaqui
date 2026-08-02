@@ -126,17 +126,24 @@ describe('rotas', () => {
       expect(screen.getByLabelText('Senha')).toBeInTheDocument()
     })
 
-    it('sem sessao, a vitrine tambem leva para /entrar', () => {
-      // Comportamento preservado da versao anterior. Abrir a vitrine ao
-      // publico e decisao de produto — ver nota em src/router/routes.ts.
+    it('sem sessao, a vitrine e publica — nao redireciona para login', () => {
       goTo(ROUTES.home)
       render(<MarketplaceApp />)
 
-      expect(screen.getByLabelText('Senha')).toBeInTheDocument()
+      expect(screen.getByRole('navigation', { name: /navegação principal/i })).toBeInTheDocument()
+      expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
     })
 
-    it('deep link em rota protegida volta para o login, sem crash', () => {
+    it('produto continua acessivel sem sessao — rota publica', () => {
       goTo(ROUTES.product(1))
+      render(<MarketplaceApp />)
+
+      expect(screen.getByRole('heading', { name: /ventilador de mesa premium/i })).toBeInTheDocument()
+      expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
+    })
+
+    it('favoritos continua protegido sem sessao', () => {
+      goTo(ROUTES.favorites)
       render(<MarketplaceApp />)
 
       expect(screen.getByLabelText('Senha')).toBeInTheDocument()

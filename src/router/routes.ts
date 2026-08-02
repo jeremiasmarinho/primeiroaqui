@@ -41,19 +41,28 @@ export const ROUTES = {
 } as const
 
 /**
- * Rotas públicas. Hoje só o login — todo o resto exige sessão.
+ * Rotas protegidas — exigem sessão. Tudo que não está aqui é público
+ * (vitrine, produto, loja, categoria, busca, categorias, login).
  *
- * NOTA DE PRODUTO: o README define que "a vitrine deve ser a página inicial
- * para reduzir atrito de conversão", o que pediria `/`, `/produto/:id` e
- * `/loja/:slug` públicos. Abrir a vitrine é decisão de produto, não de
- * roteamento, então esta WU preserva o comportamento atual. Quando for aberta,
- * basta acrescentar os padrões aqui — o teste `routing.test.tsx` cobre os dois
- * lados da regra.
+ * Decisão de produto (2026-08-02, ver docs/superpowers/specs/2026-08-02-
+ * vitrine-publica-login-contextual-design.md): navegar, ver produto/loja e
+ * adicionar ao carrinho não exige mais conta. Login só aparece ao favoritar,
+ * ao avançar para pagamento, ou ao clicar explicitamente em "Entrar".
+ *
+ * `/favoritos` fica protegido mesmo sendo uma tela de "visualizar": como
+ * favoritar sempre exige login, a tela nunca teria conteúdo para visitante.
  */
-export const PUBLIC_PATTERNS = ['/entrar'] as const
+export const PROTECTED_PATTERNS = [
+  '/perfil',
+  '/pedidos',
+  '/pedido',
+  '/enderecos',
+  '/favoritos',
+  '/admin',
+] as const
 
 export const isProtected = (path: string): boolean =>
-  !PUBLIC_PATTERNS.some((pattern) => path === pattern || path.startsWith(`${pattern}/`))
+  PROTECTED_PATTERNS.some((pattern) => path === pattern || path.startsWith(`${pattern}/`))
 
 /**
  * Slug estável para categoria. A URL usa forma sem acento; a UI mostra o nome
