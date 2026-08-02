@@ -1,6 +1,7 @@
 import {
   validateProductPhoto,
   buildStoragePath,
+  buildThumbStoragePath,
   StorageValidationError,
 } from './productPhotoStorage'
 
@@ -54,5 +55,16 @@ describe('buildStoragePath', () => {
     expect(() => buildStoragePath('produto-123', 'application/pdf')).toThrow(
       StorageValidationError,
     )
+  })
+})
+
+describe('buildThumbStoragePath', () => {
+  it('insere sufixo -thumb antes da extensao', () => {
+    expect(buildThumbStoragePath('produto-123/abc.jpg')).toBe('produto-123/abc-thumb.jpg')
+    expect(buildThumbStoragePath('produto-123/abc.webp')).toBe('produto-123/abc-thumb.webp')
+  })
+
+  it('rejeita path sem extensao', () => {
+    expect(() => buildThumbStoragePath('produto-123/abc')).toThrow(StorageValidationError)
   })
 })
