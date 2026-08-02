@@ -28,6 +28,14 @@ export default defineConfig({
           environment: 'node',
           globals: true,
           setupFiles: './src/server/test/setup.ts',
+          // Fase 6: cada arquivo de teste de servidor ja reaproveita
+          // fixtures dentro de si mesmo (`beforeAll`, padrao da Fase 5C),
+          // mas o Supabase Auth admin API tem rate-limit agregado entre
+          // TODOS os arquivos rodando em paralelo. `fileParallelism: false`
+          // serializa a execucao dos arquivos deste projeto (mais lento,
+          // mas necessario para a suite passar de forma estavel rodando
+          // duas vezes seguidas contra o Supabase real).
+          fileParallelism: false,
         },
       },
     ],
