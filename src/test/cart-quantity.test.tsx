@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
+import { enterAsClient, goToLoginFromNav } from './authTestHelpers'
 
 /**
  * WU-45: o reducer suporta quantidade desde a WU-06, mas a UI não expunha.
@@ -10,11 +11,6 @@ describe('quantidade no carrinho', () => {
   beforeEach(() => {
     localStorage.clear()
   })
-
-  const enterAsClient = () => {
-    render(<MarketplaceApp />)
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-  }
 
   const addFirstProduct = () => {
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
@@ -103,6 +99,7 @@ describe('cupom no checkout', () => {
 
   const goToDelivery = () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))

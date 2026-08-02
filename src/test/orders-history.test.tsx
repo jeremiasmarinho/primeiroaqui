@@ -6,6 +6,7 @@ import OrdersScreen from '../screens/OrdersScreen'
 import { ROUTES } from '../router/routes'
 import { STORAGE_KEYS } from '../state/session'
 import { makeOrder } from './factories'
+import { clickEnterAsClient as enterAsClient } from './authTestHelpers'
 
 /** WU-48 — histórico de pedidos e "repetir pedido". */
 const goTo = (path: string) => {
@@ -108,10 +109,6 @@ describe('historico ponta a ponta', () => {
     localStorage.clear()
     goTo('/')
   })
-
-  const enterAsClient = () => {
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-  }
 
   const bottomNav = () => screen.getByRole('navigation', { name: /navegação principal/i })
 

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
+import { enterAsClient, goToLoginFromNav } from './authTestHelpers'
 
 /**
  * WU-47 (resto) — busca com sugestões e histórico persistido.
@@ -12,11 +13,6 @@ describe('busca — sugestões e histórico', () => {
   beforeEach(() => {
     localStorage.clear()
   })
-
-  const enterAsClient = () => {
-    render(<MarketplaceApp />)
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-  }
 
   const searchInput = () => screen.getByLabelText(/buscar produtos, lojas ou categorias/i)
 
@@ -80,6 +76,7 @@ describe('busca — sugestões e histórico', () => {
 
   it('limpar o histórico esvazia a lista e persiste depois de remontar', () => {
     const first = render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
     fireEvent.focus(searchInput())
     fireEvent.change(searchInput(), { target: { value: 'whey' } })
@@ -98,6 +95,7 @@ describe('busca — sugestões e histórico', () => {
 
   it('o histórico sobrevive a um reload (remontar o app)', () => {
     const first = render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
     fireEvent.focus(searchInput())
     fireEvent.change(searchInput(), { target: { value: 'kit supermercado' } })

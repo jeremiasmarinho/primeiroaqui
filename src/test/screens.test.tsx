@@ -150,6 +150,7 @@ describe('ProfileScreen', () => {
 describe('LoginScreen — validacao', () => {
   beforeEach(() => {
     localStorage.clear()
+    window.history.pushState({}, '', '/entrar')
   })
 
   const submit = () => {

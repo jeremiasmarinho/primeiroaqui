@@ -1,15 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
+import { enterAsClient } from './authTestHelpers'
 
 describe('checkout', () => {
   beforeEach(() => {
     localStorage.clear()
   })
-
-  const enterAsClient = () => {
-    render(<MarketplaceApp />)
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-  }
 
   // O carrinho abre pela barra inferior. Buscar dentro da nav evita casar com
   // os botoes "Adicionar X ao carrinho" dos cards, que vem antes no DOM.

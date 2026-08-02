@@ -1,15 +1,11 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
+import { enterAsClient } from './authTestHelpers'
 
 describe('catalogo e busca', () => {
   beforeEach(() => {
     localStorage.clear()
   })
-
-  const enterAsClient = () => {
-    render(<MarketplaceApp />)
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-  }
 
   it('filtra por categoria', () => {
     enterAsClient()

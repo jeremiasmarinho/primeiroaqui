@@ -6,6 +6,7 @@ import FavoritesScreen from '../screens/FavoritesScreen'
 import { ROUTES } from '../router/routes'
 import { STORAGE_KEYS } from '../state/session'
 import { makeProduct } from './factories'
+import { clickEnterAsClient as enterAsClient } from './authTestHelpers'
 
 /** WU-48 — favoritos com endereço próprio. */
 const goTo = (path: string) => {
@@ -78,10 +79,6 @@ describe('favoritos ponta a ponta', () => {
     localStorage.clear()
     goTo('/')
   })
-
-  const enterAsClient = () => {
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-  }
 
   const bottomNav = () => screen.getByRole('navigation', { name: /navegação principal/i })
 

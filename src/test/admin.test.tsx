@@ -1,6 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
+import { goToLoginFromNav } from './authTestHelpers'
 
 /** WU-50: painel operacional. Fecha a WU-14 do plano original. */
 describe('painel admin', () => {
@@ -13,6 +14,7 @@ describe('painel admin', () => {
   // resolver e o painel de fato aparecer antes de devolver o controle.
   const enterAsAdmin = async () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como operação/i }))
     // Para operação, o item "Mais" da barra leva ao painel.
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
@@ -26,6 +28,7 @@ describe('painel admin', () => {
   describe('controle de acesso', () => {
     it('cliente nao renderiza o painel, mesmo forcando a tela', () => {
       render(<MarketplaceApp />)
+      goToLoginFromNav()
       fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
       fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
 

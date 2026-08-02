@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
+import { goToLoginFromNav } from './authTestHelpers'
 
 describe('auth flow', () => {
   const submitAuthForm = () => {
@@ -13,12 +14,14 @@ describe('auth flow', () => {
 
   it('submit sem email/senha nao autentica', () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     submitAuthForm()
     expect(screen.getByText(/gerencie vendas, entregas e agentes/i)).toBeInTheDocument()
   })
 
   it('rejeita email malformado com mensagem visivel', () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.change(screen.getByPlaceholderText('E-mail'), { target: { value: 'email-invalido' } })
     fireEvent.change(screen.getByPlaceholderText('Senha'), { target: { value: '12345678' } })
     submitAuthForm()
@@ -27,6 +30,7 @@ describe('auth flow', () => {
 
   it('rejeita senha curta com mensagem visivel', () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.change(screen.getByPlaceholderText('E-mail'), { target: { value: 'ana@teste.com' } })
     fireEvent.change(screen.getByPlaceholderText('Senha'), { target: { value: '123' } })
     submitAuthForm()
@@ -52,6 +56,9 @@ describe('auth flow', () => {
 
     expect(screen.getByText(/gerencie vendas, entregas e agentes/i)).toBeInTheDocument()
     expect(localStorage.getItem('primeiroaqui_user')).toBeNull()
-    expect(localStorage.getItem('primeiroaqui_cart')).toBeNull()
+    // Desde a Task 4, o carrinho de visitante sobrevive ao logout de propósito
+    // (persistencia deixou de depender de sessao) — o item some, mas a chave
+    // permanece com uma lista vazia em vez de ser removida.
+    expect(localStorage.getItem('primeiroaqui_cart')).toBe('{"items":[]}')
   })
 })

@@ -6,6 +6,7 @@ import MarketplaceApp from '../MarketplaceApp'
 import { products } from '../data/catalog'
 import { ROUTES } from '../router/routes'
 import { STORAGE_KEYS } from '../state/session'
+import { clickEnterAsClient as enterAsClient, goToLoginFromNav } from './authTestHelpers'
 
 /**
  * WU-50 — acessibilidade. Fecha a WU-15 do plano original.
@@ -26,10 +27,6 @@ describe('acessibilidade', () => {
     localStorage.clear()
   })
 
-  const enterAsClient = () => {
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-  }
-
   /** Abre uma rota protegida direto, como um deep link com sessão ativa. */
   const openAsClient = (path: string) => {
     localStorage.setItem(
@@ -41,6 +38,7 @@ describe('acessibilidade', () => {
   }
 
   it('tela de login sem violacao critica ou seria', async () => {
+    window.history.pushState({}, '', ROUTES.login)
     const { container } = render(<MarketplaceApp />)
     const violations = blocking((await axe(container)) as AxeResults)
     expect(describeViolations(violations)).toBe('')
@@ -130,6 +128,7 @@ describe('acessibilidade', () => {
 
   it('painel admin sem violacao critica ou seria', async () => {
     const { container } = render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como operação/i }))
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
     // AdminScreen carrega via React.lazy — espera o chunk resolver antes de
@@ -148,6 +147,7 @@ describe('semantica dos controles', () => {
 
   it('nenhum botao de icone fica sem nome acessivel', () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
 
     const unnamed = screen
@@ -159,6 +159,7 @@ describe('semantica dos controles', () => {
 
   it('todo campo de formulario do checkout tem label associado', () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
@@ -175,6 +176,7 @@ describe('semantica dos controles', () => {
 
   it('a gaveta do carrinho se declara como dialogo modal', () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
 
@@ -185,6 +187,7 @@ describe('semantica dos controles', () => {
 
   it('a hierarquia de titulos comeca em h1 e nao pula nivel', async () => {
     render(<MarketplaceApp />)
+    goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como operação/i }))
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
     // AdminScreen carrega via React.lazy — espera o chunk resolver antes de
