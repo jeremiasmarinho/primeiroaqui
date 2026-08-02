@@ -64,7 +64,12 @@ productPhotoRoutes.post('/products/:id/photos', requireUser, requireStoreOwner, 
   }
 
   const buffer = Buffer.from(await file.arrayBuffer())
-  const thumbBuffer = await sharp(buffer).resize({ width: THUMB_WIDTH, withoutEnlargement: true }).toBuffer()
+  let thumbBuffer: Buffer
+  try {
+    thumbBuffer = await sharp(buffer).resize({ width: THUMB_WIDTH, withoutEnlargement: true }).toBuffer()
+  } catch {
+    return c.json({ error: 'Arquivo nao e uma imagem valida' }, 400)
+  }
 
   await ensureProductPhotosBucket()
 
@@ -87,17 +92,27 @@ productPhotoRoutes.post('/products/:id/photos', requireUser, requireStoreOwner, 
   const { data: thumbPublicUrlData } = bucket.getPublicUrl(thumbPath)
 
   const position = await prisma.productPhoto.count({ where: { productId } })
-  const photo = await prisma.productPhoto.create({
-    data: {
-      productId,
-      url: publicUrlData.publicUrl,
-      thumbUrl: thumbPublicUrlData.publicUrl,
-      path,
-      position,
-    },
-  })
-
-  return c.json({ photo }, 201)
+  try {
+    const photo = await prisma.productPhoto.create({
+      data: {
+        productId,
+        url: publicUrlData.publicUrl,
+        thumbUrl: thumbPublicUrlData.publicUrl,
+        path,
+        position,
+      },
+    })
+    return c.json({ photo }, 201)
+  } catch (error) {
+    const { error: rollbackError } = await bucket.remove([path, thumbPath])
+    if (rollbackError) {
+      console.error(
+        `Falha ao remover arquivos orfaos apos erro ao criar registro de foto (path=${path}): ${rollbackError.message}`,
+      )
+    }
+    console.error('Falha ao criar registro de foto de produto:', error)
+    return c.json({ error: 'Falha ao salvar registro da foto' }, 500)
+  }
 })
 
 productPhotoRoutes.delete('/products/:id/photos/:photoId', requireUser, requireStoreOwner, async (c) => {
@@ -115,7 +130,15 @@ productPhotoRoutes.delete('/products/:id/photos/:photoId', requireUser, requireS
   }
 
   const thumbPath = buildThumbStoragePath(photo.path)
-  await supabaseAdmin.storage.from(PRODUCT_PHOTOS_BUCKET).remove([photo.path, thumbPath])
+  const { error: removeError } = await supabaseAdmin.storage
+    .from(PRODUCT_PHOTOS_BUCKET)
+    .remove([photo.path, thumbPath])
+  if (removeError) {
+    return c.json(
+      { error: `Falha ao remover arquivos do storage, registro mantido para nova tentativa: ${removeError.message}` },
+      500,
+    )
+  }
   await prisma.productPhoto.delete({ where: { id: photoId } })
 
   return c.json({ ok: true }, 200)
