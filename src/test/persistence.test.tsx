@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
 import { STORAGE_KEYS } from '../state/session'
-import { enterAsClient } from './authTestHelpers'
+import { clickEnterAsClient, enterAsClient } from './authTestHelpers'
 
 /** WU-50 — persistência. Fecha a WU-16 do plano original. */
 describe('persistencia', () => {
@@ -18,10 +18,6 @@ describe('persistencia', () => {
     fireEvent.click(
       screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement,
     )
-  }
-
-  const clickEnterAsClientButton = () => {
-    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
   }
 
   describe('sobrevive ao reload', () => {
@@ -127,19 +123,25 @@ describe('persistencia', () => {
   describe('logout limpa o que e da pessoa (regressoes B3 e B4)', () => {
     it('carrinho e favoritos nao vazam para o proximo login', () => {
       render(<MarketplaceApp />)
-      clickEnterAsClientButton()
+      clickEnterAsClient()
       addFirstProduct()
       fireEvent.click(screen.getByRole('button', { name: /fechar carrinho/i }))
 
       fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
       fireEvent.click(screen.getByRole('button', { name: /sair da conta/i }))
 
-      expect(localStorage.getItem(STORAGE_KEYS.cart)).toBeNull()
+      // O carrinho passou a persistir sempre (Task 4 — visitante também
+      // precisa sobreviver a reload), então logout não some com a chave;
+      // esvazia o array. Sem itens não há nada de ninguém para vazar — o
+      // invariante real de B3/B4 é "zero itens", não "chave ausente".
+      expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.cart) ?? '{"items":[]}').items).toEqual([])
       expect(localStorage.getItem(STORAGE_KEYS.favorites)).toBeNull()
       expect(localStorage.getItem(STORAGE_KEYS.user)).toBeNull()
 
-      render(<MarketplaceApp />)
-      clickEnterAsClientButton()
+      // O logout já deixou a árvore em /entrar (sem BottomNav na tela), então
+      // aqui é só clicar no atalho — clickEnterAsClient() tentaria achar o
+      // link "Entrar" da barra, que não existe na própria tela de login.
+      fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
       const nav = screen.getByRole('navigation', { name: /navegação principal/i })
       expect(within(nav).getByRole('button', { name: 'Carrinho' })).toBeInTheDocument()
     })
