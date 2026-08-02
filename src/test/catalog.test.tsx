@@ -1,5 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import MarketplaceApp from '../MarketplaceApp'
+import { fireEvent, screen } from '@testing-library/react'
 import { enterAsClient } from './authTestHelpers'
 
 describe('catalogo e busca', () => {

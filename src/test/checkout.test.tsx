@@ -1,5 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
-import MarketplaceApp from '../MarketplaceApp'
+import { fireEvent, screen, within } from '@testing-library/react'
 import { enterAsClient } from './authTestHelpers'
 
 describe('checkout', () => {
