@@ -157,8 +157,7 @@ export default function HomeScreen({
               <Link
                 href={ROUTES.home}
                 onClick={() => onSearchChange('')}
-                className="mt-4 inline-flex min-h-[44px] items-center rounded-full bg-ink px-5 text-sm
-                           font-bold text-white transition-transform duration-150 motion-safe:active:scale-95"
+                className="btn-primary min-h-[44px] mt-4 motion-safe:active:scale-95"
               >
                 Limpar filtros
               </Link>

@@ -64,7 +64,7 @@ export default function BottomNav({
 
           const className = `flex min-h-[56px] w-full flex-col items-center justify-center gap-0.5
                              transition-colors duration-150
-                             ${isActive ? 'text-ink' : 'text-ink-faint hover:text-ink-muted'}`
+                             ${isActive ? 'text-primary' : 'text-ink-faint hover:text-ink-muted'}`
 
           const content = (
             <>

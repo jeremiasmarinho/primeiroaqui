@@ -19,11 +19,11 @@ export default function CategoriesScreen() {
         <Link
           href={ROUTES.home}
           aria-label="Voltar às ofertas"
-          className="grid h-11 w-11 place-items-center rounded-full text-ink transition-colors duration-150 hover:bg-brand-deep"
+          className="grid h-11 w-11 place-items-center rounded-full text-navy transition-colors duration-150 hover:bg-brand-deep"
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Link>
-        <h1 className="text-sm font-bold text-ink">Categorias</h1>
+        <h1 className="text-sm font-bold text-navy">Categorias</h1>
       </header>
 
       <main className="mx-auto max-w-4xl px-3 py-4">

@@ -26,13 +26,13 @@ export function ScreenHeader({ title, count }: ScreenHeaderProps) {
       <Link
         href={ROUTES.home}
         aria-label="Voltar às ofertas"
-        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink
+        className="grid h-11 w-11 shrink-0 place-items-center rounded-full text-navy
                    transition-colors duration-150 hover:bg-brand-deep"
       >
         <ArrowLeft className="h-5 w-5" aria-hidden="true" />
       </Link>
-      <h1 className="text-sm font-bold text-ink">{title}</h1>
-      {count ? <span className="ml-auto text-micro font-bold text-ink/70">{count}</span> : null}
+      <h1 className="text-sm font-bold text-navy">{title}</h1>
+      {count ? <span className="ml-auto text-micro font-bold text-navy/70">{count}</span> : null}
     </header>
   )
 }
@@ -43,8 +43,7 @@ export function ExitLink() {
   return (
     <Link
       href={ROUTES.home}
-      className="mt-4 inline-flex min-h-[44px] items-center rounded-full bg-ink px-5 text-sm
-                 font-bold text-white transition-transform duration-150 motion-safe:active:scale-95"
+      className="btn-primary min-h-[44px] mt-4 motion-safe:active:scale-95"
     >
       Explorar ofertas
     </Link>
@@ -66,7 +65,7 @@ export function LoadingBlock({ label }: { label: string }) {
 export function ErrorBlock({ message }: { message: string }) {
   return (
     <div className="rounded-card bg-surface p-8 text-center shadow-card">
-      <p role="alert" className="text-sm font-bold text-promo">
+      <p role="alert" className="text-sm font-bold text-error">
         {message}
       </p>
       <p className="mt-1 text-sm text-ink-muted">

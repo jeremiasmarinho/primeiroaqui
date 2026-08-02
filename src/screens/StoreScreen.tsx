@@ -44,11 +44,11 @@ export default function StoreScreen({
         <Link
           href={ROUTES.home}
           aria-label="Voltar às ofertas"
-          className="grid h-11 w-11 place-items-center rounded-full text-ink transition-colors duration-150 hover:bg-brand-deep"
+          className="grid h-11 w-11 place-items-center rounded-full text-navy transition-colors duration-150 hover:bg-brand-deep"
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Link>
-        <p className="truncate text-sm font-bold text-ink">Loja</p>
+        <p className="truncate text-sm font-bold text-navy">Loja</p>
       </header>
 
       <main className="mx-auto max-w-6xl px-3 pb-6">

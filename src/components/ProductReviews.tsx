@@ -14,7 +14,7 @@ const Stars = ({ rating }: { rating: number }) => (
         key={position}
         aria-hidden="true"
         className={`h-3.5 w-3.5 ${
-          position <= rating ? 'fill-brand-deep text-brand-deep' : 'text-slate-300'
+          position <= rating ? 'fill-brand-deep text-brand-deep' : 'text-ink-faint'
         }`}
       />
     ))}
@@ -32,11 +32,11 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
 
   if (list.length === 0 || average === null) {
     return (
-      <section aria-labelledby="avaliacoes" className="mt-5 border-t border-slate-200 pt-4">
-        <h4 id="avaliacoes" className="font-display text-base font-bold text-slate-900">
+      <section aria-labelledby="avaliacoes" className="mt-5 border-t border-line pt-4">
+        <h4 id="avaliacoes" className="font-display text-base font-bold text-ink">
           Avaliações
         </h4>
-        <p className="mt-1 text-sm text-slate-500">
+        <p className="mt-1 text-sm text-ink-muted">
           Este produto ainda não tem avaliações. Compre e seja a primeira pessoa a avaliar.
         </p>
       </section>
@@ -44,15 +44,15 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
   }
 
   return (
-    <section aria-labelledby="avaliacoes" className="mt-5 border-t border-slate-200 pt-4">
+    <section aria-labelledby="avaliacoes" className="mt-5 border-t border-line pt-4">
       <div className="flex items-center justify-between gap-2">
-        <h4 id="avaliacoes" className="font-display text-base font-bold text-slate-900">
+        <h4 id="avaliacoes" className="font-display text-base font-bold text-ink">
           Avaliações
         </h4>
-        <p className="flex items-center gap-2 text-sm text-slate-600">
+        <p className="flex items-center gap-2 text-sm text-ink-muted">
           <Stars rating={Math.round(average)} />
-          <span className="tabular font-bold text-slate-900">{average.toFixed(1)}</span>
-          <span className="text-slate-400">
+          <span className="tabular font-bold text-ink">{average.toFixed(1)}</span>
+          <span className="text-ink-faint">
             ({list.length} {list.length === 1 ? 'avaliação' : 'avaliações'})
           </span>
         </p>
@@ -62,7 +62,7 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
         {list.map((review) => {
           const customer = customerById(review.customerId)
           return (
-            <li key={review.id} className="flex gap-3 rounded-[16px] bg-slate-50 p-3">
+            <li key={review.id} className="flex gap-3 rounded-[16px] bg-surface-page p-3">
               {customer && (
                 <img
                   src={customer.avatar}
@@ -71,15 +71,15 @@ export default function ProductReviews({ productId }: ProductReviewsProps) {
                   height={40}
                   loading="lazy"
                   onError={fallbackTo(customer.name)}
-                  className="h-10 w-10 shrink-0 rounded-full bg-white object-cover"
+                  className="h-10 w-10 shrink-0 rounded-full bg-surface object-cover"
                 />
               )}
               <div className="min-w-0">
                 <p className="flex flex-wrap items-center gap-2">
-                  <span className="font-bold text-slate-900">{customer?.name ?? 'Cliente'}</span>
+                  <span className="font-bold text-ink">{customer?.name ?? 'Cliente'}</span>
                   <Stars rating={review.rating} />
                 </p>
-                <p className="mt-1 text-sm leading-6 text-slate-600">{review.comment}</p>
+                <p className="mt-1 text-sm leading-6 text-ink-muted">{review.comment}</p>
               </div>
             </li>
           )

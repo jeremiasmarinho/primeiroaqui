@@ -29,7 +29,7 @@ const FIELDS = [
 ] as const
 
 const inputClass =
-  'mt-1 h-12 w-full rounded-[16px] border border-line bg-surface px-3 text-ink outline-none focus:border-ink'
+  'field-input mt-1'
 
 /** Cadastro e gestão dos endereços de entrega. O CEP é mascarado no estado. */
 export default function AddressesScreen({
@@ -87,8 +87,7 @@ export default function AddressesScreen({
 
       <button
         type="submit"
-        className="mt-4 min-h-[48px] w-full rounded-full bg-ink px-5 text-sm font-bold text-white
-                   transition-transform duration-150 motion-safe:active:scale-[0.98]"
+        className="btn-primary min-h-[44px] mt-4 min-h-[48px] w-full motion-safe:active:scale-[0.98]"
       >
         Salvar endereço
       </button>
@@ -109,7 +108,7 @@ export default function AddressesScreen({
             <div className="flex items-center justify-between gap-2">
               <p className="font-display font-bold text-ink">{address.label}</p>
               {address.isDefault ? (
-                <span className="rounded-full bg-brand px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-ink">
+                <span className="rounded-full bg-brand px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-navy">
                   Padrão
                 </span>
               ) : null}
@@ -124,7 +123,7 @@ export default function AddressesScreen({
                   type="button"
                   onClick={() => onSetDefaultAddress(address.id)}
                   aria-label={`Definir ${address.label} como padrão`}
-                  className="inline-flex min-h-[44px] items-center rounded-full bg-ink px-4 text-sm font-bold text-white"
+                  className="btn-primary min-h-[44px] px-4"
                 >
                   Definir como padrão
                 </button>

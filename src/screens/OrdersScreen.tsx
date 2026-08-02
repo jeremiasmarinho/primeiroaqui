@@ -80,8 +80,7 @@ export default function OrdersScreen({
               <Link
                 href={ROUTES.order(order.id)}
                 aria-label={`Acompanhar pedido ${order.id}`}
-                className="inline-flex min-h-[44px] items-center rounded-full bg-ink px-4 text-sm
-                           font-bold text-white transition-transform duration-150 motion-safe:active:scale-95"
+                className="btn-primary min-h-[44px] px-4 motion-safe:active:scale-95"
               >
                 Acompanhar
               </Link>

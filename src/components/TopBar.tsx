@@ -226,7 +226,7 @@ export default function TopBar({
             type="button"
             onClick={onNotifications}
             aria-label={`Notificações${notificationCount ? `, ${notificationCount} não lidas` : ''}`}
-            className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-ink
+            className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-navy
                        transition-colors duration-150 hover:bg-brand-deep"
           >
             <Bell className="h-5 w-5" aria-hidden="true" />
@@ -246,7 +246,7 @@ export default function TopBar({
             pessoa. Agora reflete o endereço padrão e leva ao cadastro. */}
         <Link
           href={ROUTES.addresses}
-          className="mt-1.5 flex min-h-[44px] items-center gap-1 text-xs text-ink"
+          className="mt-1.5 flex min-h-[44px] items-center gap-1 text-xs text-navy"
         >
           <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
           <span className="truncate">
@@ -256,7 +256,7 @@ export default function TopBar({
         </Link>
       </div>
 
-      <nav aria-label="Categorias" className="border-t border-ink/10">
+      <nav aria-label="Categorias" className="border-t border-navy/15">
         <ul className="rail no-scrollbar mx-auto max-w-6xl px-3">
           {categories.map((item) => {
             const active = category === item
@@ -267,13 +267,13 @@ export default function TopBar({
                   href={href}
                   aria-current={active ? 'true' : undefined}
                   className={`relative flex min-h-[44px] items-center px-1 text-sm transition-colors duration-150
-                              ${active ? 'font-extrabold text-ink' : 'font-semibold text-ink/70'}`}
+                              ${active ? 'font-extrabold text-navy' : 'font-semibold text-navy/70'}`}
                 >
                   {item}
                   {active && (
                     <span
                       aria-hidden="true"
-                      className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-ink"
+                      className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-primary"
                     />
                   )}
                 </Link>

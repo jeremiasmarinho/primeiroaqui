@@ -31,8 +31,7 @@ export default function EmptyState({
         <p className="mt-1 text-sm leading-6 text-ink-muted">{message}</p>
         <Link
           href={actionHref}
-          className="mt-5 inline-flex min-h-[44px] items-center rounded-full bg-ink px-5 text-sm
-                     font-bold text-white transition-transform duration-150 motion-safe:active:scale-95"
+          className="btn-primary min-h-[44px] mt-5 motion-safe:active:scale-95"
         >
           {actionLabel}
         </Link>

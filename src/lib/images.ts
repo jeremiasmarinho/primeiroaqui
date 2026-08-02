@@ -32,7 +32,7 @@ const toSeed = (value: string): string =>
     .replace(/^-|-$/g, '')
 
 /** Placeholder local em data URI — sem rede, funciona offline e em teste. */
-export const localImage = (label: string, bg = '#E8E8E8', fg = '#5C6670'): string => {
+export const localImage = (label: string, bg = '#E2E8F0', fg = '#475569'): string => {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" role="presentation">
     <rect width="400" height="400" fill="${bg}"/>
     <circle cx="200" cy="168" r="76" fill="${fg}" opacity="0.14"/>

@@ -19,7 +19,7 @@ export default function DeliveryFields({ deliveryForm, onDeliveryChange }: Deliv
         ] as const
       ).map((field) => (
         <div key={field.id}>
-          <label htmlFor={field.id} className="text-sm font-semibold text-slate-700">
+          <label htmlFor={field.id} className="text-sm font-semibold text-ink">
             {field.label}
           </label>
           <input
@@ -27,14 +27,14 @@ export default function DeliveryFields({ deliveryForm, onDeliveryChange }: Deliv
             value={deliveryForm[field.key]}
             onChange={(event) => onDeliveryChange({ [field.key]: event.target.value })}
             autoComplete={field.autoComplete}
-            className="mt-1 h-12 w-full rounded-[16px] border border-slate-200 bg-white px-3 outline-none focus:border-slate-900"
+            className="field-input mt-1"
           />
         </div>
       ))}
 
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label htmlFor="cidade" className="text-sm font-semibold text-slate-700">
+          <label htmlFor="cidade" className="text-sm font-semibold text-ink">
             Cidade
           </label>
           <input
@@ -42,11 +42,11 @@ export default function DeliveryFields({ deliveryForm, onDeliveryChange }: Deliv
             value={deliveryForm.city}
             onChange={(event) => onDeliveryChange({ city: event.target.value })}
             autoComplete="address-level2"
-            className="mt-1 h-12 w-full rounded-[16px] border border-slate-200 bg-white px-3 outline-none focus:border-slate-900"
+            className="field-input mt-1"
           />
         </div>
         <div>
-          <label htmlFor="cep" className="text-sm font-semibold text-slate-700">
+          <label htmlFor="cep" className="text-sm font-semibold text-ink">
             CEP
           </label>
           <input
@@ -56,13 +56,13 @@ export default function DeliveryFields({ deliveryForm, onDeliveryChange }: Deliv
             inputMode="numeric"
             autoComplete="postal-code"
             placeholder="00000-000"
-            className="mt-1 h-12 w-full rounded-[16px] border border-slate-200 bg-white px-3 outline-none focus:border-slate-900"
+            className="field-input mt-1"
           />
         </div>
       </div>
 
       <fieldset>
-        <legend className="text-sm font-semibold text-slate-700">Forma de pagamento</legend>
+        <legend className="text-sm font-semibold text-ink">Forma de pagamento</legend>
         <div className="mt-2 grid gap-2">
           {PAYMENT_METHODS.map((option) => (
             <button
@@ -72,8 +72,8 @@ export default function DeliveryFields({ deliveryForm, onDeliveryChange }: Deliv
               onClick={() => onDeliveryChange({ payment: option })}
               className={`min-h-[48px] rounded-[16px] border px-3 text-left text-sm font-semibold transition-colors duration-150 ${
                 deliveryForm.payment === option
-                  ? 'border-slate-950 bg-slate-950 text-white'
-                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                  ? 'border-primary bg-primary text-white'
+                  : 'border-line bg-surface text-ink-muted hover:border-primary/40'
               }`}
             >
               {option}

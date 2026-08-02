@@ -56,11 +56,11 @@ export default function ProductScreen({
         <Link
           href={ROUTES.home}
           aria-label="Voltar às ofertas"
-          className="grid h-11 w-11 place-items-center rounded-full text-ink transition-colors duration-150 hover:bg-brand-deep"
+          className="grid h-11 w-11 place-items-center rounded-full text-navy transition-colors duration-150 hover:bg-brand-deep"
         >
           <ArrowLeft className="h-5 w-5" aria-hidden="true" />
         </Link>
-        <p className="truncate text-sm font-bold text-ink">{product.category}</p>
+        <p className="truncate text-sm font-bold text-navy">{product.category}</p>
       </header>
 
       <main className="mx-auto max-w-4xl px-3 pb-6">
@@ -124,14 +124,14 @@ export default function ProductScreen({
               <button
                 type="button"
                 onClick={() => onBuyNow(product)}
-                className="min-h-[48px] flex-1 rounded-full bg-ink px-5 text-sm font-bold text-white transition-transform duration-150 motion-safe:active:scale-[0.98]"
+                className="btn-primary min-h-[48px] flex-1 motion-safe:active:scale-[0.98]"
               >
                 Comprar agora
               </button>
               <button
                 type="button"
                 onClick={() => onAddToCart(product)}
-                className="min-h-[48px] flex-1 rounded-full border border-ink bg-surface px-5 text-sm font-bold text-ink transition-colors duration-150 hover:bg-surface-sunken"
+                className="min-h-[48px] flex-1 rounded-full border border-primary bg-surface px-5 text-sm font-bold text-primary transition-colors duration-150 hover:bg-primary/10"
               >
                 Adicionar ao carrinho
               </button>

@@ -66,7 +66,7 @@ export default function ProductCard({
         </button>
 
         {product.bestSeller && (
-          <span className="absolute bottom-0 left-0 bg-brand px-2 py-1 text-micro font-extrabold uppercase tracking-wide text-ink">
+          <span className="absolute bottom-0 left-0 bg-brand px-2 py-1 text-micro font-extrabold uppercase tracking-wide text-navy">
             Mais vendido
           </span>
         )}

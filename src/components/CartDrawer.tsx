@@ -66,17 +66,17 @@ export default function CartDrawer({
   const total = Math.max(0, subtotal - discount)
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/75 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 bg-ink/75 p-4 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={step === 'cart' ? 'Carrinho de compras' : 'Dados de entrega'}
-        className="ml-auto flex h-full max-w-md flex-col overflow-hidden rounded-[32px] bg-white shadow-[0_30px_80px_rgba(15,23,42,0.25)]"
+        className="ml-auto flex h-full max-w-md flex-col overflow-hidden rounded-[32px] bg-surface shadow-[0_30px_80px_rgba(15,23,42,0.25)]"
       >
-        <div className="flex items-center justify-between border-b border-slate-200/80 bg-gradient-to-r from-slate-950 to-slate-800 p-4 text-white">
+        <div className="flex items-center justify-between border-b border-line/80 bg-gradient-to-r from-ink to-ink-muted p-4 text-white">
           <div>
             <h2 className="font-display text-lg font-black">{step === 'cart' ? 'Carrinho' : 'Entrega'}</h2>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-ink-faint">
               {step === 'cart' ? `${itemsCount} itens` : 'Complete os dados para o pedido'}
             </p>
           </div>

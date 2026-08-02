@@ -26,7 +26,7 @@ export default function FlashDeals({ products, onOpen, secondsRemaining = 2379 }
     <section aria-labelledby="ofertas-relampago" className="px-3 pt-4">
       <div className="overflow-hidden rounded-card bg-surface shadow-card">
         <div className="flex items-center justify-between gap-2 bg-brand px-3 py-2.5">
-          <h2 id="ofertas-relampago" className="font-display text-sm font-bold uppercase tracking-wide text-ink">
+          <h2 id="ofertas-relampago" className="font-display text-sm font-bold uppercase tracking-wide text-navy">
             Ofertas relâmpago
           </h2>
           <Countdown initialSeconds={secondsRemaining} />

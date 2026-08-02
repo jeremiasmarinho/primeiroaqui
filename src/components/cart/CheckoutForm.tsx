@@ -43,7 +43,7 @@ export default function CheckoutForm({
   onConfirm,
 }: CheckoutFormProps) {
   return (
-    <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-white to-slate-50 p-4">
+    <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-surface to-surface-page p-4">
       <CartOrderSummary itemsCount={itemsCount} subtotal={subtotal} discount={discount} total={total} />
 
       <CouponField
@@ -64,7 +64,7 @@ export default function CheckoutForm({
       <DeliveryFields deliveryForm={deliveryForm} onDeliveryChange={onDeliveryChange} />
 
       {checkoutError ? (
-        <p role="alert" className="rounded-[16px] bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+        <p role="alert" className="rounded-[16px] bg-red-50 px-3 py-2 text-sm font-semibold text-error">
           {checkoutError}
         </p>
       ) : null}

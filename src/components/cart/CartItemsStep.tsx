@@ -27,16 +27,16 @@ export default function CartItemsStep({
 }: CartItemsStepProps) {
   return (
     <>
-      <div className="flex-1 space-y-3 overflow-y-auto bg-gradient-to-b from-white to-slate-50 p-4">
+      <div className="flex-1 space-y-3 overflow-y-auto bg-gradient-to-b from-surface to-surface-page p-4">
         {itemsCount === 0 ? (
-          <div className="rounded-[24px] border border-dashed border-slate-300 bg-white p-8 text-center">
-            <ShoppingCart className="mx-auto h-9 w-9 text-slate-300" aria-hidden="true" />
-            <p className="mt-3 font-bold text-slate-900">Seu carrinho está vazio</p>
-            <p className="mt-1 text-sm text-slate-500">Adicione produtos da vitrine para continuar.</p>
+          <div className="rounded-[24px] border border-dashed border-line bg-surface p-8 text-center">
+            <ShoppingCart className="mx-auto h-9 w-9 text-ink-faint" aria-hidden="true" />
+            <p className="mt-3 font-bold text-ink">Seu carrinho está vazio</p>
+            <p className="mt-1 text-sm text-ink-muted">Adicione produtos da vitrine para continuar.</p>
             <button
               type="button"
               onClick={onClose}
-              className="mt-4 min-h-[44px] rounded-full bg-slate-900 px-5 text-sm font-bold text-white"
+              className="btn-primary min-h-[44px] mt-4"
             >
               Ver ofertas
             </button>
@@ -54,13 +54,13 @@ export default function CartItemsStep({
         )}
       </div>
 
-      <div className="border-t border-slate-200 bg-white p-4">
-        <div className="rounded-[20px] bg-slate-950 p-4 text-white">
-          <div className="flex items-center justify-between text-sm text-slate-300">
+      <div className="border-t border-line bg-surface p-4">
+        <div className="rounded-[20px] bg-ink p-4 text-white">
+          <div className="flex items-center justify-between text-sm text-ink-faint">
             <span>Subtotal</span>
             <span className="tabular">{formatCurrency(subtotal)}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between text-sm text-slate-300">
+          <div className="mt-2 flex items-center justify-between text-sm text-ink-faint">
             <span>Entrega</span>
             <span>Calculada no próximo passo</span>
           </div>

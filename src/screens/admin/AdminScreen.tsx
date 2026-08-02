@@ -63,7 +63,7 @@ export default function AdminScreen({
           <button
             type="button"
             onClick={onBack}
-            className="mt-4 min-h-[44px] rounded-full bg-ink px-5 text-sm font-bold text-white"
+            className="btn-primary min-h-[44px] mt-4"
           >
             Voltar ao marketplace
           </button>
@@ -73,19 +73,19 @@ export default function AdminScreen({
   }
 
   return (
-    <div className="min-h-dvh bg-slate-50 p-4 md:p-6">
-      <div className="mx-auto max-w-7xl rounded-[32px] bg-white p-4 shadow-lg md:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+    <div className="min-h-dvh bg-surface-page p-4 md:p-6">
+      <div className="mx-auto max-w-7xl rounded-[32px] bg-surface p-4 shadow-lg md:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-slate-500">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-ink-muted">
               Painel operacional
             </p>
-            <h1 className="text-2xl font-black text-slate-900">Gestão multiagentes</h1>
+            <h1 className="text-2xl font-black text-ink">Gestão multiagentes</h1>
           </div>
           <button
             type="button"
             onClick={onBack}
-            className="min-h-[44px] rounded-full bg-slate-900 px-4 text-sm font-bold text-white"
+            className="btn-primary min-h-[44px]"
           >
             Voltar ao marketplace
           </button>
@@ -100,7 +100,7 @@ export default function AdminScreen({
               aria-selected={adminTab === tab}
               onClick={() => onTabChange(tab)}
               className={`min-h-[44px] rounded-full px-4 text-sm font-semibold transition-colors duration-150 ${
-                adminTab === tab ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'
+                adminTab === tab ? 'bg-primary text-white' : 'bg-surface-sunken text-ink-muted'
               }`}
             >
               {TAB_LABELS[tab]}
