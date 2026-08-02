@@ -36,9 +36,11 @@ import type { Order, Product, Role } from '../types'
 export function useMarketplaceState() {
   const [location, navigate] = useLocation()
 
-  const session = useSessionState(navigate)
   const catalog = useCatalogState()
   const cartCheckout = useCartCheckoutState()
+  // Fecha a gaveta do carrinho antes de qualquer redirecionamento para
+  // /entrar: veja o comentário de `onBeforeRedirect` em useSessionState.
+  const session = useSessionState(navigate, () => cartCheckout.setIsCartOpen(false))
   const admin = useOrdersAdminState(catalog.addNotification)
   const addresses = useAddressesState()
   const [repeatError, setRepeatError] = useState('')
@@ -129,10 +131,11 @@ export function useMarketplaceState() {
   const guardedCartContinue = () => {
     if (cartCheckout.cartItemsCount === 0) return
     if (!session.authUser) {
-      // Fecha a gaveta antes de navegar: o backdrop fixo da gaveta, se
-      // deixado aberto, fica por cima do formulário de login e bloqueia o
-      // clique (browser real — testes com fireEvent não pegam isso).
-      cartCheckout.setIsCartOpen(false)
+      // Fechar a gaveta antes de navegar é responsabilidade de
+      // `redirectToLogin` (via `onBeforeRedirect`): o backdrop fixo da
+      // gaveta, se deixado aberto, fica por cima do formulário de login e
+      // bloqueia o clique (browser real — testes com fireEvent não pegam
+      // isso).
       session.redirectToLogin(location, { type: 'resume-checkout' })
       return
     }
@@ -142,7 +145,6 @@ export function useMarketplaceState() {
   const guardedBuyNow = (product: Product) => {
     if (!session.authUser) {
       cartCheckout.handleAddToCart(product)
-      cartCheckout.setIsCartOpen(false)
       session.redirectToLogin(location, { type: 'resume-checkout' })
       return
     }

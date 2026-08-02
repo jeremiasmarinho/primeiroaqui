@@ -17,7 +17,10 @@ import type { Role, User } from '../types'
  * (`useMarketplaceState`) decide para onde ir, porque só ele sabe resolver a
  * intenção pendente (favoritar, retomar checkout), que mora em outros hooks.
  */
-export function useSessionState(navigate: (path: string) => void) {
+export function useSessionState(
+  navigate: (path: string) => void,
+  onBeforeRedirect?: () => void,
+) {
   const storedUser = normalizeStoredUser(readStoredJSON<unknown>(STORAGE_KEYS.user, null))
 
   const [userRole, setUserRole] = useState<Role>(() => storedUser?.role ?? 'client')
@@ -36,8 +39,17 @@ export function useSessionState(navigate: (path: string) => void) {
     setPendingIntent(null)
   }
 
-  /** Gatilho contextual (favoritar, checkout): registra e navega para /entrar. */
+  /**
+   * Gatilho contextual (favoritar, checkout): registra e navega para /entrar.
+   * Antes de navegar, fecha qualquer overlay aberto (ex.: gaveta do carrinho)
+   * via `onBeforeRedirect` — o backdrop fixo da gaveta, se deixado aberto,
+   * fica por cima do formulário de login e bloqueia o clique (browser real;
+   * testes com fireEvent não pegam isso). `useSessionState` não conhece o
+   * hook do carrinho diretamente (fatias de estado separadas por design),
+   * então quem instancia este hook injeta esse callback.
+   */
   const redirectToLogin = (path: string, intent: PendingIntent | null = null) => {
+    onBeforeRedirect?.()
     setPendingReturnTo(path)
     setPendingIntent(intent)
     navigate(ROUTES.login)

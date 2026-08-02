@@ -57,6 +57,32 @@ test.describe('visitante', () => {
     await expect(nav.getByRole('button', { name: /carrinho — 1 itens/i })).toBeVisible()
   })
 
+  test('comprar agora fecha a gaveta do carrinho antes de redirecionar para login e retoma a entrega', async ({
+    page,
+  }) => {
+    // Regressão: o backdrop fixo da gaveta (fixed inset-0), se deixado aberto
+    // ao navegar para /entrar, fica por cima do formulário de login e
+    // bloqueia o clique num navegador real — jsdom com fireEvent não pega
+    // isso, só Playwright. Este teste prova que a gaveta some da tela antes
+    // do formulário de login ficar clicável, e que a compra é retomada.
+    await page.goto('/produto/1')
+
+    await page.getByRole('button', { name: /comprar agora/i }).click()
+
+    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(page.getByLabel('Senha')).toBeVisible()
+
+    await page.getByRole('button', { name: /^criar conta$/i }).first().click()
+    await page.getByLabel('Seu nome').fill('Ana Paula')
+    await page.getByLabel('E-mail').fill('ana@teste.com')
+    await page.getByLabel('Senha').fill('segredo123')
+    await page.getByRole('button', { name: /^criar conta$/i }).last().click()
+
+    const deliveryDrawer = page.getByRole('dialog', { name: /dados de entrega/i })
+    await expect(deliveryDrawer).toBeVisible()
+    await expect(page.getByLabel('Seu nome')).toBeVisible()
+  })
+
   test('clicar em Entrar na barra inferior vai direto para /entrar', async ({ page }) => {
     await page.goto('/')
 

@@ -63,6 +63,20 @@ describe('visitante — checkout', () => {
     expect(within(bottomNav()).getByRole('button', { name: /carrinho — 1 itens/i })).toBeInTheDocument()
   })
 
+  it('comprar agora como visitante fecha a gaveta do carrinho antes de redirecionar para login', () => {
+    // Regressão: o backdrop fixo da gaveta (fixed inset-0), se deixado
+    // aberto, fica por cima do formulário de login e bloqueia o clique em
+    // navegador real (fireEvent não pega isso, só Playwright). Este teste
+    // prova que `guardedBuyNow` fecha a gaveta antes do redirecionamento —
+    // nenhum `dialog` da gaveta pode seguir montado na tela de login.
+    window.history.pushState({}, '', ROUTES.product(1))
+    render(<MarketplaceApp />)
+    fireEvent.click(screen.getByRole('button', { name: /comprar agora/i }))
+
+    expect(screen.getByLabelText('Senha')).toBeInTheDocument()
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
   it('comprar agora como visitante adiciona ao carrinho e so entao redireciona', () => {
     window.history.pushState({}, '', ROUTES.product(1))
     render(<MarketplaceApp />)
