@@ -131,7 +131,7 @@ export default function ProductScreen({
               <button
                 type="button"
                 onClick={() => onAddToCart(product)}
-                className="min-h-[48px] flex-1 rounded-full border border-primary bg-surface px-5 text-sm font-bold text-primary transition-colors duration-150 hover:bg-primary/10"
+                className="min-h-[48px] flex-1 rounded-full border border-primary bg-surface px-5 text-sm font-bold text-primary-active transition-colors duration-150 hover:bg-primary/10"
               >
                 Adicionar ao carrinho
               </button>

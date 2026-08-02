@@ -82,7 +82,7 @@ export default function BottomNav({
               </span>
               <span
                 aria-hidden="true"
-                className={`text-micro ${isActive ? 'font-extrabold' : 'font-semibold'}`}
+                className={`text-micro ${isActive ? 'font-extrabold text-ink' : 'font-semibold'}`}
               >
                 {label}
               </span>

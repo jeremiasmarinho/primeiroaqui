@@ -72,7 +72,7 @@
   .chip[aria-selected='true'],
   .chip[aria-pressed='true'],
   .chip[data-selected='true'] {
-    @apply border-primary bg-primary/10 text-primary;
+    @apply border-primary bg-primary/10 text-primary-active;
   }
 
   /* Botão primário: normal -> hover -> active -> disabled, sempre com label branca. */

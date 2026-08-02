@@ -74,7 +74,7 @@ export default function AddressPicker({
 
       <Link
         href={ROUTES.addresses}
-        className="mt-2 inline-flex min-h-[44px] items-center text-sm font-bold text-primary underline"
+        className="mt-2 inline-flex min-h-[44px] items-center text-sm font-bold text-primary-active underline"
       >
         Gerenciar endereços
       </Link>
