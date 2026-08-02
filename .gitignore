@@ -25,8 +25,11 @@ dist-ssr
 
 .vercel
 .env*
+!.env.example
 coverage/
 test-results/
 playwright-report/
 dist-*/
 *.fuse_hidden*
+.env.local
+.env
