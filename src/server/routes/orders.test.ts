@@ -153,11 +153,23 @@ describe('rotas de pedidos (checkout)', () => {
         }),
       })
       expect(res.status).toBe(201)
-      const body = (await res.json()) as { orders: Array<{ id: string; storeId: string }> }
+      const body = (await res.json()) as {
+        orders: Array<{ id: string; storeId: string; totalCents: number }>
+      }
       createdOrderIds.push(...body.orders.map((o) => o.id))
       expect(body.orders).toHaveLength(2)
       const storeIds = body.orders.map((o) => o.storeId).sort()
       expect(storeIds).toEqual([storeA.id, storeB.id].sort())
+
+      const orderA = body.orders.find((o) => o.storeId === storeA.id)
+      const orderB = body.orders.find((o) => o.storeId === storeB.id)
+      expect(orderA?.totalCents).toBe(1000) // productA: 1 x 1000
+      expect(orderB?.totalCents).toBe(4000) // productB: 2 x 2000
+
+      const productAAfter = await prisma.product.findUnique({ where: { id: productA.id } })
+      const productBAfter = await prisma.product.findUnique({ where: { id: productB.id } })
+      expect(productAAfter?.stock).toBe(4) // 5 - 1
+      expect(productBAfter?.stock).toBe(3) // 5 - 2
     }, 20_000)
 
     it('checkout com estoque insuficiente falha por completo (409, nenhum Order criado, estoque intacto)', async () => {
@@ -230,6 +242,42 @@ describe('rotas de pedidos (checkout)', () => {
         }),
       })
       expect(res.status).toBe(404)
+    }, 20_000)
+
+    it('duas compras concorrentes do mesmo produto com stock=1: exatamente uma 201 e uma 409, stock final 0', async () => {
+      const store = await createStoreFixture()
+      createdStoreIds.push(store.id)
+      const product = await createProductFixture(store.id, { stock: 1 })
+      createdProductIds.push(product.id)
+      const address = await createAddressFixture(buyerFixture.user.id)
+      const otherAddress = await createAddressFixture(otherBuyerFixture.user.id)
+      createdAddressIds.push(address.id, otherAddress.id)
+
+      const makeRequest = (token: string, addressId: string) =>
+        app.request('/orders', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+          body: JSON.stringify({ items: [{ productId: product.id, quantity: 1 }], addressId }),
+        })
+
+      const [resA, resB] = await Promise.all([
+        makeRequest(buyerToken, address.id),
+        makeRequest(otherBuyerToken, otherAddress.id),
+      ])
+
+      const statuses = [resA.status, resB.status].sort()
+      expect(statuses).toEqual([201, 409])
+
+      const bodies = await Promise.all([resA.json(), resB.json()])
+      for (const [index, status] of [resA.status, resB.status].entries()) {
+        if (status === 201) {
+          const body = bodies[index] as { orders: Array<{ id: string }> }
+          createdOrderIds.push(...body.orders.map((o) => o.id))
+        }
+      }
+
+      const productAfter = await prisma.product.findUnique({ where: { id: product.id } })
+      expect(productAfter?.stock).toBe(0)
     }, 20_000)
 
     it('body invalido (items vazio) recebe 400', async () => {

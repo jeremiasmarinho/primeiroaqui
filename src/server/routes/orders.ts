@@ -5,6 +5,20 @@ import { requireUser, type AuthEnv } from '../middleware/auth'
 
 export const orderRoutes = new Hono<AuthEnv>()
 
+/**
+ * Lancado dentro da transacao de checkout quando o decremento condicional de
+ * estoque (`updateMany` com `stock >= quantity`) afeta 0 linhas — sinal real
+ * de que aquele item especifico ficou sem estoque suficiente. Carrega os
+ * itens afetados para reproduzir o mesmo formato de resposta 409 usado na
+ * checagem pre-transacao.
+ */
+class InsufficientStockError extends Error {
+  constructor(public items: Array<{ productId: string }>) {
+    super('Estoque insuficiente')
+    this.name = 'InsufficientStockError'
+  }
+}
+
 /** Mesmo padrao de `parseJsonBody` em `src/server/routes/stores.ts`. */
 async function parseJsonBody(c: Context<AuthEnv>): Promise<unknown> {
   try {
@@ -37,7 +51,18 @@ orderRoutes.post('/orders', requireUser, async (c) => {
   }
 
   const authedUser = c.get('authedUser')
-  const { items, addressId } = parsed.data
+  const { addressId } = parsed.data
+
+  // Consolida entradas duplicadas do mesmo productId somando as quantidades,
+  // ANTES de qualquer checagem de estoque ou agrupamento por loja. Sem isso,
+  // duas linhas do mesmo produto seriam validadas isoladamente contra o
+  // estoque total (cada uma passando a checagem individualmente) mesmo que a
+  // soma real excedesse o estoque disponivel.
+  const quantityByProductId = new Map<string, number>()
+  for (const item of parsed.data.items) {
+    quantityByProductId.set(item.productId, (quantityByProductId.get(item.productId) ?? 0) + item.quantity)
+  }
+  const items = Array.from(quantityByProductId, ([productId, quantity]) => ({ productId, quantity }))
 
   // Endereco precisa pertencer ao usuario autenticado. 404 tanto se nao
   // existir quanto se for de outro usuario, para nao vazar existencia de
@@ -89,8 +114,32 @@ orderRoutes.post('/orders', requireUser, async (c) => {
     itemsByStore.set(product.storeId, existing)
   }
 
+  // Ordem de lock deterministica: achata todos os itens (de todas as lojas)
+  // em um unico array ordenado por productId. Sem isso, dois carrinhos
+  // concorrentes com os mesmos produtos em ordem oposta no array `items` do
+  // request travariam as linhas em ordem inversa, causando deadlock no
+  // Postgres. Os decrementos rodam ANTES dos `order.create`/`orderItem.create`
+  // dentro da mesma transacao para reduzir o tempo que os locks ficam presos.
+  const allItemsSorted = Array.from(quantityByProductId, ([productId, quantity]) => ({ productId, quantity })).sort(
+    (a, b) => a.productId.localeCompare(b.productId),
+  )
+
   try {
     const orders = await prisma.$transaction(async (tx) => {
+      for (const item of allItemsSorted) {
+        // `updateMany` com `stock: { gte: quantity }` no WHERE torna o
+        // decremento condicional: se a corrida com outra requisicao ja
+        // consumiu o estoque entre a checagem acima e aqui, nenhuma linha
+        // e afetada e o `count` fica 0, disparando o rollback abaixo.
+        const result = await tx.product.updateMany({
+          where: { id: item.productId, stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
+        })
+        if (result.count === 0) {
+          throw new InsufficientStockError([{ productId: item.productId }])
+        }
+      }
+
       const createdOrders = []
       for (const [storeId, storeItems] of itemsByStore) {
         const totalCents = storeItems.reduce((sum, item) => sum + item.unitPriceCents * item.quantity, 0)
@@ -111,27 +160,21 @@ orderRoutes.post('/orders', requireUser, async (c) => {
           include: { items: true },
         })
         createdOrders.push(order)
-
-        for (const item of storeItems) {
-          // `updateMany` com `stock: { gte: quantity }` no WHERE torna o
-          // decremento condicional: se a corrida com outra requisicao ja
-          // consumiu o estoque entre a checagem acima e aqui, nenhuma linha
-          // e afetada e o `count` fica 0, disparando o rollback abaixo.
-          const result = await tx.product.updateMany({
-            where: { id: item.productId, stock: { gte: item.quantity } },
-            data: { stock: { decrement: item.quantity } },
-          })
-          if (result.count === 0) {
-            throw new Error('Estoque insuficiente durante a transacao (corrida concorrente)')
-          }
-        }
       }
       return createdOrders
     })
 
     return c.json({ orders }, 201)
-  } catch {
-    return c.json({ error: 'Estoque insuficiente' }, 409)
+  } catch (err) {
+    if (err instanceof InsufficientStockError) {
+      console.error('Checkout: estoque insuficiente durante a transacao', {
+        items: err.items,
+        buyerId: authedUser.id,
+      })
+      return c.json({ error: 'Estoque insuficiente', items: err.items }, 409)
+    }
+    console.error('Checkout: erro inesperado na transacao', err)
+    return c.json({ error: 'Erro interno' }, 500)
   }
 })
 
