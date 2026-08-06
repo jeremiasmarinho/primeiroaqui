@@ -1,7 +1,6 @@
 import type { Address, DeliveryForm } from '../../types'
 import AddressPicker from './AddressPicker'
 import CartOrderSummary from './CartOrderSummary'
-import CouponField from './CouponField'
 import DeliveryFields from './DeliveryFields'
 
 interface CheckoutFormProps {
@@ -31,29 +30,19 @@ export default function CheckoutForm({
   total,
   deliveryForm,
   checkoutError,
-  couponCode,
-  couponError,
   addresses,
   selectedAddressId,
   onSelectAddress,
   onDeliveryChange,
-  onCouponCodeChange,
-  onApplyCoupon,
-  onRemoveCoupon,
   onConfirm,
 }: CheckoutFormProps) {
   return (
     <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-surface to-surface-page p-4">
       <CartOrderSummary itemsCount={itemsCount} subtotal={subtotal} discount={discount} total={total} />
 
-      <CouponField
-        couponCode={couponCode}
-        couponError={couponError}
-        discount={discount}
-        onCouponCodeChange={onCouponCodeChange}
-        onApplyCoupon={onApplyCoupon}
-        onRemoveCoupon={onRemoveCoupon}
-      />
+      {/* Cupom OCULTO no MVP: o desconto era so client-side (state/coupons.ts) e o
+          servidor recalcula o total real no POST /orders — o cliente veria um valor
+          que o pedido nao honra. Religar quando houver cupom no backend. */}
 
       <AddressPicker
         addresses={addresses}

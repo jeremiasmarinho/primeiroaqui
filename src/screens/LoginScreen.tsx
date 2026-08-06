@@ -51,7 +51,7 @@ export default function LoginScreen({
         </div>
 
         <div className="mt-6 rounded-[28px] bg-ink p-6 text-white">
-          <h1 className="text-3xl font-black">Gerencie vendas, entregas e agentes em um só lugar</h1>
+          <h1 className="text-3xl font-black">Compre no bairro e gerencie suas vendas em um só lugar</h1>
           <p className="mt-3 text-sm leading-6 text-ink-faint">Uma experiência de compra rápida, pensada para operações locais e crescimento futuro.</p>
         </div>
 

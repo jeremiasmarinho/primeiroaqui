@@ -98,7 +98,9 @@ describe('quantidade no carrinho', () => {
   })
 })
 
-describe('cupom no checkout', () => {
+// Cupom OCULTO no MVP (desconto era client-side; servidor recalcula o total).
+// Reativar esta suite quando cupom existir no backend.
+describe.skip('cupom no checkout', () => {
   beforeEach(() => {
     localStorage.clear()
   })

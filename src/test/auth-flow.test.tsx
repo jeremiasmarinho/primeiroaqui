@@ -16,7 +16,7 @@ describe('auth flow', () => {
     render(<MarketplaceApp />)
     goToLoginFromNav()
     submitAuthForm()
-    expect(screen.getByText(/gerencie vendas, entregas e agentes/i)).toBeInTheDocument()
+    expect(screen.getByText(/compre no bairro e gerencie suas vendas/i)).toBeInTheDocument()
   })
 
   it('rejeita email malformado com mensagem visivel', () => {
@@ -54,7 +54,7 @@ describe('auth flow', () => {
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
     fireEvent.click(screen.getByRole('button', { name: /sair da conta/i }))
 
-    expect(screen.getByText(/gerencie vendas, entregas e agentes/i)).toBeInTheDocument()
+    expect(screen.getByText(/compre no bairro e gerencie suas vendas/i)).toBeInTheDocument()
     expect(localStorage.getItem('primeiroaqui_user')).toBeNull()
     // Desde a Task 4, o carrinho de visitante sobrevive ao logout de propósito
     // (persistencia deixou de depender de sessao) — o item some, mas a chave

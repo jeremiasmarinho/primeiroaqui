@@ -12,7 +12,6 @@ import OrdersScreen from '../screens/OrdersScreen'
 import ProductScreen from '../screens/ProductScreen'
 import ProfileScreen from '../screens/ProfileScreen'
 import StoreScreen from '../screens/StoreScreen'
-import TrackingScreen from '../screens/TrackingScreen'
 import type { AdminTab } from '../screens/admin/AdminScreen'
 
 import type { AppRouterProps } from './AppRouterProps'
@@ -189,13 +188,11 @@ export default function AppRouter(props: AppRouterProps) {
         )}
       </Route>
 
+      {/* Rastreio OCULTO no MVP: a TrackingScreen simulava progresso de entrega
+          sem backend por tras. Deep links caem no historico real de pedidos.
+          Religar quando houver tracking de verdade. */}
       <Route path={ROUTE_PATTERNS.order}>
-        {(params) => {
-          const order =
-            props.orders.find((item) => item.id === params.id) ??
-            (props.currentOrder?.id === params.id ? props.currentOrder : null)
-          return <TrackingScreen currentOrder={order} onBack={() => navigate(ROUTES.home)} />
-        }}
+        <Redirect to={ROUTES.orders} replace />
       </Route>
 
       <Route path={ROUTE_PATTERNS.favorites}>
