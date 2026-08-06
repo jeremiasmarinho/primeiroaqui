@@ -1,0 +1,32 @@
+# Segredos — NUNCA entram na imagem. O runtime recebe env pelo ambiente do
+# container (Coolify/compose), nunca por arquivo copiado.
+.env
+.env.*
+!.env.example
+
+# Dependencias e artefatos: reinstalados/reconstruidos dentro do build.
+node_modules
+dist
+dist-*
+coverage
+test-results
+playwright-report
+
+# Historia e metadados
+.git
+.gitignore
+.github
+.vercel
+.worktrees
+.claude
+.superpowers
+
+# Nao participam do runtime
+e2e
+outputs
+docs
+*.md
+Dockerfile
+.dockerignore
+compose.yml
+docker-compose.yml

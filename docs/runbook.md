@@ -89,20 +89,73 @@ no `.env.local`.
   `.env.local`, confira primeiro se uma linha `NODE_ENV=` foi reintroduzida
   ali antes de investigar código.
 
-## Gap conhecido: servidor ainda não tem build/empacotamento de produção
+## Deploy — VPS Hostinger via Coolify
 
-`start:server` roda `tsx src/server/index.ts` — ou seja, executa o
-TypeScript-fonte direto via `tsx`, uma ferramenta de desenvolvimento (não
-transpila para um artefato de produção nem empacota o servidor). Isso
-funciona hoje porque o servidor só roda localmente/neste ambiente de
-desenvolvimento, mas é um gap para quando o projeto for containerizado de
-verdade: um `Dockerfile` que rode `npm ci --omit=dev && npm run start:server`
-ainda dependeria de `tsx` (hoje em `devDependencies`, corretamente, pois é
-ferramenta de build/dev) para rodar em produção, o que não faz sentido para
-uma imagem de produção enxuta.
+O app roda como **um único container Node** que serve a API e a SPA já
+buildada. Mesma origem: o front chama `/api/...` relativo, sem CORS e sem
+`VITE_API_URL`. Nada de recurso proprietário de plataforma — a mesma imagem
+sobe em qualquer VPS.
 
-Quando a containerização real for tratada (Fase 8/9 ou uma tarefa de deploy
-dedicada), resolver isso com um passo de build explícito (ex.: compilar
-`src/server` para `dist/server` com `tsc`/`esbuild`/`tsup` e rodar
-`node dist/server/index.js` em produção) antes de gerar a imagem Docker. Não
-é necessário resolver agora — apenas registrado como débito conhecido.
+Arquivos que compõem o deploy: `Dockerfile`, `.dockerignore`,
+`src/server/root.ts` (composição API + estáticos + fallback de SPA).
+
+### Pré-requisitos na VPS
+
+1. Coolify instalado na VPS Hostinger.
+2. Domínio do cliente apontando (registro A) para o IP da VPS. O Traefik do
+   Coolify emite o certificado Let's Encrypt sozinho — **não** adicionar
+   Caddy/Nginx próprio, os dois brigariam pelas portas 80/443.
+
+### Configurar o recurso no Coolify
+
+- **Build Pack:** Dockerfile.
+- **Port Exposes:** `3333`.
+- **Health Check Path:** `/api/health`.
+- Variáveis de ambiente (aba Environment Variables — nunca em arquivo no
+  repositório; ver `.env.production.example`):
+
+| Variável | Observação |
+| --- | --- |
+| `NODE_ENV` | `production` — precisa vir daqui, não de arquivo (ver seção do `NODE_ENV` acima) |
+| `PORT` | `3333` |
+| `DATABASE_URL` | pooler do Supabase, **modo transaction** (porta 6543) |
+| `DIRECT_URL` | conexão de sessão (porta 5432), usada só por migrations |
+| `SUPABASE_URL` | |
+| `SUPABASE_ANON_KEY` | |
+| `SUPABASE_SERVICE_ROLE` | marcar como secret/oculta no painel |
+
+Nenhum `.env` entra na imagem — o `.dockerignore` bloqueia `.env*`. Se o
+container subir e morrer com `DATABASE_URL ausente`, é variável não
+cadastrada no painel, não bug de código.
+
+### Migrations: passo humano, nunca no CMD
+
+O container **não** roda `prisma migrate deploy` no boot. Migration é
+operação potencialmente destrutiva e exige confirmação humana. O banco é
+Supabase (acessível pela internet), então aplica-se da máquina de dev, com
+`DIRECT_URL` de produção no ambiente, **antes** de promover a nova imagem:
+
+```bash
+npx prisma migrate deploy
+```
+
+Conferir antes com `npx prisma migrate status` e a seção de drift no topo
+deste runbook.
+
+### Ordem de um deploy
+
+1. `npm run gate` local (lint + typecheck + testes + build + bundle).
+2. `npx prisma migrate deploy` se houver migration nova.
+3. Push na branch acompanhada pelo Coolify → build e troca do container.
+4. Verificar `https://<dominio>/api/health` → `{"status":"ok"}` e uma rota
+   funda da SPA (ex.: `/produto/1`) devolvendo o app, não 404.
+
+### Por que `tsx` está em `dependencies`
+
+O servidor roda `npx tsx src/server/index.ts` em produção — sem passo de
+compilação separado para `src/server`. É uma escolha deliberada: um único
+caminho de build, sem um segundo `tsconfig`/bundler para manter em sincronia
+com o do front. O custo é `tsx` viajar na imagem e o transpile acontecer no
+boot (uma vez, ~centenas de ms). Se o boot virar gargalo, o caminho é
+compilar `src/server` com `tsc`/`tsup` e trocar o `CMD` — nada mais no
+deploy muda.
