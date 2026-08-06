@@ -60,8 +60,8 @@ describe('persistencia', () => {
 
   describe('dado corrompido nao derruba o app (regressao B8)', () => {
     it('JSON invalido cai no fallback', () => {
-      localStorage.setItem(STORAGE_KEYS.agents, '{isso nao e json')
-      localStorage.setItem(STORAGE_KEYS.orders, 'null null')
+      localStorage.setItem(STORAGE_KEYS.currentOrder, '{isso nao e json')
+      localStorage.setItem(STORAGE_KEYS.business, 'null null')
 
       expect(() => render(<MarketplaceApp />)).not.toThrow()
       expect(screen.getByRole('navigation', { name: /navegação principal/i })).toBeInTheDocument()

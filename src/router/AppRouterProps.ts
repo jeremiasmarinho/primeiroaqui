@@ -1,17 +1,12 @@
 import type { AuthForm } from '../screens/LoginScreen'
-import type { AgentForm } from '../screens/admin/AgentsTab'
-import type { Metric } from '../screens/admin/OverviewTab'
 import type { AddressDraft } from '../state/addresses'
 import type {
   Address,
-  Agent,
   BusinessProfile,
   Category,
   Order,
-  OrderStatus,
   Product,
   Role,
-  ScheduleItem,
   User,
 } from '../types'
 
@@ -67,18 +62,6 @@ export interface AppRouterProps {
   currentOrder: Order | null
   onRepeatOrder: (order: Order) => void
   repeatError: string
-  /** Pedidos mock do painel admin — o painel ainda não foi migrado. */
-  adminOrders: Order[]
-  agents: Agent[]
-  schedule: ScheduleItem[]
-  metrics: Metric[]
-  agentForm: AgentForm
-  onAgentFormChange: (patch: Partial<AgentForm>) => void
-  onAgentSubmit: (event: React.FormEvent<HTMLFormElement>) => void
-  onAgentReset: () => void
-  onAgentEdit: (agent: Agent) => void
-  onAgentDelete: (agentId: number) => void
-  onStatusChange: (orderId: string, status: OrderStatus) => void
   businessProfile: BusinessProfile | null
 
   // endereços reais (GET /api/me/addresses)

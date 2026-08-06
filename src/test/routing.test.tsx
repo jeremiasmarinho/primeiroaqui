@@ -101,7 +101,7 @@ describe('rotas', () => {
       // conteúdo aparece só depois que o chunk resolve, daí o findBy* em vez
       // de getBy* aqui.
       expect(await screen.findByText(/acesso restrito/i)).toBeInTheDocument()
-      expect(screen.queryByRole('tab', { name: /agentes/i })).not.toBeInTheDocument()
+      expect(screen.queryByRole('tab', { name: /visão geral/i })).not.toBeInTheDocument()
     })
 
     it('rota desconhecida cai em pagina nao encontrada com saida', () => {

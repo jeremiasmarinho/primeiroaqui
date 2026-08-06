@@ -1,28 +1,12 @@
-import type { AgentForm } from '../screens/admin/AgentsTab'
 import type {
-  Agent,
   BusinessProfile,
   CartItem,
   DeliveryForm,
   Notification,
-  Order,
   Product,
-  ScheduleItem,
   Thread,
   User,
 } from '../types'
-
-export const initialAgents: Agent[] = [
-  { id: 1, name: 'João Almeida', region: 'Centro', specialty: 'Entregas urbanas', status: 'Ativo', commission: 12 },
-  { id: 2, name: 'Maria Souza', region: 'Zona Norte', specialty: 'Supermercado', status: 'Disponível', commission: 10 },
-  { id: 3, name: 'Pedro Lima', region: 'Zona Sul', specialty: 'Farmácia', status: 'Ativo', commission: 13 },
-]
-
-export const initialOrders: Order[] = [
-  { id: '1001', customer: 'Ana Paula', agent: 'João Almeida', value: 199.9, status: 'Entregue', region: 'Centro' },
-  { id: '1002', customer: 'Bruno Costa', agent: 'Maria Souza', value: 129.9, status: 'Em rota', region: 'Zona Norte' },
-  { id: '1003', customer: 'Cecília Mendes', agent: 'Pedro Lima', value: 84.9, status: 'Processando', region: 'Zona Sul' },
-]
 
 export const initialNotifications: Notification[] = [
   { id: 1, title: 'Entrega em andamento', message: 'João já saiu da loja com seu pedido.', type: 'info' },
@@ -43,21 +27,7 @@ export const initialThreads: Thread[] = [
   },
 ]
 
-export const initialSchedule: ScheduleItem[] = [
-  { id: 1, title: 'Recolha no Mercado Central', time: '09:00', agent: 'Maria Souza', status: 'Confirmado' },
-  { id: 2, title: 'Entrega no Centro', time: '11:30', agent: 'João Almeida', status: 'Em andamento' },
-  { id: 3, title: 'Retirada na Farmácia Local', time: '16:15', agent: 'Pedro Lima', status: 'Pendente' },
-]
-
 export const EMPTY_DELIVERY: DeliveryForm = { name: '', address: '', city: '', cep: '', payment: 'Pix' }
-export const EMPTY_AGENT_FORM: AgentForm = {
-  id: '',
-  name: '',
-  region: '',
-  specialty: '',
-  status: 'Disponível',
-  commission: '',
-}
 export const EMPTY_BUSINESS: BusinessProfile = { name: '', category: 'Loja local', address: '', phone: '' }
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

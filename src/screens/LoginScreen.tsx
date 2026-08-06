@@ -149,7 +149,7 @@ export default function LoginScreen({
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700"><Settings className="h-5 w-5" /></div>
                 <div>
                   <h2 className="font-black text-ink">Entrar como operação</h2>
-                  <p className="text-sm text-ink-muted">Painel para agentes e pedidos</p>
+                  <p className="text-sm text-ink-muted">Dashboard da plataforma</p>
                 </div>
               </div>
             </button>

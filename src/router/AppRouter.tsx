@@ -262,17 +262,6 @@ export default function AppRouter(props: AppRouterProps) {
               userRole={userRole}
               adminTab={(params.tab as AdminTab | undefined) ?? 'overview'}
               onTabChange={(tab) => navigate(ROUTES.admin(tab))}
-              metrics={props.metrics}
-              schedule={props.schedule}
-              orders={props.adminOrders}
-              agents={props.agents}
-              agentForm={props.agentForm}
-              onAgentFormChange={props.onAgentFormChange}
-              onAgentSubmit={props.onAgentSubmit}
-              onAgentReset={props.onAgentReset}
-              onAgentEdit={props.onAgentEdit}
-              onAgentDelete={props.onAgentDelete}
-              onStatusChange={props.onStatusChange}
               onBack={() => navigate(ROUTES.home)}
             />
           </Suspense>

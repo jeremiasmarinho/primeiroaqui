@@ -2,6 +2,9 @@ import { http, HttpResponse } from 'msw'
 
 import type {
   ApiAddress,
+  ApiAdminMetrics,
+  ApiAdminOrder,
+  ApiAdminStore,
   ApiFavoriteProduct,
   ApiOrder,
   ApiProduct,
@@ -58,8 +61,22 @@ interface MockDb {
   myStores: ApiStore[]
   /** Pedidos recebidos pelas lojas do usuário (GET /me/store-orders). */
   storeOrders: ApiStoreOrder[]
+  /** Visão da plataforma inteira (GET /admin/*). */
+  adminMetrics: ApiAdminMetrics
+  adminOrders: ApiAdminOrder[]
+  adminStores: ApiAdminStore[]
   seq: number
 }
+
+const emptyAdminMetrics = (): ApiAdminMetrics => ({
+  totals: { users: 0, stores: 0, activeStores: 0, products: 0, orders: 0, gmvCents: 0 },
+  ordersByStatus: {},
+  last30Days: Array.from({ length: 30 }, (_, i) => {
+    const day = new Date('2026-07-03T00:00:00.000Z')
+    day.setUTCDate(day.getUTCDate() + i)
+    return { date: day.toISOString().slice(0, 10), orders: 0, gmvCents: 0 }
+  }),
+})
 
 const createDb = (): MockDb => ({
   user: { ...mockUser },
@@ -69,6 +86,9 @@ const createDb = (): MockDb => ({
   orders: [],
   myStores: [],
   storeOrders: [],
+  adminMetrics: emptyAdminMetrics(),
+  adminOrders: [],
+  adminStores: [],
   seq: 0,
 })
 
@@ -141,7 +161,67 @@ export const seedStoreOrder = (
   return order
 }
 
+/**
+ * Semeia a visão de plataforma do painel admin e promove o usuário logado a
+ * ADMIN (como no backend real, o papel vem do GET /api/me — nunca do client).
+ */
+export const seedAdmin = (
+  overrides: Partial<Pick<MockDb, 'adminMetrics' | 'adminOrders' | 'adminStores'>> = {},
+): void => {
+  db.user.role = 'ADMIN'
+  db.adminMetrics = overrides.adminMetrics ?? {
+    totals: { users: 12, stores: 4, activeStores: 3, products: 25, orders: 9, gmvCents: 123450 },
+    ordersByStatus: { PENDING: 2, CONFIRMED: 3, DELIVERED: 3, CANCELED: 1 },
+    last30Days: emptyAdminMetrics().last30Days.map((day, index) =>
+      index >= 27 ? { ...day, orders: index - 26, gmvCents: (index - 26) * 10000 } : day,
+    ),
+  }
+  db.adminOrders = overrides.adminOrders ?? []
+  db.adminStores = overrides.adminStores ?? []
+}
+
+/** Semeia um pedido da plataforma (GET /api/admin/orders). */
+export const seedAdminOrder = (overrides: Partial<ApiAdminOrder> = {}): ApiAdminOrder => {
+  const orderId = `admin-order-${++db.seq}`
+  const order: ApiAdminOrder = {
+    id: orderId,
+    buyerId: 'buyer-2',
+    buyerName: 'João Comprador',
+    storeId: 'loja-vizinhanca',
+    storeName: 'Loja Vizinhança',
+    addressId: 'addr-x',
+    totalCents: 19990,
+    status: 'PENDING',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    items: [{ id: `${orderId}-item-0`, orderId, productId: '1', quantity: 1, unitPriceCents: 19990 }],
+    ...overrides,
+  }
+  db.adminOrders.unshift(order)
+  return order
+}
+
+/** Semeia uma loja na lista de moderação (GET /api/admin/stores). */
+export const seedAdminStore = (overrides: Partial<ApiAdminStore> = {}): ApiAdminStore => {
+  const store: ApiAdminStore = {
+    id: `admin-store-${++db.seq}`,
+    name: 'Loja da Ana',
+    slug: 'loja-da-ana',
+    ownerName: 'Ana Lojista',
+    productCount: 3,
+    orderCount: 5,
+    isActive: true,
+    createdAt: now,
+    ...overrides,
+  }
+  db.adminStores.push(store)
+  return store
+}
+
 const unauthorized = () => HttpResponse.json({ error: 'Nao autenticado' }, { status: 401 })
+
+const forbiddenAdmin = () =>
+  HttpResponse.json({ error: 'Acesso restrito a administradores' }, { status: 403 })
 
 const requireAuth = (request: Request): boolean =>
   Boolean(request.headers.get('authorization')?.startsWith('Bearer '))
@@ -391,7 +471,10 @@ export const handlers = [
   http.patch('/api/orders/:id/status', async ({ request, params }) => {
     if (!requireAuth(request)) return unauthorized()
     const body = (await request.json()) as { status?: ApiOrderStatus }
-    const order = db.storeOrders.find((item) => item.id === params.id)
+    // Admin atualiza qualquer pedido da plataforma; lojista, os da loja dele.
+    const order =
+      db.storeOrders.find((item) => item.id === params.id) ??
+      db.adminOrders.find((item) => item.id === params.id)
     if (!order) return HttpResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
     if (!body?.status || !isValidOrderTransition(order.status, body.status)) {
       return HttpResponse.json(
@@ -443,6 +526,46 @@ export const handlers = [
     >
     Object.assign(product, body, { updatedAt: new Date().toISOString() })
     return HttpResponse.json({ product })
+  }),
+
+  // ------------------------------------------------------------------ admin
+  http.get('/api/admin/metrics', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role !== 'ADMIN') return forbiddenAdmin()
+    return HttpResponse.json(db.adminMetrics)
+  }),
+
+  http.get('/api/admin/orders', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role !== 'ADMIN') return forbiddenAdmin()
+    const url = new URL(request.url)
+    const limit = Number(url.searchParams.get('limit') ?? 20)
+    const offset = Number(url.searchParams.get('offset') ?? 0)
+    return HttpResponse.json({
+      orders: db.adminOrders.slice(offset, offset + limit),
+      total: db.adminOrders.length,
+    })
+  }),
+
+  http.get('/api/admin/stores', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role !== 'ADMIN') return forbiddenAdmin()
+    return HttpResponse.json({ stores: db.adminStores })
+  }),
+
+  http.patch('/api/admin/stores/:id', async ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role !== 'ADMIN') return forbiddenAdmin()
+    const body = (await request.json()) as { isActive?: unknown }
+    if (typeof body?.isActive !== 'boolean') {
+      return HttpResponse.json({ error: 'Informe isActive como booleano' }, { status: 400 })
+    }
+    const store = db.adminStores.find((item) => item.id === params.id)
+    if (!store) return HttpResponse.json({ error: 'Loja nao encontrada' }, { status: 404 })
+    store.isActive = body.isActive
+    return HttpResponse.json({
+      store: { id: store.id, name: store.name, slug: store.slug, isActive: store.isActive },
+    })
   }),
 
   http.post('/api/products/:id/photos', ({ request, params }) => {

@@ -1,6 +1,5 @@
 import type {
   Address,
-  Agent,
   CartItem,
   CartState,
   DeliveryForm,
@@ -62,16 +61,6 @@ export const makeOrder = (overrides: Partial<Order> = {}): Order => ({
   value: 100,
   status: 'Processando',
   region: 'Centro',
-  ...overrides,
-})
-
-export const makeAgent = (overrides: Partial<Agent> = {}): Agent => ({
-  id: 1,
-  name: 'João Almeida',
-  region: 'Centro',
-  specialty: 'Entregas urbanas',
-  status: 'Ativo',
-  commission: 12,
   ...overrides,
 })
 

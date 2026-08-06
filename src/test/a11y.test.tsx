@@ -12,6 +12,7 @@ import {
   seedLoggedInStorage,
   waitForCatalog,
 } from './authTestHelpers'
+import { seedAdmin } from './mocks/handlers'
 
 /**
  * WU-50 — acessibilidade. Fecha a WU-15 do plano original.
@@ -131,13 +132,15 @@ describe('acessibilidade', () => {
   })
 
   it('painel admin sem violacao critica ou seria', async () => {
+    // O papel ADMIN vem do GET /api/me — seedAdmin eleva o usuário do mock.
+    seedAdmin()
+    seedLoggedInStorage()
+    window.history.pushState({}, '', ROUTES.admin())
     const { container } = render(<MarketplaceApp />)
-    goToLoginFromNav()
-    fireEvent.click(screen.getByRole('button', { name: /entrar como operação/i }))
-    fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
-    // AdminScreen carrega via React.lazy — espera o chunk resolver antes de
-    // rodar o axe, em vez de depender do timing implícito do `await axe()`.
-    await screen.findByRole('heading', { level: 1 })
+    // AdminScreen carrega via React.lazy — espera o chunk e os dados
+    // resolverem antes de rodar o axe.
+    await screen.findByRole('heading', { name: /painel da plataforma/i })
+    await screen.findByText('Usuários')
 
     const violations = blocking((await axe(container)) as AxeResults)
     expect(describeViolations(violations)).toBe('')

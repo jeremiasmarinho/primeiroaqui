@@ -10,9 +10,6 @@ export const STORAGE_KEYS = {
   currentOrder: 'primeiroaqui_current_order',
   business: 'primeiroaqui_business',
   notifications: 'primeiroaqui_notifications',
-  orders: 'primeiroaqui_orders',
-  agents: 'primeiroaqui_agents',
-  schedule: 'primeiroaqui_schedule',
   addresses: 'primeiroaqui_addresses',
   searchHistory: 'primeiroaqui_search_history',
 } as const

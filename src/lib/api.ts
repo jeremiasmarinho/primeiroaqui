@@ -112,6 +112,43 @@ export interface ApiStoreOrder extends ApiOrder {
   buyerName: string
 }
 
+// ------------------------------------------------------------------ admin
+
+/** Resposta de GET /admin/metrics — visão geral da plataforma. */
+export interface ApiAdminMetrics {
+  totals: {
+    users: number
+    stores: number
+    activeStores: number
+    products: number
+    orders: number
+    /** Somatório de totalCents de pedidos não cancelados. */
+    gmvCents: number
+  }
+  /** Contagem por status (só status com pelo menos 1 pedido aparecem). */
+  ordersByStatus: Partial<Record<ApiOrderStatus, number>>
+  /** Série diária dos últimos 30 dias, zero-preenchida, do mais antigo ao mais novo. */
+  last30Days: Array<{ date: string; orders: number; gmvCents: number }>
+}
+
+/** Pedido de GET /admin/orders — pedido + comprador + loja. */
+export interface ApiAdminOrder extends ApiOrder {
+  buyerName: string
+  storeName: string
+}
+
+/** Loja de GET /admin/stores — projeção de moderação. */
+export interface ApiAdminStore {
+  id: string
+  name: string
+  slug: string
+  ownerName: string
+  productCount: number
+  orderCount: number
+  isActive: boolean
+  createdAt: string
+}
+
 /** Foto de produto criada por POST /products/:id/photos. */
 export interface ApiProductPhoto {
   id: string
@@ -318,6 +355,25 @@ export const api = {
     productId: string,
     input: Partial<{ title: string; description: string; category: string; priceCents: number; stock: number; isActive: boolean }>,
   ) => request<{ product: ApiProduct }>(`/products/${productId}`, { method: 'PATCH', body: input }),
+
+  // ------------------------------------------------------------ admin
+  adminMetrics: () => request<ApiAdminMetrics>('/admin/metrics'),
+
+  adminOrders: (params: { limit?: number; offset?: number } = {}) => {
+    const query = new URLSearchParams()
+    if (params.limit !== undefined) query.set('limit', String(params.limit))
+    if (params.offset !== undefined) query.set('offset', String(params.offset))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    return request<{ orders: ApiAdminOrder[]; total: number }>(`/admin/orders${suffix}`)
+  },
+
+  adminStores: () => request<{ stores: ApiAdminStore[] }>('/admin/stores'),
+
+  adminSetStoreActive: (storeId: string, isActive: boolean) =>
+    request<{ store: Pick<ApiAdminStore, 'id' | 'name' | 'slug' | 'isActive'> }>(
+      `/admin/stores/${storeId}`,
+      { method: 'PATCH', body: { isActive } },
+    ),
 
   uploadProductPhoto: (productId: string, file: File) => {
     const form = new FormData()

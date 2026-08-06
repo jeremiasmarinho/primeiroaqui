@@ -94,17 +94,6 @@ export interface DeliveryForm {
   payment: PaymentMethod
 }
 
-export type AgentStatus = 'Disponível' | 'Ativo' | 'Offline'
-
-export interface Agent {
-  id: number
-  name: string
-  region: string
-  specialty: string
-  status: AgentStatus
-  commission: number
-}
-
 export interface User {
   /** Id do backend (uuid). Ausente no atalho de login de desenvolvimento. */
   id?: string
@@ -183,14 +172,6 @@ export interface Thread {
   status: string
   unread: number
   messages: ThreadMessage[]
-}
-
-export interface ScheduleItem {
-  id: number
-  title: string
-  time: string
-  agent: string
-  status: string
 }
 
 export interface BusinessProfile {

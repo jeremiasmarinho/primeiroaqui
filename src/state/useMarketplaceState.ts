@@ -15,7 +15,7 @@ import { useSessionState } from './useSessionState'
 import { useCatalogState } from './useCatalogState'
 import { useRemoteCatalog } from './useRemoteCatalog'
 import { useCartCheckoutState } from './useCartCheckoutState'
-import { useOrdersAdminState } from './useOrdersAdminState'
+import { useBusinessSetupState } from './useBusinessSetupState'
 import { useAddressesState } from './useAddressesState'
 import { CEP_ERROR_MESSAGE, formatAddressLine, isValidCep } from './addresses'
 import type { Order, Product, Role } from '../types'
@@ -38,7 +38,7 @@ export function useMarketplaceState() {
   // Fecha a gaveta do carrinho antes de qualquer redirecionamento para
   // /entrar: veja o comentário de `onBeforeRedirect` em useSessionState.
   const session = useSessionState(navigate, () => cartCheckout.setIsCartOpen(false))
-  const admin = useOrdersAdminState(catalog.addNotification)
+  const admin = useBusinessSetupState()
   const addresses = useAddressesState(!!session.authUser)
   const [repeatError, setRepeatError] = useState('')
 
@@ -134,17 +134,8 @@ export function useMarketplaceState() {
   }, [dropLocalSession])
 
   useEffect(() => {
-    writeStoredJSON(STORAGE_KEYS.agents, admin.agents)
-  }, [admin.agents])
-  useEffect(() => {
-    writeStoredJSON(STORAGE_KEYS.orders, admin.orders)
-  }, [admin.orders])
-  useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.notifications, catalog.notifications)
   }, [catalog.notifications])
-  useEffect(() => {
-    writeStoredJSON(STORAGE_KEYS.schedule, admin.schedule)
-  }, [admin.schedule])
   useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.user, session.authUser)
   }, [session.authUser])
@@ -489,19 +480,8 @@ export function useMarketplaceState() {
     onRepeatOrder: handleRepeatOrder,
     repeatError,
 
-    // painel admin (mock — outra fase migra)
-    adminOrders: admin.orders,
+    // rastreio e perfil do negócio (o painel admin real vive em useAdminDashboard)
     currentOrder: admin.currentOrder,
-    agents: admin.agents,
-    schedule: admin.schedule,
-    metrics: admin.metrics,
-    agentForm: admin.agentForm,
-    onAgentFormChange: admin.onAgentFormChange,
-    onAgentSubmit: admin.onAgentSubmit,
-    onAgentReset: admin.onAgentReset,
-    onAgentEdit: admin.onAgentEdit,
-    onAgentDelete: admin.onAgentDelete,
-    onStatusChange: admin.onStatusChange,
     businessProfile: admin.businessProfile,
 
     // cadastro do negócio

@@ -1,150 +1,147 @@
-import { describe, expect, it, beforeEach } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest'
+import { fireEvent, render, screen } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
-import { goToLoginFromNav } from './authTestHelpers'
+import { seedLoggedInStorage } from './authTestHelpers'
+import { db, seedAdmin, seedAdminOrder, seedAdminStore } from './mocks/handlers'
 
-/** WU-50: painel operacional. Fecha a WU-14 do plano original. */
-describe('painel admin', () => {
+/**
+ * Painel admin da plataforma (/admin) sobre a API real (fake do MSW).
+ * O papel ADMIN vem sempre do GET /api/me — `seedAdmin()` eleva o usuário do
+ * mock; papel gravado no client nunca concede o painel (regressão B5).
+ */
+
+const renderAt = (path: string) => {
+  window.history.pushState({}, '', path)
+  return render(<MarketplaceApp />)
+}
+
+describe('painel admin da plataforma', () => {
   beforeEach(() => {
     localStorage.clear()
   })
 
-  // AdminScreen carrega via React.lazy (code splitting — o comprador nunca
-  // baixa o painel). `enterAsAdmin` por isso é assíncrono: espera o chunk
-  // resolver e o painel de fato aparecer antes de devolver o controle.
-  const enterAsAdmin = async () => {
-    render(<MarketplaceApp />)
-    goToLoginFromNav()
-    fireEvent.click(screen.getByRole('button', { name: /entrar como operação/i }))
-    // Para operação, o item "Mais" da barra leva ao painel.
-    fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
-    await screen.findByRole('tab', { name: /agentes/i })
-  }
-
-  const openTab = (name: RegExp) => {
-    fireEvent.click(screen.getByRole('tab', { name }))
-  }
-
   describe('controle de acesso', () => {
-    it('cliente nao renderiza o painel, mesmo forcando a tela', () => {
-      render(<MarketplaceApp />)
-      goToLoginFromNav()
-      fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
-      fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
+    it('BUYER logado que força /admin vê acesso restrito, sem tabs', async () => {
+      seedLoggedInStorage()
+      renderAt('/admin')
 
-      // Cliente vai ao perfil, nunca ao painel.
-      expect(screen.queryByRole('tab', { name: /agentes/i })).not.toBeInTheDocument()
-      expect(window.location.pathname).toBe('/perfil')
+      expect(await screen.findByText(/acesso restrito/i)).toBeInTheDocument()
+      expect(screen.queryByRole('tab', { name: /visão geral/i })).not.toBeInTheDocument()
     })
 
-    it('operacao acessa o painel', async () => {
-      await enterAsAdmin()
-      expect(screen.getByRole('tab', { name: /agentes/i })).toBeInTheDocument()
-    })
-  })
+    it('ADMIN real (confirmado pelo /me) acessa o painel', async () => {
+      seedAdmin()
+      seedLoggedInStorage()
+      renderAt('/admin')
 
-  describe('CRUD de agentes', () => {
-    const fillAgent = (overrides: Partial<Record<string, string>> = {}) => {
-      fireEvent.change(screen.getByPlaceholderText('Nome'), {
-        target: { value: overrides.name ?? 'Carla Nunes' },
-      })
-      fireEvent.change(screen.getByPlaceholderText('Região'), {
-        target: { value: overrides.region ?? 'Zona Oeste' },
-      })
-      fireEvent.change(screen.getByPlaceholderText('Especialidade'), {
-        target: { value: overrides.specialty ?? 'Entregas rápidas' },
-      })
-      fireEvent.change(screen.getByPlaceholderText('Comissão (%)'), {
-        target: { value: overrides.commission ?? '15' },
-      })
-    }
-
-    it('cria um agente novo', async () => {
-      await enterAsAdmin()
-      openTab(/agentes/i)
-
-      fillAgent()
-      fireEvent.click(screen.getByRole('button', { name: /salvar/i }))
-
-      expect(screen.getByText('Carla Nunes')).toBeInTheDocument()
-    })
-
-    it('nao cria agente sem campos obrigatorios', async () => {
-      await enterAsAdmin()
-      openTab(/agentes/i)
-
-      fireEvent.change(screen.getByPlaceholderText('Nome'), { target: { value: 'Sem o resto' } })
-      fireEvent.click(screen.getByRole('button', { name: /salvar/i }))
-
-      expect(screen.queryByText('Sem o resto')).not.toBeInTheDocument()
-    })
-
-    it('rejeita comissao fora da faixa 0..100', async () => {
-      await enterAsAdmin()
-      openTab(/agentes/i)
-
-      fillAgent({ name: 'Comissao Absurda', commission: '150' })
-      fireEvent.click(screen.getByRole('button', { name: /salvar/i }))
-
-      expect(screen.queryByText('Comissao Absurda')).not.toBeInTheDocument()
-    })
-
-    it('deleta um agente', async () => {
-      await enterAsAdmin()
-      openTab(/agentes/i)
-
-      expect(screen.getByText('João Almeida')).toBeInTheDocument()
-      const row = screen.getByText('João Almeida').closest('div')?.parentElement as HTMLElement
-      fireEvent.click(within(row).getAllByRole('button')[1] as HTMLElement)
-
-      expect(screen.queryByText('João Almeida')).not.toBeInTheDocument()
-    })
-
-    it('IDs novos nao colidem com os existentes', async () => {
-      await enterAsAdmin()
-      openTab(/agentes/i)
-
-      fillAgent({ name: 'Agente Um' })
-      fireEvent.click(screen.getByRole('button', { name: /salvar/i }))
-      fillAgent({ name: 'Agente Dois' })
-      fireEvent.click(screen.getByRole('button', { name: /salvar/i }))
-
-      expect(screen.getByText('Agente Um')).toBeInTheDocument()
-      expect(screen.getByText('Agente Dois')).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: /painel da plataforma/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /visão geral/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /pedidos/i })).toBeInTheDocument()
+      expect(screen.getByRole('tab', { name: /lojas/i })).toBeInTheDocument()
     })
   })
 
-  describe('pedidos', () => {
-    it('muda o status de um pedido', async () => {
-      await enterAsAdmin()
-      openTab(/pedidos/i)
+  describe('visão geral', () => {
+    it('renderiza métricas reais: totais, GMV em BRL e distribuição por status', async () => {
+      seedAdmin()
+      seedLoggedInStorage()
+      renderAt('/admin')
 
-      const selects = screen.getAllByRole('combobox')
-      fireEvent.change(selects[2] as HTMLElement, { target: { value: 'Em rota' } })
-
-      expect((selects[2] as HTMLSelectElement).value).toBe('Em rota')
-    })
-
-    it('transicao invalida nao corrompe o pedido', async () => {
-      await enterAsAdmin()
-      openTab(/pedidos/i)
-
-      // Pedido 1001 ja esta Entregue: voltar para Processando e invalido.
-      const selects = screen.getAllByRole('combobox')
-      fireEvent.change(selects[0] as HTMLElement, { target: { value: 'Processando' } })
-
-      expect((selects[0] as HTMLSelectElement).value).toBe('Entregue')
+      expect(await screen.findByText('Usuários')).toBeInTheDocument()
+      expect(screen.getByText('12')).toBeInTheDocument()
+      // Lojas ativas / total = 3 / 4.
+      expect(screen.getByText('3 / 4')).toBeInTheDocument()
+      // GMV 123450 centavos → R$ 1.234,50 (espaço do Intl é non-breaking).
+      expect(screen.getByText((text) => text.replace(/ /g, ' ') === 'R$ 1.234,50')).toBeInTheDocument()
+      // Distribuição por status com rótulo pt-BR.
+      const statusSection = screen.getByRole('region', { name: /pedidos por status/i })
+      expect(statusSection).toHaveTextContent('Aguardando confirmação')
+      expect(statusSection).toHaveTextContent('Cancelado')
+      // Gráfico dos últimos 30 dias presente.
+      expect(screen.getByRole('img', { name: /pedidos por dia nos últimos 30 dias/i })).toBeInTheDocument()
     })
   })
 
-  describe('desempenho', () => {
-    it('o ranking ordena por comissao decrescente', async () => {
-      await enterAsAdmin()
-      openTab(/desempenho/i)
+  describe('pedidos da plataforma', () => {
+    it('lista comprador, loja e valor, e avança o status pela transição válida', async () => {
+      seedAdmin()
+      seedAdminOrder({ buyerName: 'Maria Compradora', storeName: 'Tech Shop', status: 'PENDING' })
+      seedLoggedInStorage()
+      renderAt('/admin/orders')
 
-      const ranking = screen.getByText(/ranking/i).parentElement as HTMLElement
-      const rows = within(ranking).getAllByText(/^\d\./)
-      expect(rows[0]).toHaveTextContent('Pedro Lima')
+      expect(await screen.findByText('Maria Compradora')).toBeInTheDocument()
+      expect(screen.getByText('Tech Shop')).toBeInTheDocument()
+      expect(screen.getByText('Aguardando confirmação')).toBeInTheDocument()
+
+      // PENDING → CONFIRMED é a única transição de avanço válida.
+      fireEvent.click(screen.getByRole('button', { name: /^confirmar$/i }))
+
+      expect(await screen.findByText('Confirmado')).toBeInTheDocument()
+      expect(db.adminOrders[0]?.status).toBe('CONFIRMED')
+      // Próxima ação segue a máquina: preparar; cancelar ainda vale.
+      expect(screen.getByRole('button', { name: /^preparar$/i })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: /^cancelar$/i })).toBeInTheDocument()
+    })
+
+    it('cancela um pedido pendente', async () => {
+      seedAdmin()
+      seedAdminOrder({ status: 'PENDING' })
+      seedLoggedInStorage()
+      renderAt('/admin/orders')
+
+      fireEvent.click(await screen.findByRole('button', { name: /^cancelar$/i }))
+
+      expect(await screen.findByText('Cancelado')).toBeInTheDocument()
+      expect(db.adminOrders[0]?.status).toBe('CANCELED')
+    })
+
+    it('pedido entregue não oferece ação nenhuma', async () => {
+      seedAdmin()
+      seedAdminOrder({ status: 'DELIVERED' })
+      seedLoggedInStorage()
+      renderAt('/admin/orders')
+
+      expect(await screen.findByText('Entregue')).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: /^cancelar$/i })).not.toBeInTheDocument()
+    })
+  })
+
+  describe('moderação de lojas', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('lista lojas com dono e contagens, e desativa com confirmação', async () => {
+      seedAdmin()
+      seedAdminStore({ name: 'Loja Suspeita', ownerName: 'Zé Dono', productCount: 7, orderCount: 2, isActive: true })
+      seedLoggedInStorage()
+      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
+      renderAt('/admin/stores')
+
+      expect(await screen.findByText('Loja Suspeita')).toBeInTheDocument()
+      expect(screen.getByText('Zé Dono')).toBeInTheDocument()
+      expect(screen.getByText('Ativa')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: /desativar loja suspeita/i }))
+
+      expect(confirmSpy).toHaveBeenCalledOnce()
+      expect(await screen.findByText('Desativada')).toBeInTheDocument()
+      expect(db.adminStores[0]?.isActive).toBe(false)
+      // A ação vira reativar — sem confirmação para religar.
+      expect(screen.getByRole('button', { name: /reativar loja suspeita/i })).toBeInTheDocument()
+    })
+
+    it('cancelar a confirmação não desativa a loja', async () => {
+      seedAdmin()
+      seedAdminStore({ name: 'Loja Boa', isActive: true })
+      seedLoggedInStorage()
+      vi.spyOn(window, 'confirm').mockReturnValue(false)
+      renderAt('/admin/stores')
+
+      fireEvent.click(await screen.findByRole('button', { name: /desativar loja boa/i }))
+
+      expect(screen.getByText('Ativa')).toBeInTheDocument()
+      expect(db.adminStores[0]?.isActive).toBe(true)
     })
   })
 })
