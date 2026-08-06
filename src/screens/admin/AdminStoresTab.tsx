@@ -69,16 +69,16 @@ export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabPr
             <tr key={store.id} className="border-b border-line last:border-b-0">
               <td className="px-4 py-3 font-semibold text-ink">{store.name}</td>
               <td className="px-4 py-3 text-ink">{store.ownerName}</td>
-              <td className="px-4 py-3 text-right text-ink [font-variant-numeric:tabular-nums]">
+              <td className="tabular px-4 py-3 text-right text-ink">
                 {numberBR.format(store.productCount)}
               </td>
-              <td className="px-4 py-3 text-right text-ink [font-variant-numeric:tabular-nums]">
+              <td className="tabular px-4 py-3 text-right text-ink">
                 {numberBR.format(store.orderCount)}
               </td>
               <td className="px-4 py-3">
                 <span
                   className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    store.isActive ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                    store.isActive ? 'bg-success/10 text-success' : 'bg-error/10 text-error'
                   }`}
                 >
                   {store.isActive ? 'Ativa' : 'Desativada'}

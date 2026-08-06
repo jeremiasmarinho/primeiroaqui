@@ -49,10 +49,15 @@ export default function StoreRail({ onSelect }: StoreRailProps) {
                   {store.neighborhood}
                 </p>
                 <p className="mt-1 flex items-center gap-1 text-micro text-ink-muted">
-                  <Star className="h-3 w-3 fill-brand-deep text-brand-deep" aria-hidden="true" />
-                  <span className="tabular">{store.rating.toFixed(1)}</span>
+                  {store.rating > 0 && (
+                    <>
+                      <Star className="h-3 w-3 fill-brand-deep text-brand-deep" aria-hidden="true" />
+                      <span className="tabular">{store.rating.toFixed(1)}</span>
+                      <span aria-hidden="true">·</span>
+                    </>
+                  )}
                   <span className="text-ink-faint">
-                    · {store.deliveries.toLocaleString('pt-BR')} entregas
+                    {store.deliveries.toLocaleString('pt-BR')} entregas
                   </span>
                 </p>
               </div>

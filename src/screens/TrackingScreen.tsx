@@ -58,7 +58,7 @@ export default function TrackingScreen({ currentOrder, onBack }: TrackingScreenP
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_0.8fr]">
           <div className="rounded-[24px] bg-surface-page p-5">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-100 text-blue-700"><Map className="h-6 w-6" /></div>
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary"><Map className="h-6 w-6" /></div>
               <div>
                 <p className="text-sm font-semibold text-ink-muted">Rastreamento ativo</p>
                 <p className="text-lg font-black text-ink">Seu pedido está em rota</p>

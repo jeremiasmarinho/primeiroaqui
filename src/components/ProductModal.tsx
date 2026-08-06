@@ -1,7 +1,7 @@
 import { X } from 'lucide-react'
-import { formatCurrency } from '../lib/format'
 import { fallbackTo } from '../lib/images'
-import { discountPercent, storeBySeller } from '../data/catalog'
+import { storeBySeller } from '../data/catalog'
+import Price from './Price'
 import ProductReviews from './ProductReviews'
 import type { Product } from '../types'
 
@@ -14,7 +14,6 @@ interface ProductModalProps {
 export default function ProductModal({ product, onClose, onAddToCart }: ProductModalProps) {
   if (!product) return null
 
-  const off = discountPercent(product)
   const store = storeBySeller(product.seller)
 
   return (
@@ -23,7 +22,7 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
           <div className="w-full max-w-2xl rounded-[28px] bg-surface p-4 shadow-2xl md:p-6">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-600">Detalhes do produto</p>
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Detalhes do produto</p>
                 <h3 className="mt-2 text-2xl font-black text-ink">{product.title}</h3>
               </div>
               <button onClick={() => onClose()} className="rounded-full bg-surface-sunken p-2"><X className="h-5 w-5 text-ink-muted" /></button>
@@ -34,20 +33,29 @@ export default function ProductModal({ product, onClose, onAddToCart }: ProductM
                 <p className="text-sm text-ink-muted">
                   {product.seller}
                   {store ? (
-                    <span className="text-ink-faint"> · {store.neighborhood} · {store.rating.toFixed(1)} ★</span>
+                    <span className="text-ink-faint">
+                      {' '}
+                      · {store.neighborhood}
+                      {store.rating > 0 ? ` · ${store.rating.toFixed(1)} ★` : ''}
+                    </span>
                   ) : null}
                 </p>
-                <p className="mt-3 text-3xl font-black text-ink">{formatCurrency(product.price)}</p>
+                <div className="mt-3">
+                  <Price product={product} size="lg" />
+                </div>
                 <p className="mt-3 text-sm leading-6 text-ink-muted">Produto com entrega rápida, avaliação excelente e opção de compra segura direto no app.</p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {off !== null && (
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">
-                      {off}% OFF
-                    </span>
-                  )}
-                  <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">{product.arrival}</span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-sm font-semibold ${
+                      /grátis/i.test(product.arrival)
+                        ? 'bg-success/10 text-success'
+                        : 'bg-surface-sunken text-ink-muted'
+                    }`}
+                  >
+                    {product.arrival}
+                  </span>
                   {product.express && (
-                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
+                    <span className="rounded-full bg-success/10 px-3 py-1 text-sm font-semibold text-success">
                       Entrega turbo
                     </span>
                   )}

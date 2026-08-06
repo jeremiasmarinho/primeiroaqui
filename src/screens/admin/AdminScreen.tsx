@@ -55,7 +55,7 @@ export default function AdminScreen({ userRole, adminTab, onTabChange, onBack }:
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-ink-muted">
               Administração
             </p>
-            <h1 className="text-2xl font-black text-ink">Painel da plataforma</h1>
+            <h1 className="font-display text-2xl font-black text-ink">Painel da plataforma</h1>
           </div>
           <button type="button" onClick={onBack} className="btn-primary min-h-[44px]">
             Voltar ao marketplace
@@ -80,7 +80,7 @@ export default function AdminScreen({ userRole, adminTab, onTabChange, onBack }:
         </div>
 
         {dashboard.actionError ? (
-          <p role="alert" className="mt-4 rounded-[16px] bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <p role="alert" className="mt-4 rounded-[16px] bg-error/10 px-4 py-3 text-sm font-semibold text-error">
             {dashboard.actionError}
           </p>
         ) : null}

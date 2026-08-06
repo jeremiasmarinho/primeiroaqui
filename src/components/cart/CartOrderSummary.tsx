@@ -21,7 +21,7 @@ export default function CartOrderSummary({ itemsCount, subtotal, discount, total
         <span className="tabular">{formatCurrency(subtotal)}</span>
       </div>
       {discount > 0 && (
-        <div className="mt-1 flex items-center justify-between text-sm text-emerald-400">
+        <div className="mt-1 flex items-center justify-between text-sm text-success">
           <span>Desconto</span>
           <span className="tabular">-{formatCurrency(discount)}</span>
         </div>

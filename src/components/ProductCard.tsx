@@ -99,15 +99,19 @@ export default function ProductCard({
         <Price product={product} size={variant === 'wide' ? 'sm' : 'md'} />
 
         <div className="mt-auto flex flex-wrap items-center gap-x-2 gap-y-1 pt-1">
-          <span className="flex items-center gap-0.5 text-micro text-ink-muted">
-            <Star className="h-3 w-3 fill-brand-deep text-brand-deep" aria-hidden="true" />
-            <span className="tabular">{product.rating.toFixed(1)}</span>
-            <span className="sr-only">de 5, {product.reviews} avaliações</span>
-          </span>
+          {product.rating > 0 && (
+            <span className="flex items-center gap-0.5 text-micro text-ink-muted">
+              <Star className="h-3 w-3 fill-brand-deep text-brand-deep" aria-hidden="true" />
+              <span className="tabular">{product.rating.toFixed(1)}</span>
+              <span className="sr-only">de 5, {product.reviews} avaliações</span>
+            </span>
+          )}
           {sold && <span className="text-micro text-ink-faint">{sold}</span>}
         </div>
 
-        <p className="text-micro font-bold text-ship">{product.arrival}</p>
+        <p className={`text-micro font-bold ${/grátis/i.test(product.arrival) ? 'text-ship' : 'text-ink-muted'}`}>
+          {product.arrival}
+        </p>
 
         {product.express && (
           <p className="flex items-center gap-1 text-micro font-extrabold uppercase tracking-wide text-ship">

@@ -197,12 +197,18 @@ export default function ProductScreen({
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-semibold ${
+                  /grátis/i.test(product.arrival)
+                    ? 'bg-success/10 text-success'
+                    : 'bg-surface-sunken text-ink-muted'
+                }`}
+              >
                 <Truck className="h-4 w-4" aria-hidden="true" />
                 {product.arrival}
               </span>
               {outOfStock ? (
-                <span className="rounded-full bg-red-100 px-3 py-1 text-sm font-bold text-red-700">
+                <span className="rounded-full bg-error/10 px-3 py-1 text-sm font-bold text-error">
                   Sem estoque
                 </span>
               ) : null}

@@ -53,20 +53,20 @@ export default function CheckoutForm({
       <DeliveryFields deliveryForm={deliveryForm} onDeliveryChange={onDeliveryChange} />
 
       {checkoutError ? (
-        <p role="alert" className="rounded-[16px] bg-red-50 px-3 py-2 text-sm font-semibold text-error">
+        <p role="alert" className="rounded-[16px] bg-error/10 px-3 py-2 text-sm font-semibold text-error">
           {checkoutError}
         </p>
       ) : null}
 
-      <div className="rounded-[24px] border border-green-200 bg-green-50 p-4 text-sm text-green-700">
+      <div className="rounded-[24px] border border-success/30 bg-success/10 p-4 text-sm text-success">
         <p className="font-black">Entrega prevista em até 2 horas</p>
-        <p className="mt-1">Pagamento confirmado via {deliveryForm.payment} após a confirmação.</p>
+        <p className="mt-1 text-ink-muted">Pagamento confirmado via {deliveryForm.payment} após a confirmação.</p>
       </div>
 
       <button
         type="button"
         onClick={onConfirm}
-        className="min-h-[48px] w-full rounded-[20px] bg-emerald-600 px-4 font-bold text-white transition-transform duration-150 motion-safe:active:scale-[0.98]"
+        className="min-h-[48px] w-full rounded-[20px] bg-success px-4 font-bold text-white transition-transform duration-150 motion-safe:active:scale-[0.98]"
       >
         Confirmar compra
       </button>

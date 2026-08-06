@@ -93,7 +93,7 @@ export default function ProfileScreen({
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Favoritos</p>
                 <h3 className="text-lg font-black text-ink">Produtos salvos</h3>
               </div>
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700">{favorites.length}</span>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{favorites.length}</span>
             </div>
             <div className="mt-4 space-y-3">
               {favorites.length === 0 ? (
@@ -104,7 +104,7 @@ export default function ProfileScreen({
                     <p className="font-bold text-ink">{item.title}</p>
                     <p className="text-sm text-ink-muted">{formatCurrency(item.price)}</p>
                   </div>
-                  <button onClick={() => onToggleFavorite(item)} className="rounded-full bg-amber-100 px-3 py-2 text-sm font-semibold text-amber-700">Remover</button>
+                  <button onClick={() => onToggleFavorite(item)} className="rounded-full bg-error/10 px-3 py-2 text-sm font-semibold text-error">Remover</button>
                 </div>
               ))}
             </div>
@@ -116,7 +116,7 @@ export default function ProfileScreen({
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Histórico</p>
                 <h3 className="text-lg font-black text-ink">Últimos pedidos</h3>
               </div>
-              <span className="rounded-full bg-green-100 px-3 py-1 text-sm font-semibold text-green-700">{orders.length}</span>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-sm font-semibold text-primary">{orders.length}</span>
             </div>
             <div className="mt-4 space-y-3">
               {orders.slice(0, 3).map((order) => (

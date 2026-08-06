@@ -46,7 +46,7 @@ export default function AdminOverviewTab({ metrics }: AdminOverviewTabProps) {
         {cards.map((card) => (
           <div key={card.label} className="rounded-[20px] bg-surface-page p-4">
             <p className="text-sm text-ink-muted">{card.label}</p>
-            <p className="text-2xl font-black text-ink [font-variant-numeric:tabular-nums]">{card.value}</p>
+            <p className="text-2xl font-black tabular text-ink">{card.value}</p>
           </div>
         ))}
       </div>
@@ -65,7 +65,7 @@ export default function AdminOverviewTab({ metrics }: AdminOverviewTabProps) {
                   style={{ width: `${(row.count / maxStatus) * 100}%` }}
                 />
               </div>
-              <span className="text-right text-sm font-semibold text-ink [font-variant-numeric:tabular-nums]">
+              <span className="text-right text-sm font-semibold tabular text-ink">
                 {numberBR.format(row.count)}
               </span>
             </li>
@@ -78,7 +78,7 @@ export default function AdminOverviewTab({ metrics }: AdminOverviewTabProps) {
           <h2 className="text-sm font-semibold uppercase tracking-[0.15em] text-ink-muted">
             Últimos 30 dias
           </h2>
-          <p className="text-sm text-ink-muted [font-variant-numeric:tabular-nums]">
+          <p className="text-sm tabular text-ink-muted">
             {numberBR.format(totalRecentOrders)} pedido(s) • {formatCents(totalRecentGmv)} em GMV
           </p>
         </div>
@@ -93,7 +93,7 @@ export default function AdminOverviewTab({ metrics }: AdminOverviewTabProps) {
             />
           ))}
         </div>
-        <div className="mt-1 flex justify-between text-xs text-ink-muted [font-variant-numeric:tabular-nums]">
+        <div className="mt-1 flex justify-between text-xs tabular text-ink-muted">
           <span>{shortDay(last30Days[0]?.date ?? '')}</span>
           <span>{shortDay(last30Days[last30Days.length - 1]?.date ?? '')}</span>
         </div>

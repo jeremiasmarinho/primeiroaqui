@@ -79,7 +79,7 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Minha loja</p>
-            <h1 className="text-2xl font-black text-ink">{dashboard.store.name}</h1>
+            <h1 className="font-display text-2xl font-black text-ink">{dashboard.store.name}</h1>
           </div>
           <Link href={ROUTES.profile} className="min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted">
             Voltar ao perfil
@@ -89,20 +89,20 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
         <div className="mt-6 grid gap-3 sm:grid-cols-3">
           <div className="rounded-[20px] bg-surface-page p-4">
             <p className="text-sm text-ink-muted">Pedidos hoje</p>
-            <p className="text-2xl font-black text-ink">{metrics.ordersToday}</p>
+            <p className="tabular text-2xl font-black text-ink">{metrics.ordersToday}</p>
           </div>
           <div className="rounded-[20px] bg-surface-page p-4">
             <p className="text-sm text-ink-muted">Aguardando confirmação</p>
-            <p className="text-2xl font-black text-ink">{metrics.pending}</p>
+            <p className="tabular text-2xl font-black text-ink">{metrics.pending}</p>
           </div>
           <div className="rounded-[20px] bg-surface-page p-4">
             <p className="text-sm text-ink-muted">Faturamento</p>
-            <p className="text-2xl font-black text-ink">{formatCents(metrics.revenueCents)}</p>
+            <p className="tabular text-2xl font-black text-ink">{formatCents(metrics.revenueCents)}</p>
           </div>
         </div>
 
         {dashboard.actionError ? (
-          <p role="alert" className="mt-4 rounded-[16px] bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+          <p role="alert" className="mt-4 rounded-[16px] bg-error/10 px-4 py-3 text-sm font-semibold text-error">
             {dashboard.actionError}
           </p>
         ) : null}

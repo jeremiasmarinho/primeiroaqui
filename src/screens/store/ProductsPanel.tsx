@@ -122,14 +122,14 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
           />
         </div>
         {formError && editingId === null ? (
-          <p role="alert" className="mt-2 text-sm font-semibold text-red-600">{formError}</p>
+          <p role="alert" className="mt-2 text-sm font-semibold text-error">{formError}</p>
         ) : null}
         <button type="submit" className="btn-primary mt-3 min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold">
           Publicar produto
         </button>
       </form>
 
-      {photoNotice ? <p role="status" className="text-sm font-semibold text-green-700">{photoNotice}</p> : null}
+      {photoNotice ? <p role="status" className="text-sm font-semibold text-success">{photoNotice}</p> : null}
 
       {products.length === 0 ? (
         <div className="rounded-[24px] border border-line p-6 text-center">
@@ -150,7 +150,7 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
                     <input value={editDraft.price} onChange={(event) => setEditDraft((prev) => ({ ...prev, price: event.target.value }))} aria-label="Preço em reais (edição)" inputMode="decimal" className={inputClass} />
                     <input value={editDraft.stock} onChange={(event) => setEditDraft((prev) => ({ ...prev, stock: event.target.value }))} aria-label="Estoque (edição)" inputMode="numeric" className={inputClass} />
                   </div>
-                  {formError ? <p role="alert" className="text-sm font-semibold text-red-600">{formError}</p> : null}
+                  {formError ? <p role="alert" className="text-sm font-semibold text-error">{formError}</p> : null}
                   <div className="flex gap-2">
                     <button onClick={() => void handleEditSave(product.id)} className="btn-primary min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold">
                       Salvar alterações
@@ -171,7 +171,7 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
                     </div>
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        product.isActive ? 'bg-green-100 text-green-700' : 'bg-surface-page text-ink-faint'
+                        product.isActive ? 'bg-success/10 text-success' : 'bg-surface-page text-ink-faint'
                       }`}
                     >
                       {product.isActive ? 'Ativo' : 'Inativo'}

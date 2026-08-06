@@ -27,7 +27,7 @@ export default function CartLineItem({ item, onIncrement, onDecrement, onRemove 
           type="button"
           onClick={() => onRemove(item.product.id)}
           aria-label={`Remover ${item.product.title} do carrinho`}
-          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-red-50 text-error"
+          className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-error/10 text-error"
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
         </button>

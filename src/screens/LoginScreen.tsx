@@ -56,7 +56,7 @@ export default function LoginScreen({
         </div>
 
         {contextMessage ? (
-          <p className="mt-4 rounded-[16px] bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-800">
+          <p className="mt-4 rounded-[16px] bg-warning/15 px-4 py-3 text-sm font-semibold text-ink">
             {contextMessage}
           </p>
         ) : null}
@@ -119,7 +119,7 @@ export default function LoginScreen({
             </div>
           </div>
           {authError ? (
-            <p role="alert" className="mt-3 rounded-[14px] bg-red-50 px-3 py-2 text-sm font-semibold text-error">
+            <p role="alert" className="mt-3 rounded-[14px] bg-error/10 px-3 py-2 text-sm font-semibold text-error">
               {authError}
             </p>
           ) : null}
@@ -136,7 +136,7 @@ export default function LoginScreen({
         <div className="mt-6 grid gap-4 md:grid-cols-2">
           <button onClick={() => onQuickLogin('BUYER')} className="rounded-[24px] border border-line bg-surface-page p-5 text-left transition hover:-translate-y-1">
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100 text-blue-700"><User className="h-5 w-5" /></div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary"><User className="h-5 w-5" /></div>
               <div>
                 <h2 className="font-black text-ink">Entrar como cliente</h2>
                 <p className="text-sm text-ink-muted">Comprar, acompanhar e receber</p>
@@ -146,7 +146,7 @@ export default function LoginScreen({
           {import.meta.env.DEV && isDevMode ? (
             <button onClick={() => onQuickLogin('ADMIN')} className="rounded-[24px] border border-line bg-surface-page p-5 text-left transition hover:-translate-y-1">
               <div className="flex items-center gap-3">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700"><Settings className="h-5 w-5" /></div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-navy/10 text-navy"><Settings className="h-5 w-5" /></div>
                 <div>
                   <h2 className="font-black text-ink">Entrar como operação</h2>
                   <p className="text-sm text-ink-muted">Dashboard da plataforma</p>
