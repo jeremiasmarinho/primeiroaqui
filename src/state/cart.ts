@@ -11,12 +11,12 @@ export const addToCart = (product: Product): CartAction => ({
   payload: product,
 })
 
-export const removeFromCart = (productId: number): CartAction => ({
+export const removeFromCart = (productId: string): CartAction => ({
   type: 'REMOVE_FROM_CART',
   payload: productId,
 })
 
-export const setQuantity = (productId: number, quantity: number): CartAction => ({
+export const setQuantity = (productId: string, quantity: number): CartAction => ({
   type: 'SET_QUANTITY',
   payload: { productId, quantity },
 })

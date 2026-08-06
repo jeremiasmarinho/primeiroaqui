@@ -3,7 +3,7 @@ import { averageRating, customerById, reviewsForProduct } from '../data/catalog'
 import { fallbackTo } from '../lib/images'
 
 interface ProductReviewsProps {
-  productId: number
+  productId: string
 }
 
 const Stars = ({ rating }: { rating: number }) => (

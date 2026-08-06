@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
 import { ROUTES } from '../router/routes'
+import { waitForCatalog } from './authTestHelpers'
 
 const bottomNav = () => screen.getByRole('navigation', { name: /navegação principal/i })
 
@@ -10,8 +11,9 @@ describe('visitante — favoritar', () => {
     localStorage.clear()
   })
 
-  it('favoritar como visitante redireciona para login com mensagem de contexto', () => {
+  it('favoritar como visitante redireciona para login com mensagem de contexto', async () => {
     render(<MarketplaceApp />)
+    await waitForCatalog()
     const heart = screen.getAllByRole('button', { name: /^salvar .+ nos favoritos$/i })[0] as HTMLElement
     fireEvent.click(heart)
 
@@ -19,8 +21,9 @@ describe('visitante — favoritar', () => {
     expect(screen.getByText(/faça login para favoritar/i)).toBeInTheDocument()
   })
 
-  it('apos logar, o favorito e aplicado e a pessoa volta pra onde estava', () => {
+  it('apos logar, o favorito e aplicado e a pessoa volta pra onde estava', async () => {
     render(<MarketplaceApp />)
+    await waitForCatalog()
     const heart = screen.getAllByRole('button', { name: /^salvar .+ nos favoritos$/i })[0] as HTMLElement
     const title = heart.getAttribute('aria-label')?.replace(/^Salvar /, '').replace(/ nos favoritos$/, '') ?? ''
     fireEvent.click(heart)
@@ -43,8 +46,9 @@ describe('visitante — checkout', () => {
     localStorage.clear()
   })
 
-  it('continuar no carrinho como visitante redireciona para login com mensagem de contexto', () => {
+  it('continuar no carrinho como visitante redireciona para login com mensagem de contexto', async () => {
     render(<MarketplaceApp />)
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
 
@@ -52,8 +56,9 @@ describe('visitante — checkout', () => {
     expect(screen.getByText(/faça login para continuar sua compra/i)).toBeInTheDocument()
   })
 
-  it('apos logar, retoma a etapa de entrega com o carrinho intacto', () => {
+  it('apos logar, retoma a etapa de entrega com o carrinho intacto', async () => {
     render(<MarketplaceApp />)
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
 
@@ -63,7 +68,7 @@ describe('visitante — checkout', () => {
     expect(within(bottomNav()).getByRole('button', { name: /carrinho — 1 itens/i })).toBeInTheDocument()
   })
 
-  it('comprar agora como visitante fecha a gaveta do carrinho antes de redirecionar para login', () => {
+  it('comprar agora como visitante fecha a gaveta do carrinho antes de redirecionar para login', async () => {
     // Regressão: o backdrop fixo da gaveta (fixed inset-0), se deixado
     // aberto, fica por cima do formulário de login e bloqueia o clique em
     // navegador real (fireEvent não pega isso, só Playwright). Este teste
@@ -71,16 +76,16 @@ describe('visitante — checkout', () => {
     // nenhum `dialog` da gaveta pode seguir montado na tela de login.
     window.history.pushState({}, '', ROUTES.product(1))
     render(<MarketplaceApp />)
-    fireEvent.click(screen.getByRole('button', { name: /comprar agora/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /comprar agora/i }))
 
     expect(screen.getByLabelText('Senha')).toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it('comprar agora como visitante adiciona ao carrinho e so entao redireciona', () => {
+  it('comprar agora como visitante adiciona ao carrinho e so entao redireciona', async () => {
     window.history.pushState({}, '', ROUTES.product(1))
     render(<MarketplaceApp />)
-    fireEvent.click(screen.getByRole('button', { name: /comprar agora/i }))
+    fireEvent.click(await screen.findByRole('button', { name: /comprar agora/i }))
 
     expect(screen.getByLabelText('Senha')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
@@ -114,8 +119,9 @@ describe('degradacao aceitavel', () => {
     localStorage.clear()
   })
 
-  it('reload em /entrar perde a retomada automatica, mas nao quebra', () => {
+  it('reload em /entrar perde a retomada automatica, mas nao quebra', async () => {
     const first = render(<MarketplaceApp />)
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /^salvar .+ nos favoritos$/i })[0] as HTMLElement)
     first.unmount()
 

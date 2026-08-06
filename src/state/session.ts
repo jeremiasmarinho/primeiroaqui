@@ -1,4 +1,5 @@
 import { readStoredJSON, writeStoredJSON } from '../lib/storage'
+import { SESSION_STORAGE_KEY } from '../lib/api'
 import type { User } from '../types'
 
 export const STORAGE_KEYS = {
@@ -19,6 +20,8 @@ export const STORAGE_KEYS = {
 /** Chaves apagadas no logout: tudo que pertence a pessoa, nada de catalogo. */
 const SESSION_CLEAR_KEYS: string[] = [
   STORAGE_KEYS.user,
+  // Tokens da API (ver src/lib/api.ts) — sessão real morre junto.
+  SESSION_STORAGE_KEY,
   STORAGE_KEYS.cart,
   STORAGE_KEYS.favorites,
   STORAGE_KEYS.messages,

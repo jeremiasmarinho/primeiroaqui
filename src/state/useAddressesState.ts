@@ -1,45 +1,66 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { readStoredJSON } from '../lib/storage'
+import { api, ApiError, loadStoredSession } from '../lib/api'
+import { toViewAddress } from '../lib/adapters'
 import {
   EMPTY_ADDRESS,
-  createAddress,
-  createAddressIdGenerator,
   formatCep,
   getDefaultAddress,
-  removeAddress,
-  setDefaultAddress,
+  validateAddressDraft,
   type AddressDraft,
 } from './addresses'
-import { STORAGE_KEYS } from './session'
 import type { Address } from '../types'
 
 /**
- * Valida o formato lido do storage: JSON válido com shape errado não pode
- * vazar para a UI (regressão B8).
+ * Endereços reais: GET /api/me/addresses quando há sessão, POST /api/addresses
+ * no cadastro.
+ *
+ * O backend ainda não expõe remover nem trocar o padrão (só POST e GET) —
+ * essas ações saíram da tela nesta fase em vez de fingir que funcionam
+ * (pendência registrada para a fase de conta).
+ *
+ * `hasSession` entra por parâmetro (derivado do usuário logado) para o efeito
+ * recarregar quando a pessoa entra/sai.
  */
-const isAddressList = (value: unknown): value is Address[] =>
-  Array.isArray(value) &&
-  value.every((item) => {
-    if (!item || typeof item !== 'object') return false
-    const candidate = item as Partial<Address>
-    return (
-      typeof candidate.id === 'string' &&
-      typeof candidate.label === 'string' &&
-      typeof candidate.street === 'string' &&
-      typeof candidate.city === 'string' &&
-      typeof candidate.cep === 'string'
-    )
-  })
-
-/** Endereços salvos, formulário de cadastro e escolha do checkout. */
-export function useAddressesState() {
-  const [addresses, setAddresses] = useState<Address[]>(() =>
-    readStoredJSON<Address[]>(STORAGE_KEYS.addresses, [], isAddressList),
-  )
+export function useAddressesState(hasSession: boolean) {
+  const [addresses, setAddresses] = useState<Address[]>([])
   const [addressForm, setAddressForm] = useState<AddressDraft>(EMPTY_ADDRESS)
   const [addressError, setAddressError] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [selectedAddressId, setSelectedAddressId] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+
+  useEffect(() => {
+    if (!hasSession || !loadStoredSession()) {
+      setAddresses([])
+      return
+    }
+    let cancelled = false
+    setIsLoading(true)
+    setLoadError('')
+    api
+      .listAddresses()
+      .then(({ addresses: dtos }) => {
+        if (!cancelled) setAddresses(dtos.map(toViewAddress))
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setLoadError(
+          err instanceof ApiError && err.status > 0
+            ? err.message
+            : 'Não foi possível carregar seus endereços.',
+        )
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [hasSession, reloadKey])
+
+  const retry = useCallback(() => setReloadKey((key) => key + 1), [])
 
   const onAddressFormChange = (patch: Partial<AddressDraft>) => {
     setAddressForm((prev) => ({
@@ -51,21 +72,39 @@ export function useAddressesState() {
     }))
   }
 
-  const onAddressSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const onAddressSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    const result = createAddress(addresses, addressForm, {
-      idGenerator: createAddressIdGenerator(addresses),
-    })
-
-    if (!result.ok) {
-      setAddressError(result.message)
+    const validated = validateAddressDraft(addressForm)
+    if (!validated.ok) {
+      setAddressError(validated.message)
       return
     }
 
-    setAddressError('')
-    setAddresses(result.addresses)
-    setAddressForm(EMPTY_ADDRESS)
+    try {
+      const { address } = await api.createAddress({
+        label: validated.label,
+        street: validated.street,
+        city: validated.city,
+        state: validated.state,
+        zipCode: validated.cep,
+        // Sem geocoding no front nesta fase: coordenadas neutras. A busca por
+        // raio ignora endereços em (0,0) — pendência da fase de descoberta.
+        latitude: 0,
+        longitude: 0,
+        // Primeiro endereço já entra como padrão para o checkout ter sugestão.
+        isDefault: addresses.length === 0,
+      })
+      setAddressError('')
+      setAddresses((prev) => [toViewAddress(address), ...prev])
+      setAddressForm(EMPTY_ADDRESS)
+    } catch (err) {
+      setAddressError(
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível salvar o endereço. Tente novamente.',
+      )
+    }
   }
 
   return {
@@ -75,12 +114,13 @@ export function useAddressesState() {
     setAddressForm,
     addressError,
     setAddressError,
+    isLoading,
+    loadError,
+    retry,
     selectedAddressId,
     setSelectedAddressId,
     defaultAddress: getDefaultAddress(addresses),
     onAddressFormChange,
     onAddressSubmit,
-    onSetDefaultAddress: (id: string) => setAddresses((prev) => setDefaultAddress(prev, id)),
-    onRemoveAddress: (id: string) => setAddresses((prev) => removeAddress(prev, id)),
   }
 }

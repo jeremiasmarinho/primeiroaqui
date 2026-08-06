@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
 import { ROUTES } from '../router/routes'
+import { seedLoggedInStorage, waitForCatalog } from './authTestHelpers'
 
 /**
  * WU-44 — roteamento com URL real.
@@ -13,12 +14,7 @@ const goTo = (path: string) => {
   window.history.pushState({}, '', path)
 }
 
-const login = () => {
-  localStorage.setItem(
-    'primeiroaqui_user',
-    JSON.stringify({ name: 'Ana Paula', email: 'ana@teste.com', role: 'client' }),
-  )
-}
+const login = () => seedLoggedInStorage()
 
 describe('rotas', () => {
   beforeEach(() => {
@@ -27,59 +23,59 @@ describe('rotas', () => {
   })
 
   describe('deep link', () => {
-    it('entrar direto em /produto/:id renderiza o produto certo', () => {
+    it('entrar direto em /produto/:id renderiza o produto certo', async () => {
       login()
       goTo(ROUTES.product(3))
       render(<MarketplaceApp />)
 
-      expect(screen.getByRole('heading', { name: /smartwatch fitness/i })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: /smartwatch fitness/i })).toBeInTheDocument()
     })
 
-    it('id inexistente mostra estado vazio com saida, nao crash', () => {
+    it('id inexistente mostra estado vazio com saida, nao crash', async () => {
       login()
       goTo(ROUTES.product(9999))
 
       expect(() => render(<MarketplaceApp />)).not.toThrow()
-      expect(screen.getByText(/produto não encontrado/i)).toBeInTheDocument()
+      expect(await screen.findByText(/produto não encontrado/i)).toBeInTheDocument()
       expect(screen.getByRole('link', { name: /voltar às ofertas/i })).toBeInTheDocument()
     })
 
-    it('entrar direto em /loja/:slug renderiza so os produtos daquela loja', () => {
+    it('entrar direto em /loja/:id renderiza so os produtos daquela loja', async () => {
       login()
       goTo(ROUTES.store('mercado-central'))
       render(<MarketplaceApp />)
 
-      expect(screen.getByRole('heading', { name: /mercado central/i })).toBeInTheDocument()
-      expect(screen.getByText(/kit supermercado express/i)).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: /mercado central/i })).toBeInTheDocument()
+      expect(await screen.findByText(/kit supermercado express/i)).toBeInTheDocument()
       expect(screen.queryByText(/smartwatch fitness gps/i)).not.toBeInTheDocument()
     })
 
-    it('slug de loja inexistente mostra estado vazio', () => {
+    it('loja inexistente mostra estado vazio', async () => {
       login()
       goTo(ROUTES.store('loja-que-nao-existe'))
       render(<MarketplaceApp />)
 
-      expect(screen.getByText(/loja não encontrada/i)).toBeInTheDocument()
+      expect(await screen.findByText(/loja não encontrada/i)).toBeInTheDocument()
     })
 
-    it('entrar direto em /categoria/:slug filtra o catalogo', () => {
+    it('entrar direto em /categoria/:slug filtra o catalogo', async () => {
       login()
       goTo(ROUTES.category('farmacia'))
       render(<MarketplaceApp />)
 
-      expect(screen.getAllByText(/box de cuidados pessoais/i).length).toBeGreaterThan(0)
+      expect((await screen.findAllByText(/box de cuidados pessoais/i)).length).toBeGreaterThan(0)
       expect(screen.queryByText(/smartwatch fitness gps/i)).not.toBeInTheDocument()
     })
   })
 
   describe('busca na URL', () => {
-    it('a URL restaura o termo buscado', () => {
+    it('a URL restaura o termo buscado', async () => {
       login()
       goTo(`${ROUTES.search}?q=smartwatch`)
       render(<MarketplaceApp />)
 
       expect(screen.getByLabelText(/buscar produtos/i)).toHaveValue('smartwatch')
-      expect(screen.getAllByText(/smartwatch fitness/i).length).toBeGreaterThan(0)
+      expect((await screen.findAllByText(/smartwatch fitness/i)).length).toBeGreaterThan(0)
     })
 
     it('buscar reflete o termo na URL', () => {
@@ -134,11 +130,11 @@ describe('rotas', () => {
       expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
     })
 
-    it('produto continua acessivel sem sessao — rota publica', () => {
+    it('produto continua acessivel sem sessao — rota publica', async () => {
       goTo(ROUTES.product(1))
       render(<MarketplaceApp />)
 
-      expect(screen.getByRole('heading', { name: /ventilador de mesa premium/i })).toBeInTheDocument()
+      expect(await screen.findByRole('heading', { name: /ventilador de mesa premium/i })).toBeInTheDocument()
       expect(screen.queryByLabelText('Senha')).not.toBeInTheDocument()
     })
 
@@ -162,9 +158,10 @@ describe('rotas', () => {
   })
 
   describe('navegacao entre telas atualiza a URL', () => {
-    it('abrir um produto muda a URL', () => {
+    it('abrir um produto muda a URL', async () => {
       login()
       render(<MarketplaceApp />)
+      await waitForCatalog()
 
       fireEvent.click(screen.getAllByRole('link', { name: /ventilador de mesa premium/i })[0] as HTMLElement)
       expect(window.location.pathname).toBe('/produto/1')

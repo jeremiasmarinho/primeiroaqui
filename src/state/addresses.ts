@@ -32,15 +32,18 @@ export interface AddressDraft {
   label: string
   street: string
   city: string
+  /** UF — exigido pelo POST /api/addresses (zod `state` min 1). */
+  state: string
   cep: string
 }
 
-export const EMPTY_ADDRESS: AddressDraft = { label: '', street: '', city: '', cep: '' }
+export const EMPTY_ADDRESS: AddressDraft = { label: '', street: '', city: '', state: '', cep: '' }
 
 export type AddressRejection =
   | 'rotulo-obrigatorio'
   | 'rua-obrigatoria'
   | 'cidade-obrigatoria'
+  | 'estado-obrigatorio'
   | 'cep-invalido'
   | 'duplicado'
 
@@ -52,11 +55,12 @@ const MESSAGES: Record<AddressRejection, string> = {
   'rotulo-obrigatorio': 'Dê um nome ao endereço, como "Casa" ou "Trabalho".',
   'rua-obrigatoria': 'Informe a rua e o número da entrega.',
   'cidade-obrigatoria': 'Informe a cidade da entrega.',
+  'estado-obrigatorio': 'Informe o estado (UF) da entrega.',
   'cep-invalido': CEP_ERROR_MESSAGE,
   duplicado: 'Este endereço já está salvo na sua lista.',
 }
 
-const reject = (reason: AddressRejection): AddressResult => ({
+const reject = (reason: AddressRejection): { ok: false; reason: AddressRejection; message: string } => ({
   ok: false,
   reason,
   message: MESSAGES[reason],
@@ -82,21 +86,37 @@ export interface CreateAddressOptions {
   idGenerator: () => string
 }
 
+export type DraftValidation =
+  | { ok: true; label: string; street: string; city: string; state: string; cep: string }
+  | { ok: false; reason: AddressRejection; message: string }
+
+/**
+ * Validação pura do rascunho, compartilhada entre o fluxo local (testes,
+ * fallback) e o POST real em `useAddressesState` — a regra é uma só.
+ */
+export const validateAddressDraft = (draft: AddressDraft): DraftValidation => {
+  const label = draft.label.trim()
+  const street = draft.street.trim()
+  const city = draft.city.trim()
+  const state = draft.state.trim()
+
+  if (!label) return reject('rotulo-obrigatorio')
+  if (!street) return reject('rua-obrigatoria')
+  if (!city) return reject('cidade-obrigatoria')
+  if (!state) return reject('estado-obrigatorio')
+  if (!isValidCep(draft.cep)) return reject('cep-invalido')
+
+  return { ok: true, label, street, city, state, cep: formatCep(draft.cep) }
+}
+
 export const createAddress = (
   list: Address[],
   draft: AddressDraft,
   { idGenerator }: CreateAddressOptions,
 ): AddressResult => {
-  const label = draft.label.trim()
-  const street = draft.street.trim()
-  const city = draft.city.trim()
-
-  if (!label) return reject('rotulo-obrigatorio')
-  if (!street) return reject('rua-obrigatoria')
-  if (!city) return reject('cidade-obrigatoria')
-  if (!isValidCep(draft.cep)) return reject('cep-invalido')
-
-  const cep = formatCep(draft.cep)
+  const validated = validateAddressDraft(draft)
+  if (!validated.ok) return validated
+  const { label, street, city, cep } = validated
   const alreadySaved = list.some(
     (item) =>
       item.street.toLowerCase() === street.toLowerCase() &&

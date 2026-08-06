@@ -9,8 +9,8 @@ import { makeCartItem, makeCartState, makeDelivery, makeOrder, makeProduct } fro
 import type { Product } from '../types'
 
 const cartState = makeCartState([
-  makeCartItem({ product: makeProduct({ id: 1, title: 'Produto A', price: 10 }), quantity: 2 }),
-  makeCartItem({ product: makeProduct({ id: 2, title: 'Produto B', price: 5 }), quantity: 1 }),
+  makeCartItem({ product: makeProduct({ id: '1', title: 'Produto A', price: 10 }), quantity: 2 }),
+  makeCartItem({ product: makeProduct({ id: '2', title: 'Produto B', price: 5 }), quantity: 1 }),
 ])
 
 describe('orders state', () => {
@@ -44,7 +44,7 @@ describe('orders state', () => {
       cartState,
       delivery: makeDelivery({ name: 'Ana', city: 'Centro', payment: 'Pix' }),
       agentName: 'Joao',
-      role: 'client',
+      role: 'BUYER',
       idGenerator: generateId,
     })
 
@@ -58,7 +58,7 @@ describe('orders state', () => {
       cartState,
       delivery: makeDelivery({ name: '', city: '', payment: 'Pix' }),
       agentName: '',
-      role: 'admin',
+      role: 'ADMIN',
       idGenerator: () => '1011',
     })
 
@@ -97,21 +97,21 @@ describe('orders state', () => {
  */
 describe('repetir pedido', () => {
   const catalog = [
-    makeProduct({ id: 1, title: 'Produto A', price: 10 }),
-    makeProduct({ id: 2, title: 'Produto B', price: 5 }),
+    makeProduct({ id: '1', title: 'Produto A', price: 10 }),
+    makeProduct({ id: '2', title: 'Produto B', price: 5 }),
   ]
 
   it('o pedido criado guarda as linhas com quantidade', () => {
     const order = createOrder({
       cartState,
       delivery: makeDelivery(),
-      role: 'client',
+      role: 'BUYER',
       idGenerator: () => '1020',
     })
 
     expect(order.lines).toEqual([
-      { productId: 1, quantity: 2 },
-      { productId: 2, quantity: 1 },
+      { productId: '1', quantity: 2 },
+      { productId: '2', quantity: 1 },
     ])
   })
 
@@ -119,7 +119,7 @@ describe('repetir pedido', () => {
     const order = createOrder({
       cartState,
       delivery: makeDelivery({ address: 'Avenida Guanabara, 148' }),
-      role: 'client',
+      role: 'BUYER',
       idGenerator: () => '1021',
     })
 
@@ -130,7 +130,7 @@ describe('repetir pedido', () => {
     const order = createOrder({
       cartState,
       delivery: makeDelivery(),
-      role: 'client',
+      role: 'BUYER',
       idGenerator: () => '1022',
     })
 
@@ -140,7 +140,7 @@ describe('repetir pedido', () => {
 
     expect(result.items).toHaveLength(2)
     expect(result.items[0]?.quantity).toBe(2)
-    expect(result.items[0]?.product.id).toBe(1)
+    expect(result.items[0]?.product.id).toBe('1')
     expect(result.items[1]?.quantity).toBe(1)
   })
 
@@ -148,11 +148,11 @@ describe('repetir pedido', () => {
     const order = createOrder({
       cartState,
       delivery: makeDelivery(),
-      role: 'client',
+      role: 'BUYER',
       idGenerator: () => '1023',
     })
 
-    const result = repeatOrder(order, [makeProduct({ id: 1, price: 99 }), ...catalog.slice(1)])
+    const result = repeatOrder(order, [makeProduct({ id: '1', price: 99 }), ...catalog.slice(1)])
     if (!result.ok) throw new Error('deveria repetir')
     expect(result.items[0]?.product.price).toBe(99)
   })
@@ -169,7 +169,7 @@ describe('repetir pedido', () => {
     const order = createOrder({
       cartState,
       delivery: makeDelivery(),
-      role: 'client',
+      role: 'BUYER',
       idGenerator: () => '1024',
     })
 

@@ -5,12 +5,19 @@
  * redeclarar estas formas — importar daqui.
  */
 
-export type Role = 'client' | 'admin'
+/** Papéis reais do backend (Prisma enum Role). O antigo 'client'/'admin' morreu na integração. */
+export type Role = 'BUYER' | 'STORE_OWNER' | 'ADMIN'
 
-export type Category = 'Tudo' | 'Supermercado' | 'Farmácia' | 'Casa' | 'Eletrônico'
+/**
+ * Categoria agora é string aberta: o backend guarda categoria livre e a lista
+ * real é derivada do catálogo carregado. 'Tudo' segue como sentinela de
+ * "sem filtro" na vitrine.
+ */
+export type Category = string
 
 export interface Product {
-  id: number
+  /** UUID do backend. Ids numéricos do mock antigo viraram strings. */
+  id: string
   title: string
   price: number
   listPrice: number
@@ -24,6 +31,10 @@ export interface Product {
   arrival: string
   image: string
   bestSeller?: boolean
+  /** Loja dona do produto (uuid) — presente quando o produto veio da API. */
+  storeId?: string
+  /** Estoque informado pela API; ausente nos dados de demonstração. */
+  stock?: number
 }
 
 export interface CartItem {
@@ -37,11 +48,12 @@ export interface CartState {
 
 export type CartAction =
   | { type: 'ADD_TO_CART'; payload: Product }
-  | { type: 'REMOVE_FROM_CART'; payload: number }
-  | { type: 'SET_QUANTITY'; payload: { productId: number; quantity: number } }
+  | { type: 'REMOVE_FROM_CART'; payload: string }
+  | { type: 'SET_QUANTITY'; payload: { productId: string; quantity: number } }
   | { type: 'REPLACE_CART'; payload: CartItem[] }
   | { type: 'CLEAR_CART' }
 
+/** Status do fluxo mock do painel admin (Tracking/AdminScreen, ainda não migrados). */
 export type OrderStatus = 'Processando' | 'Em rota' | 'Entregue'
 
 /**
@@ -49,7 +61,7 @@ export type OrderStatus = 'Processando' | 'Em rota' | 'Entregue'
  * `items` (só títulos) serve para exibir; `lines` é o que permite recomprar.
  */
 export interface OrderLine {
-  productId: number
+  productId: string
   quantity: number
 }
 
@@ -58,7 +70,11 @@ export interface Order {
   customer: string
   agent: string
   value: number
-  status: OrderStatus
+  /**
+   * Rótulo pt-BR exibido. Pedidos reais usam `src/lib/orderStatus.ts`;
+   * pedidos mock do painel admin seguem o union `OrderStatus`.
+   */
+  status: string
   region: string
   items?: string[]
   lines?: OrderLine[]
@@ -90,6 +106,8 @@ export interface Agent {
 }
 
 export interface User {
+  /** Id do backend (uuid). Ausente no atalho de login de desenvolvimento. */
+  id?: string
   name: string
   email: string
   role: Role
@@ -116,7 +134,7 @@ export interface Customer {
 
 export interface Review {
   id: string
-  productId: number
+  productId: string
   customerId: string
   rating: number
   comment: string

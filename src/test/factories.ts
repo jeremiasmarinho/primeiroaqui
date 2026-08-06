@@ -22,7 +22,7 @@ let productSeq = 0
 export const makeProduct = (overrides: Partial<Product> = {}): Product => {
   productSeq += 1
   return {
-    id: productSeq,
+    id: String(productSeq),
     title: `Produto ${productSeq}`,
     price: 100,
     listPrice: 125,
@@ -88,7 +88,7 @@ export const makeAddress = (overrides: Partial<Address> = {}): Address => ({
 export const makeUser = (overrides: Partial<User> = {}): User => ({
   name: 'Ana',
   email: 'ana@teste.com',
-  role: 'client',
+  role: 'BUYER',
   ...overrides,
 })
 

@@ -1,0 +1,269 @@
+import { readStoredJSON, writeStoredJSON } from './storage'
+import type { ApiOrderStatus } from './orderStatus'
+
+/**
+ * Cliente HTTP tipado da API real (`/api`, mesma origem — ver
+ * src/server/root.ts).
+ *
+ * Responsabilidades concentradas aqui, e só aqui:
+ * - injetar o Bearer token da sessão persistida em toda chamada;
+ * - derrubar a sessão local em qualquer 401 (token expirado/revogado) e
+ *   avisar o app via `setOnUnauthorized`;
+ * - transformar respostas de erro em `ApiError` com a mensagem pt-BR que o
+ *   backend já manda no body (`{ error: '...' }`).
+ *
+ * Os DTOs abaixo espelham os shapes REAIS devolvidos pelas rotas em
+ * src/server/routes/* — não inventar campo que o servidor não manda.
+ */
+
+// ---------------------------------------------------------------------------
+// DTOs (shapes exatos das respostas do servidor)
+// ---------------------------------------------------------------------------
+
+export type ApiRole = 'BUYER' | 'STORE_OWNER' | 'ADMIN'
+
+export interface ApiUser {
+  id: string
+  authUserId: string
+  email: string
+  name: string
+  role: ApiRole
+}
+
+export interface ApiSession {
+  accessToken: string
+  refreshToken: string
+  /** Epoch em segundos, como o Supabase devolve (`expires_at`). */
+  expiresAt: number | undefined
+}
+
+export interface ApiProduct {
+  id: string
+  storeId: string
+  title: string
+  description: string | null
+  category: string
+  priceCents: number
+  stock: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApiStore {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  latitude: number
+  longitude: number
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+/** Item de GET /me/favorites — projeção reduzida do produto, com a 1ª foto. */
+export interface ApiFavoriteProduct {
+  id: string
+  storeId: string
+  title: string
+  priceCents: number
+  isActive: boolean
+  photoUrl: string | null
+}
+
+export interface ApiAddress {
+  id: string
+  userId: string
+  label: string
+  street: string
+  city: string
+  state: string
+  zipCode: string
+  latitude: number
+  longitude: number
+  isDefault: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ApiOrderItem {
+  id: string
+  orderId: string
+  productId: string
+  quantity: number
+  unitPriceCents: number
+}
+
+export interface ApiOrder {
+  id: string
+  buyerId: string
+  storeId: string
+  addressId: string
+  totalCents: number
+  status: ApiOrderStatus
+  createdAt: string
+  updatedAt: string
+  items: ApiOrderItem[]
+}
+
+// ---------------------------------------------------------------------------
+// Sessão persistida
+// ---------------------------------------------------------------------------
+
+export const SESSION_STORAGE_KEY = 'primeiroaqui_session'
+
+const isStoredSession = (value: unknown): value is ApiSession =>
+  !!value &&
+  typeof value === 'object' &&
+  typeof (value as ApiSession).accessToken === 'string'
+
+export const loadStoredSession = (): ApiSession | null =>
+  readStoredJSON<ApiSession | null>(SESSION_STORAGE_KEY, null, (value): value is ApiSession | null =>
+    value === null || isStoredSession(value),
+  )
+
+export const storeSession = (session: ApiSession | null): void => {
+  writeStoredJSON(SESSION_STORAGE_KEY, session)
+}
+
+export const clearStoredSession = (): void => storeSession(null)
+
+/**
+ * Callback disparado quando qualquer chamada autenticada recebe 401 — o app
+ * usa para limpar o estado de sessão em memória (o storage já foi limpo
+ * aqui). Registrado por `useMarketplaceState`.
+ */
+let onUnauthorized: (() => void) | null = null
+export const setOnUnauthorized = (handler: (() => void) | null): void => {
+  onUnauthorized = handler
+}
+
+// ---------------------------------------------------------------------------
+// Núcleo de requisição
+// ---------------------------------------------------------------------------
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    /** Body cru da resposta de erro — carrega os campos discriminados (ex.: `items` do 409 de estoque). */
+    public body: unknown = undefined,
+  ) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+const GENERIC_ERROR = 'Não foi possível falar com o servidor. Tente novamente.'
+
+interface RequestOptions {
+  method?: string
+  body?: unknown
+}
+
+async function request<T>(path: string, { method = 'GET', body }: RequestOptions = {}): Promise<T> {
+  const session = loadStoredSession()
+  const headers: Record<string, string> = {}
+  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (session) headers['Authorization'] = `Bearer ${session.accessToken}`
+
+  let response: Response
+  try {
+    response = await fetch(`/api${path}`, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+    })
+  } catch {
+    // Rede fora, DNS, CORS: sem resposta do servidor.
+    throw new ApiError(GENERIC_ERROR, 0)
+  }
+
+  // Body pode ser vazio ou não-JSON (proxy no meio do caminho) — não deixar
+  // o parse derrubar o tratamento de erro.
+  let payload: unknown = undefined
+  try {
+    payload = await response.json()
+  } catch {
+    payload = undefined
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 && session) {
+      // Token expirado/revogado: a sessão local não vale mais nada.
+      clearStoredSession()
+      onUnauthorized?.()
+    }
+    const message =
+      payload && typeof payload === 'object' && typeof (payload as { error?: unknown }).error === 'string'
+        ? (payload as { error: string }).error
+        : GENERIC_ERROR
+    throw new ApiError(message, response.status, payload)
+  }
+
+  return payload as T
+}
+
+// ---------------------------------------------------------------------------
+// Endpoints
+// ---------------------------------------------------------------------------
+
+export interface ListProductsParams {
+  category?: string
+  q?: string
+  limit?: number
+  offset?: number
+}
+
+export const api = {
+  signup: (input: { email: string; password: string; name: string }) =>
+    request<{ user: ApiUser }>('/auth/signup', { method: 'POST', body: input }),
+
+  login: (input: { email: string; password: string }) =>
+    request<{ session: ApiSession; user: ApiUser }>('/auth/login', { method: 'POST', body: input }),
+
+  logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
+
+  me: () => request<{ user: ApiUser }>('/me'),
+
+  listProducts: (params: ListProductsParams = {}) => {
+    const query = new URLSearchParams()
+    if (params.category) query.set('category', params.category)
+    if (params.q) query.set('q', params.q)
+    if (params.limit !== undefined) query.set('limit', String(params.limit))
+    if (params.offset !== undefined) query.set('offset', String(params.offset))
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    return request<{ products: ApiProduct[] }>(`/products${suffix}`)
+  },
+
+  getProduct: (id: string) => request<{ product: ApiProduct }>(`/products/${id}`),
+
+  getStore: (id: string) => request<{ store: ApiStore }>(`/stores/${id}`),
+
+  addFavorite: (productId: string) =>
+    request<{ ok: true }>(`/favorites/${productId}`, { method: 'POST' }),
+
+  removeFavorite: (productId: string) =>
+    request<{ ok: true }>(`/favorites/${productId}`, { method: 'DELETE' }),
+
+  listFavorites: () => request<{ products: ApiFavoriteProduct[] }>('/me/favorites'),
+
+  createAddress: (input: {
+    label: string
+    street: string
+    city: string
+    state: string
+    zipCode: string
+    latitude: number
+    longitude: number
+    isDefault?: boolean
+  }) => request<{ address: ApiAddress }>('/addresses', { method: 'POST', body: input }),
+
+  listAddresses: () => request<{ addresses: ApiAddress[] }>('/me/addresses'),
+
+  createOrder: (input: { items: Array<{ productId: string; quantity: number }>; addressId: string }) =>
+    request<{ orders: ApiOrder[] }>('/orders', { method: 'POST', body: input }),
+
+  listMyOrders: () => request<{ orders: ApiOrder[] }>('/me/orders'),
+}

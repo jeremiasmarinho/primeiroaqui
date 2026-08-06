@@ -28,8 +28,8 @@ const stores: Store[] = [
 ]
 
 const products = [
-  makeProduct({ id: 1, title: 'Smartwatch Fitness GPS', category: 'Eletrônico' }),
-  makeProduct({ id: 2, title: 'Kit Supermercado Express', category: 'Supermercado' }),
+  makeProduct({ id: '1', title: 'Smartwatch Fitness GPS', category: 'Eletrônico' }),
+  makeProduct({ id: '2', title: 'Kit Supermercado Express', category: 'Supermercado' }),
 ]
 
 const catalog = { products, categories, stores }

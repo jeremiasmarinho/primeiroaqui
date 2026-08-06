@@ -66,7 +66,7 @@ describe('gerador de id de endereco', () => {
 
 describe('cadastro de endereco', () => {
   const idGenerator = () => 'end-9'
-  const draft = { label: 'Casa', street: 'Avenida Guanabara, 148', city: 'Centro', cep: '12345-678' }
+  const draft = { label: 'Casa', street: 'Avenida Guanabara, 148', city: 'Centro', state: 'SP', cep: '12345-678' }
 
   it('o primeiro endereco cadastrado ja nasce como padrao', () => {
     const result = createAddress([], draft, { idGenerator })
@@ -127,7 +127,7 @@ describe('cadastro de endereco', () => {
   })
 
   it('o rascunho vazio nao tem campo preenchido', () => {
-    expect(EMPTY_ADDRESS).toEqual({ label: '', street: '', city: '', cep: '' })
+    expect(EMPTY_ADDRESS).toEqual({ label: '', street: '', city: '', state: '', cep: '' })
   })
 })
 

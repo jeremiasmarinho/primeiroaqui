@@ -63,9 +63,9 @@ export const EMPTY_BUSINESS: BusinessProfile = { name: '', category: 'Loja local
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
- * Papel vem sempre como `client` ao ler o storage. Marcar `admin` à mão no
- * localStorage não concede painel (regressão B5). Enquanto não houver servidor,
- * a operação entra apenas pelo atalho de desenvolvimento.
+ * Papel vem sempre como `BUYER` ao ler o storage. Marcar `ADMIN` à mão no
+ * localStorage não concede painel (regressão B5): o papel real é confirmado
+ * pelo GET /api/me na inicialização — é a resposta do servidor que eleva.
  */
 export const normalizeStoredUser = (value: unknown): User | null => {
   if (!value || typeof value !== 'object') return null
@@ -78,7 +78,7 @@ export const normalizeStoredUser = (value: unknown): User | null => {
         ? candidate.name
         : 'Cliente Primeiro Aqui',
     email: candidate.email,
-    role: 'client',
+    role: 'BUYER',
   }
 }
 

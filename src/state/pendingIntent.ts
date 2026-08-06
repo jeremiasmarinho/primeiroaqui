@@ -8,7 +8,7 @@
  * só a conveniência de retomar automaticamente se perde).
  */
 export type PendingIntent =
-  | { type: 'favorite'; productId: number }
+  | { type: 'favorite'; productId: string }
   | { type: 'resume-checkout' }
 
 /** Mensagem de contexto exibida na tela de login, conforme o gatilho. */

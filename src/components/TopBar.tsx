@@ -2,12 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Bell, Camera, ChevronRight, LogIn, MapPin, Search } from 'lucide-react'
 import { Link } from 'wouter'
-import { categories, products, stores } from '../data/catalog'
 import { ROUTES, toCategorySlug } from '../router/routes'
 import { buildSearchSuggestions } from '../state/searchSuggestions'
 import { useSearchHistory } from '../state/useSearchHistory'
 import SearchSuggestions from './SearchSuggestions'
-import type { Category } from '../types'
+import type { Category, Product } from '../types'
 
 /**
  * Header amarelo fixo: avatar, busca, notificações, endereço e abas de categoria.
@@ -17,6 +16,10 @@ import type { Category } from '../types'
  * ocupa espaço no fluxo.
  */
 interface TopBarProps {
+  /** Catálogo carregado da API — alimenta sugestões de busca. */
+  catalogProducts: Product[]
+  /** Categorias reais derivadas do catálogo (inclui 'Tudo'). */
+  categories: Category[]
   searchQuery: string
   onSearchChange: (value: string) => void
   searchRef?: React.RefObject<HTMLInputElement | null>
@@ -35,6 +38,8 @@ interface TopBarProps {
 }
 
 export default function TopBar({
+  catalogProducts,
+  categories,
   searchQuery,
   onSearchChange,
   searchRef,
@@ -62,8 +67,8 @@ export default function TopBar({
   // tecla é barato. `useMemo` evita refazer o trabalho em re-renders que não
   // mudaram o termo digitado.
   const suggestions = useMemo(
-    () => buildSearchSuggestions(searchQuery, { products, categories, stores }),
-    [searchQuery],
+    () => buildSearchSuggestions(searchQuery, { products: catalogProducts, categories, stores: [] }),
+    [searchQuery, catalogProducts, categories],
   )
 
   const setInputRef = (node: HTMLInputElement | null) => {

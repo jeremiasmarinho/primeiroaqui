@@ -6,7 +6,12 @@ import MarketplaceApp from '../MarketplaceApp'
 import { products } from '../data/catalog'
 import { ROUTES } from '../router/routes'
 import { STORAGE_KEYS } from '../state/session'
-import { clickEnterAsClient as enterAsClient, goToLoginFromNav } from './authTestHelpers'
+import {
+  clickEnterAsClient as enterAsClient,
+  goToLoginFromNav,
+  seedLoggedInStorage,
+  waitForCatalog,
+} from './authTestHelpers'
 
 /**
  * WU-50 — acessibilidade. Fecha a WU-15 do plano original.
@@ -29,10 +34,7 @@ describe('acessibilidade', () => {
 
   /** Abre uma rota protegida direto, como um deep link com sessão ativa. */
   const openAsClient = (path: string) => {
-    localStorage.setItem(
-      STORAGE_KEYS.user,
-      JSON.stringify({ name: 'Ana Paula', email: 'ana@teste.com', role: 'client' }),
-    )
+    seedLoggedInStorage()
     window.history.pushState({}, '', path)
     return render(<MarketplaceApp />)
   }
@@ -55,6 +57,7 @@ describe('acessibilidade', () => {
   it('gaveta do carrinho sem violacao critica ou seria', async () => {
     const { container } = render(<MarketplaceApp />)
     enterAsClient()
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
 
     const violations = blocking((await axe(container)) as AxeResults)
@@ -64,6 +67,7 @@ describe('acessibilidade', () => {
   it('checkout sem violacao critica ou seria', async () => {
     const { container } = render(<MarketplaceApp />)
     enterAsClient()
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
 
@@ -157,10 +161,11 @@ describe('semantica dos controles', () => {
     expect(unnamed).toHaveLength(0)
   })
 
-  it('todo campo de formulario do checkout tem label associado', () => {
+  it('todo campo de formulario do checkout tem label associado', async () => {
     render(<MarketplaceApp />)
     goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
 
@@ -174,10 +179,11 @@ describe('semantica dos controles', () => {
     })
   })
 
-  it('a gaveta do carrinho se declara como dialogo modal', () => {
+  it('a gaveta do carrinho se declara como dialogo modal', async () => {
     render(<MarketplaceApp />)
     goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
 
     const dialog = screen.getByRole('dialog')

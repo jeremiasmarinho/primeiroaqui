@@ -16,8 +16,6 @@ interface AddressesScreenProps {
   addressError: string
   onAddressFormChange: (patch: Partial<AddressDraft>) => void
   onAddressSubmit: (event: React.FormEvent<HTMLFormElement>) => void
-  onSetDefaultAddress: (id: string) => void
-  onRemoveAddress: (id: string) => void
   isLoading?: boolean
   error?: string
 }
@@ -26,6 +24,7 @@ const FIELDS = [
   { id: 'endereco-rotulo', label: 'Nome do endereço', key: 'label', autoComplete: 'off' },
   { id: 'endereco-rua', label: 'Rua e número', key: 'street', autoComplete: 'street-address' },
   { id: 'endereco-cidade', label: 'Cidade', key: 'city', autoComplete: 'address-level2' },
+  { id: 'endereco-estado', label: 'Estado (UF)', key: 'state', autoComplete: 'address-level1' },
 ] as const
 
 const inputClass =
@@ -38,8 +37,6 @@ export default function AddressesScreen({
   addressError,
   onAddressFormChange,
   onAddressSubmit,
-  onSetDefaultAddress,
-  onRemoveAddress,
   isLoading = false,
   error = '',
 }: AddressesScreenProps) {
@@ -117,26 +114,9 @@ export default function AddressesScreen({
             <p className="text-sm text-ink-muted">{address.city}</p>
             <p className="tabular text-sm text-ink-faint">{address.cep}</p>
 
-            <div className="mt-3 flex flex-wrap gap-2">
-              {address.isDefault ? null : (
-                <button
-                  type="button"
-                  onClick={() => onSetDefaultAddress(address.id)}
-                  aria-label={`Definir ${address.label} como padrão`}
-                  className="btn-primary min-h-[44px] px-4"
-                >
-                  Definir como padrão
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onRemoveAddress(address.id)}
-                aria-label={`Remover endereço ${address.label}`}
-                className="inline-flex min-h-[44px] items-center rounded-full border border-line px-4 text-sm font-bold text-ink"
-              >
-                Remover
-              </button>
-            </div>
+            {/* Remover/definir padrão saíram nesta fase: a API só expõe
+                POST e GET de endereços — botão que finge funcionar é pior
+                do que ausência (pendência da fase de conta). */}
           </li>
         ))}
       </ul>

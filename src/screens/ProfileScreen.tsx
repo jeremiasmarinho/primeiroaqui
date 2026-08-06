@@ -46,7 +46,7 @@ export default function ProfileScreen({
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Dados da conta</p>
                 <div className="mt-4 space-y-3 text-sm text-ink-muted">
               <div className="flex justify-between"><span>E-mail</span><span className="font-semibold">{authUser?.email || 'cliente@primeiroaqui.com'}</span></div>
-              <div className="flex justify-between"><span>Tipo</span><span className="font-semibold">{userRole === 'admin' ? 'Operação' : 'Cliente'}</span></div>
+              <div className="flex justify-between"><span>Tipo</span><span className="font-semibold">{userRole === 'ADMIN' ? 'Operação' : 'Cliente'}</span></div>
               <div className="flex justify-between"><span>Negócio</span><span className="font-semibold">{businessProfile?.name || 'Ainda não cadastrado'}</span></div>
               <div className="flex justify-between"><span>Endereço</span><span className="font-semibold">{businessProfile?.address || 'Rua da Esperança, 123'}</span></div>
             </div>

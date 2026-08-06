@@ -5,9 +5,9 @@ import type { CartItem } from '../../types'
 
 interface CartLineItemProps {
   item: CartItem
-  onIncrement: (productId: number) => void
-  onDecrement: (productId: number) => void
-  onRemove: (productId: number) => void
+  onIncrement: (productId: string) => void
+  onDecrement: (productId: string) => void
+  onRemove: (productId: string) => void
 }
 
 /**

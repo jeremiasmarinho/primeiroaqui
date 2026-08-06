@@ -1,26 +1,23 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useLocation } from 'wouter'
 
-import { products } from '../data/catalog'
 import { ROUTES } from '../router/routes'
 import type { AuthForm } from '../screens/LoginScreen'
 import { writeStoredJSON } from '../lib/storage'
-import {
-  CEP_ERROR_MESSAGE,
-  addressToDeliveryPatch,
-  formatAddressLine,
-  isValidCep,
-} from './addresses'
+import { api, ApiError, loadStoredSession, setOnUnauthorized } from '../lib/api'
+import { favoriteToViewProduct, toViewOrder } from '../lib/adapters'
 import { clearCart, replaceCart } from './cart'
-import { createOrder, createOrderIdGenerator, repeatOrder } from './orders'
+import { repeatOrder } from './orders'
 import { STORAGE_KEYS, clearSession } from './session'
 import { pendingIntentMessage } from './pendingIntent'
 import { EMPTY_DELIVERY, initialThreads, EMPTY_BUSINESS } from './marketplaceSeed'
 import { useSessionState } from './useSessionState'
 import { useCatalogState } from './useCatalogState'
+import { useRemoteCatalog } from './useRemoteCatalog'
 import { useCartCheckoutState } from './useCartCheckoutState'
 import { useOrdersAdminState } from './useOrdersAdminState'
 import { useAddressesState } from './useAddressesState'
+import { CEP_ERROR_MESSAGE, formatAddressLine, isValidCep } from './addresses'
 import type { Order, Product, Role } from '../types'
 
 /**
@@ -28,22 +25,113 @@ import type { Order, Product, Role } from '../types'
  * checkout e painel admin. `MarketplaceApp` só compõe as telas com o que
  * este hook devolve — nenhuma lógica de negócio mora no componente.
  *
- * Cada fatia de estado mora em seu próprio hook (`useSessionState`,
- * `useCatalogState`, `useCartCheckoutState`, `useOrdersAdminState`); este
- * hook só cuida da persistência e dos fluxos que cruzam fatias (logout,
- * finalizar compra).
+ * Fase de integração: catálogo, sessão, favoritos, endereços e pedidos agora
+ * vêm da API real (`src/lib/api.ts`). O painel admin e o rastreio seguem
+ * mock — outra fase cuida deles.
  */
 export function useMarketplaceState() {
   const [location, navigate] = useLocation()
 
   const catalog = useCatalogState()
+  const remoteCatalog = useRemoteCatalog()
   const cartCheckout = useCartCheckoutState()
   // Fecha a gaveta do carrinho antes de qualquer redirecionamento para
   // /entrar: veja o comentário de `onBeforeRedirect` em useSessionState.
   const session = useSessionState(navigate, () => cartCheckout.setIsCartOpen(false))
   const admin = useOrdersAdminState(catalog.addNotification)
-  const addresses = useAddressesState()
+  const addresses = useAddressesState(!!session.authUser)
   const [repeatError, setRepeatError] = useState('')
+
+  // ------------------------------------------------------------------
+  // Pedidos reais (GET /api/me/orders)
+  // ------------------------------------------------------------------
+  const [myOrders, setMyOrders] = useState<Order[]>([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [ordersError, setOrdersError] = useState('')
+  const [ordersReloadKey, setOrdersReloadKey] = useState(0)
+
+  const hasSession = !!session.authUser
+
+  useEffect(() => {
+    if (!hasSession || !loadStoredSession()) {
+      setMyOrders([])
+      return
+    }
+    let cancelled = false
+    setOrdersLoading(true)
+    setOrdersError('')
+    api
+      .listMyOrders()
+      .then(({ orders }) => {
+        if (cancelled) return
+        const titleById = new Map(
+          remoteCatalog.products.map((product) => [product.id, product.title]),
+        )
+        setMyOrders(orders.map((order) => toViewOrder(order, titleById)))
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return
+        setOrdersError(
+          err instanceof ApiError && err.status > 0
+            ? err.message
+            : 'Não foi possível carregar seus pedidos.',
+        )
+      })
+      .finally(() => {
+        if (!cancelled) setOrdersLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+    // remoteCatalog.products só melhora os títulos exibidos; recarregar a cada
+    // mudança do catálogo seria requisição à toa.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSession, ordersReloadKey])
+
+  // ------------------------------------------------------------------
+  // Favoritos reais (GET /api/me/favorites): hidrata a fatia local.
+  // ------------------------------------------------------------------
+  useEffect(() => {
+    if (!hasSession || !loadStoredSession()) return
+    let cancelled = false
+    api
+      .listFavorites()
+      .then(({ products }) => {
+        if (!cancelled) catalog.setFavorites(products.map(favoriteToViewProduct))
+      })
+      .catch(() => {
+        // Silencioso: favoritos são conveniência; a lista local segue como cache.
+      })
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasSession])
+
+  // ------------------------------------------------------------------
+  // Sessão derrubada (logout ou 401): limpar tudo que é da pessoa.
+  // ------------------------------------------------------------------
+  const dropLocalSession = useCallback(() => {
+    clearSession()
+    session.setAuthUser(null)
+    session.setUserRole('BUYER')
+    cartCheckout.dispatchCart(clearCart())
+    catalog.setFavorites([])
+    catalog.setMessageThreads(initialThreads)
+    admin.setBusinessProfile(null)
+    admin.setSetupForm(EMPTY_BUSINESS)
+    admin.setCurrentOrder(null)
+    addresses.setAddresses([])
+    addresses.setSelectedAddressId('')
+    setMyOrders([])
+    // Setters de useState são estáveis; os hooks de fatia não mudam entre renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    setOnUnauthorized(() => dropLocalSession())
+    return () => setOnUnauthorized(null)
+  }, [dropLocalSession])
 
   useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.agents, admin.agents)
@@ -64,8 +152,8 @@ export function useMarketplaceState() {
   useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.cart, cartCheckout.cartState)
   }, [cartCheckout.cartState])
-  // Favoritos só persistem com sessão ativa: sem isso, os favoritos de quem
-  // saiu vazam para o próximo login (regressões B3 e B4).
+  // Favoritos persistem como cache apenas com sessão ativa: sem isso, os
+  // favoritos de quem saiu vazam para o próximo login (regressões B3 e B4).
   useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.favorites, session.authUser ? catalog.favorites : null)
   }, [session.authUser, catalog.favorites])
@@ -78,22 +166,13 @@ export function useMarketplaceState() {
   useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.business, session.authUser ? admin.businessProfile : null)
   }, [session.authUser, admin.businessProfile])
-  useEffect(() => {
-    writeStoredJSON(STORAGE_KEYS.addresses, session.authUser ? addresses.addresses : null)
-  }, [session.authUser, addresses.addresses])
 
   const handleLogout = () => {
-    clearSession()
-    session.setAuthUser(null)
-    session.setUserRole('client')
-    cartCheckout.dispatchCart(clearCart())
-    catalog.setFavorites([])
-    catalog.setMessageThreads(initialThreads)
-    admin.setBusinessProfile(null)
-    admin.setSetupForm(EMPTY_BUSINESS)
-    admin.setCurrentOrder(null)
-    addresses.setAddresses([])
-    addresses.setSelectedAddressId('')
+    // Invalida o token no servidor; o estado local cai mesmo se a rede falhar.
+    if (loadStoredSession()) {
+      api.logout().catch(() => {})
+    }
+    dropLocalSession()
     navigate(ROUTES.login)
   }
 
@@ -103,21 +182,46 @@ export function useMarketplaceState() {
     if (!address) return
 
     addresses.setSelectedAddressId(id)
-    cartCheckout.setDeliveryForm((prev) => ({ ...prev, ...addressToDeliveryPatch(address) }))
+    cartCheckout.setDeliveryForm((prev) => ({
+      ...prev,
+      address: address.street,
+      city: address.city,
+      cep: address.cep,
+    }))
   }
 
   const handleCartContinue = () => {
     if (cartCheckout.cartItemsCount === 0) return
 
     // O padrão entra sozinho no primeiro acesso à entrega; se a pessoa já
-    // digitou algo, o que ela escreveu vence.
+    // escolheu outro endereço, a escolha dela vence.
     const suggested = addresses.defaultAddress
-    if (suggested && !cartCheckout.deliveryForm.address) {
-      addresses.setSelectedAddressId(suggested.id)
-      cartCheckout.setDeliveryForm((prev) => ({ ...prev, ...addressToDeliveryPatch(suggested) }))
+    if (suggested && !addresses.selectedAddressId) {
+      handleSelectAddress(suggested.id)
     }
 
     cartCheckout.setCheckoutStep('delivery')
+  }
+
+  /**
+   * Otimista: a UI muda na hora e a API confirma atrás. Se a chamada falhar,
+   * reverte e avisa — coração que "desmarca sozinho" sem explicação é bug.
+   */
+  const toggleFavoriteWithApi = (product: Product) => {
+    const wasFavorite = catalog.favorites.some((item) => item.id === product.id)
+    catalog.toggleFavorite(product)
+
+    const call = wasFavorite ? api.removeFavorite(product.id) : api.addFavorite(product.id)
+    call.catch((err: unknown) => {
+      catalog.toggleFavorite(product)
+      catalog.addNotification(
+        'Favoritos',
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível atualizar seus favoritos.',
+        'warning',
+      )
+    })
   }
 
   const guardedToggleFavorite = (product: Product) => {
@@ -125,7 +229,7 @@ export function useMarketplaceState() {
       session.redirectToLogin(location, { type: 'favorite', productId: product.id })
       return
     }
-    catalog.toggleFavorite(product)
+    toggleFavoriteWithApi(product)
   }
 
   const guardedCartContinue = () => {
@@ -151,8 +255,8 @@ export function useMarketplaceState() {
   const resolvePendingLoginAndNavigate = () => {
     const intent = session.pendingIntent
     if (intent?.type === 'favorite') {
-      const product = products.find((item) => item.id === intent.productId)
-      if (product) catalog.toggleFavorite(product)
+      const product = remoteCatalog.products.find((item) => item.id === intent.productId)
+      if (product) toggleFavoriteWithApi(product)
     } else if (intent?.type === 'resume-checkout') {
       handleCartContinue()
       cartCheckout.setIsCartOpen(true)
@@ -162,8 +266,9 @@ export function useMarketplaceState() {
   }
 
   const onAuthSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    const success = session.handleAuthSubmit(event)
-    if (success) resolvePendingLoginAndNavigate()
+    void session.handleAuthSubmit(event).then((success) => {
+      if (success) resolvePendingLoginAndNavigate()
+    })
   }
 
   const onQuickLogin = (role: Role) => {
@@ -172,7 +277,7 @@ export function useMarketplaceState() {
   }
 
   const handleRepeatOrder = (order: Order) => {
-    const result = repeatOrder(order, products)
+    const result = repeatOrder(order, remoteCatalog.products)
     if (!result.ok) {
       setRepeatError(result.message)
       return
@@ -184,41 +289,80 @@ export function useMarketplaceState() {
     cartCheckout.setIsCartOpen(true)
   }
 
-  const handleFinalizePurchase = () => {
-    const { deliveryForm } = cartCheckout
-    if (!deliveryForm.name || !deliveryForm.address || !deliveryForm.city || !deliveryForm.cep) {
-      cartCheckout.setCheckoutError('Preencha nome, endereco, cidade e cep.')
+  /**
+   * Checkout real: POST /api/orders com os itens do carrinho e o endereço
+   * salvo escolhido. O backend valida estoque e preço; os erros discriminados
+   * (409 estoque, 404 produto) viram mensagens específicas aqui.
+   */
+  const handleFinalizePurchase = async () => {
+    if (cartCheckout.cartItemsCount === 0) return
+
+    if (!cartCheckout.deliveryForm.name) {
+      cartCheckout.setCheckoutError('Informe o nome de quem recebe a entrega.')
       return
     }
-    if (!isValidCep(deliveryForm.cep)) {
+    // O CEP digitado é só informativo (o endereço real vai por addressId),
+    // mas CEP visivelmente errado ainda merece correção antes do pedido.
+    if (cartCheckout.deliveryForm.cep && !isValidCep(cartCheckout.deliveryForm.cep)) {
       cartCheckout.setCheckoutError(CEP_ERROR_MESSAGE)
+      return
+    }
+    const addressId = addresses.selectedAddressId || addresses.defaultAddress?.id
+    if (!addressId) {
+      cartCheckout.setCheckoutError('Cadastre e selecione um endereço de entrega para finalizar.')
       return
     }
 
     cartCheckout.setCheckoutError('')
-    const order = createOrder({
-      cartState: cartCheckout.cartState,
-      delivery: deliveryForm,
-      agentName: admin.agents[0]?.name,
-      role: session.userRole,
-      idGenerator: createOrderIdGenerator(admin.orders),
-      discount: cartCheckout.discount,
-      couponCode: cartCheckout.appliedCoupon,
-    })
+    try {
+      const { orders } = await api.createOrder({
+        items: cartCheckout.cartState.items.map((item) => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+        })),
+        addressId,
+      })
 
-    admin.setOrders((prev) => [order, ...prev])
-    cartCheckout.dispatchCart(clearCart())
-    admin.setCurrentOrder(order)
-    catalog.addNotification(
-      'Compra confirmada',
-      `Pedido ${order.id} confirmado e o rastreio ja foi liberado.`,
-      'success',
-    )
-    cartCheckout.setCheckoutStep('cart')
-    cartCheckout.setDeliveryForm(EMPTY_DELIVERY)
-    cartCheckout.handleRemoveCoupon()
-    cartCheckout.setIsCartOpen(false)
-    navigate(ROUTES.order(order.id))
+      const titleById = new Map(
+        remoteCatalog.products.map((product) => [product.id, product.title]),
+      )
+      setMyOrders((prev) => [...orders.map((order) => toViewOrder(order, titleById)), ...prev])
+      cartCheckout.dispatchCart(clearCart())
+      catalog.addNotification(
+        'Compra confirmada',
+        orders.length > 1
+          ? `Seus ${orders.length} pedidos foram confirmados (um por loja).`
+          : 'Pedido confirmado! Acompanhe em Meus pedidos.',
+        'success',
+      )
+      cartCheckout.setCheckoutStep('cart')
+      cartCheckout.setDeliveryForm(EMPTY_DELIVERY)
+      cartCheckout.handleRemoveCoupon()
+      cartCheckout.setIsCartOpen(false)
+      setOrdersReloadKey((key) => key + 1)
+      navigate(ROUTES.orders)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        // Estoque acabou entre o carrinho e o checkout: recarrega o catálogo
+        // para os cards refletirem o estoque real.
+        remoteCatalog.retry()
+        cartCheckout.setCheckoutError(
+          'Um ou mais itens do carrinho ficaram sem estoque. Ajuste as quantidades e tente de novo.',
+        )
+        return
+      }
+      if (err instanceof ApiError && err.status === 404) {
+        cartCheckout.setCheckoutError(
+          'Um dos produtos do carrinho saiu do catálogo. Remova-o para continuar.',
+        )
+        return
+      }
+      cartCheckout.setCheckoutError(
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível finalizar a compra. Verifique sua conexão e tente novamente.',
+      )
+    }
   }
 
   return {
@@ -231,13 +375,19 @@ export function useMarketplaceState() {
     authForm: session.authForm,
     onAuthFormChange: (patch: Partial<AuthForm>) => session.setAuthForm((prev) => ({ ...prev, ...patch })),
     authError: session.authError,
+    authPending: session.authPending,
     onAuthSubmit,
     onQuickLogin,
     onRequireLogin: session.recordReturnTo,
     loginContextMessage: pendingIntentMessage(session.pendingIntent),
     onLogout: handleLogout,
 
-    // vitrine / busca
+    // vitrine / busca — catálogo real
+    products: remoteCatalog.products,
+    productsLoading: remoteCatalog.isLoading,
+    productsError: remoteCatalog.error,
+    onRetryProducts: remoteCatalog.retry,
+    categories: remoteCatalog.categories,
     searchQuery: catalog.searchQuery,
     onSearchChange: catalog.setSearchQuery,
     searchInputRef: catalog.searchInputRef,
@@ -249,11 +399,16 @@ export function useMarketplaceState() {
     notificationCount: catalog.notifications.length,
     onOpenCart: () => cartCheckout.setIsCartOpen(true),
 
-    // pedidos e painel admin
-    orders: admin.orders,
-    currentOrder: admin.currentOrder,
+    // pedidos reais da pessoa
+    orders: myOrders,
+    ordersLoading,
+    ordersError,
     onRepeatOrder: handleRepeatOrder,
     repeatError,
+
+    // painel admin (mock — outra fase migra)
+    adminOrders: admin.orders,
+    currentOrder: admin.currentOrder,
     agents: admin.agents,
     schedule: admin.schedule,
     metrics: admin.metrics,
@@ -294,17 +449,22 @@ export function useMarketplaceState() {
     onApplyCoupon: cartCheckout.handleApplyCoupon,
     onRemoveCoupon: cartCheckout.handleRemoveCoupon,
     onCartContinue: guardedCartContinue,
-    onCartConfirm: handleFinalizePurchase,
+    onCartConfirm: () => {
+      void handleFinalizePurchase()
+    },
 
-    // endereços
+    // endereços reais
     addresses: addresses.addresses,
+    addressesLoading: addresses.isLoading,
+    addressesError: addresses.loadError,
+    onRetryAddresses: addresses.retry,
     addressLine: addresses.defaultAddress ? formatAddressLine(addresses.defaultAddress) : '',
     addressForm: addresses.addressForm,
     addressError: addresses.addressError,
     onAddressFormChange: addresses.onAddressFormChange,
-    onAddressSubmit: addresses.onAddressSubmit,
-    onSetDefaultAddress: addresses.onSetDefaultAddress,
-    onRemoveAddress: addresses.onRemoveAddress,
+    onAddressSubmit: (event: React.FormEvent<HTMLFormElement>) => {
+      void addresses.onAddressSubmit(event)
+    },
     selectedAddressId: addresses.selectedAddressId,
     onSelectAddress: handleSelectAddress,
   }

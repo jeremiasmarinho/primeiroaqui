@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
 import { STORAGE_KEYS } from '../state/session'
-import { clickEnterAsClient, enterAsClient } from './authTestHelpers'
+import { clickEnterAsClient, enterAsClient, waitForCatalog } from './authTestHelpers'
 
 /** WU-50 — persistência. Fecha a WU-16 do plano original. */
 describe('persistencia', () => {
@@ -21,8 +21,9 @@ describe('persistencia', () => {
   }
 
   describe('sobrevive ao reload', () => {
-    it('carrinho e sessao voltam depois de remontar', () => {
+    it('carrinho e sessao voltam depois de remontar', async () => {
       const first = enterAsClient()
+      await waitForCatalog()
       addFirstProduct()
       first.unmount()
 
@@ -31,17 +32,21 @@ describe('persistencia', () => {
       expect(within(nav).getByRole('button', { name: /carrinho — 1 itens/i })).toBeInTheDocument()
     })
 
-    it('favoritos voltam depois de remontar', () => {
+    it('favoritos voltam depois de remontar', async () => {
       const first = enterAsClient()
+      await waitForCatalog()
       fireEvent.click(screen.getAllByRole('button', { name: /^salvar .+ nos favoritos$/i })[0] as HTMLElement)
       first.unmount()
 
       render(<MarketplaceApp />)
-      expect(screen.getAllByRole('button', { name: /^remover .+ dos favoritos$/i }).length).toBeGreaterThan(0)
+      expect(
+        (await screen.findAllByRole('button', { name: /^remover .+ dos favoritos$/i })).length,
+      ).toBeGreaterThan(0)
     })
 
-    it('carrinho de visitante sobrevive ao reload sem sessao', () => {
+    it('carrinho de visitante sobrevive ao reload sem sessao', async () => {
       const first = render(<MarketplaceApp />)
+      await waitForCatalog()
       fireEvent.click(
         screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement,
       )
@@ -121,9 +126,10 @@ describe('persistencia', () => {
   })
 
   describe('logout limpa o que e da pessoa (regressoes B3 e B4)', () => {
-    it('carrinho e favoritos nao vazam para o proximo login', () => {
+    it('carrinho e favoritos nao vazam para o proximo login', async () => {
       render(<MarketplaceApp />)
       clickEnterAsClient()
+      await waitForCatalog()
       addFirstProduct()
       fireEvent.click(screen.getByRole('button', { name: /fechar carrinho/i }))
 

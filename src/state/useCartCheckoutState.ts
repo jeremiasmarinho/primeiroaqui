@@ -84,12 +84,12 @@ export function useCartCheckoutState() {
     appliedCoupon,
     cartItemsCount,
     subtotal,
-    onIncrement: (productId: number) => {
+    onIncrement: (productId: string) => {
       const item = cartState.items.find((entry) => entry.product.id === productId)
       if (item) dispatchCart(addToCart(item.product))
     },
-    onDecrement: (productId: number) => dispatchCart(removeFromCart(productId)),
-    onRemove: (productId: number) => dispatchCart(setQuantity(productId, 0)),
+    onDecrement: (productId: string) => dispatchCart(removeFromCart(productId)),
+    onRemove: (productId: string) => dispatchCart(setQuantity(productId, 0)),
     onDeliveryChange: (patch: Partial<DeliveryForm>) => setDeliveryForm((prev) => ({ ...prev, ...patch })),
     handleAddToCart,
     handleBuyNow,

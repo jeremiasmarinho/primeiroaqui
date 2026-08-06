@@ -14,6 +14,8 @@ interface LoginScreenProps {
   onAuthFormChange: (patch: Partial<AuthForm>) => void
   authError: string
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  /** Requisição de login/cadastro em andamento — desabilita o submit. */
+  authPending?: boolean
   onQuickLogin: (role: Role) => void
   isDevMode: boolean
   contextMessage: string
@@ -30,6 +32,7 @@ export default function LoginScreen({
   onAuthFormChange,
   authError,
   onSubmit,
+  authPending = false,
   onQuickLogin,
   isDevMode,
   contextMessage,
@@ -120,12 +123,18 @@ export default function LoginScreen({
               {authError}
             </p>
           ) : null}
-          <button type="submit" className="btn-primary min-h-[44px] mt-4 w-full rounded-[20px] px-4 py-3">{authMode === 'signup' ? 'Criar conta' : 'Entrar'}</button>
+          <button
+            type="submit"
+            disabled={authPending}
+            className="btn-primary min-h-[44px] mt-4 w-full rounded-[20px] px-4 py-3 disabled:opacity-60"
+          >
+            {authPending ? 'Entrando...' : authMode === 'signup' ? 'Criar conta' : 'Entrar'}
+          </button>
         </form>
 
         {import.meta.env.DEV && isDevMode ? (
         <div className="mt-6 grid gap-4 md:grid-cols-2">
-          <button onClick={() => onQuickLogin('client')} className="rounded-[24px] border border-line bg-surface-page p-5 text-left transition hover:-translate-y-1">
+          <button onClick={() => onQuickLogin('BUYER')} className="rounded-[24px] border border-line bg-surface-page p-5 text-left transition hover:-translate-y-1">
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-100 text-blue-700"><User className="h-5 w-5" /></div>
               <div>
@@ -135,7 +144,7 @@ export default function LoginScreen({
             </div>
           </button>
           {import.meta.env.DEV && isDevMode ? (
-            <button onClick={() => onQuickLogin('admin')} className="rounded-[24px] border border-line bg-surface-page p-5 text-left transition hover:-translate-y-1">
+            <button onClick={() => onQuickLogin('ADMIN')} className="rounded-[24px] border border-line bg-surface-page p-5 text-left transition hover:-translate-y-1">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-100 text-amber-700"><Settings className="h-5 w-5" /></div>
                 <div>

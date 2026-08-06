@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
-import { enterAsClient, goToLoginFromNav } from './authTestHelpers'
+import { enterAsClient, goToLoginFromNav, waitForCatalog } from './authTestHelpers'
 
 /**
  * WU-47 (resto) — busca com sugestões e histórico persistido.
@@ -16,16 +16,18 @@ describe('busca — sugestões e histórico', () => {
 
   const searchInput = () => screen.getByLabelText(/buscar produtos, lojas ou categorias/i)
 
-  it('digitar mostra sugestões derivadas do catálogo (produto, categoria, loja)', () => {
+  it('digitar mostra sugestões derivadas do catálogo (produto, categoria, loja)', async () => {
     enterAsClient()
+    await waitForCatalog()
     fireEvent.focus(searchInput())
     fireEvent.change(searchInput(), { target: { value: 'smartwatch' } })
 
     expect(screen.getByRole('button', { name: /buscar por smartwatch fitness/i })).toBeInTheDocument()
   })
 
-  it('campo vazio e focado mostra o histórico, não sugestões', () => {
+  it('campo vazio e focado mostra o histórico, não sugestões', async () => {
     enterAsClient()
+    await waitForCatalog()
     fireEvent.focus(searchInput())
     fireEvent.change(searchInput(), { target: { value: 'ventilador' } })
     fireEvent.submit(screen.getByRole('search'))
@@ -35,8 +37,9 @@ describe('busca — sugestões e histórico', () => {
     expect(screen.getByRole('button', { name: /buscar novamente por ventilador/i })).toBeInTheDocument()
   })
 
-  it('aplicar sugestão preenche o campo, executa a busca e filtra o catálogo', () => {
+  it('aplicar sugestão preenche o campo, executa a busca e filtra o catálogo', async () => {
     enterAsClient()
+    await waitForCatalog()
     fireEvent.focus(searchInput())
     fireEvent.change(searchInput(), { target: { value: 'smartwatch' } })
     fireEvent.click(screen.getByRole('button', { name: /buscar por smartwatch fitness/i }))
@@ -47,8 +50,9 @@ describe('busca — sugestões e histórico', () => {
     expect(screen.queryAllByText(/ventilador de mesa premium/i)).toHaveLength(0)
   })
 
-  it('aplicar sugestão registra o termo no histórico', () => {
+  it('aplicar sugestão registra o termo no histórico', async () => {
     enterAsClient()
+    await waitForCatalog()
     fireEvent.focus(searchInput())
     fireEvent.change(searchInput(), { target: { value: 'smartwatch' } })
     fireEvent.click(screen.getByRole('button', { name: /buscar por smartwatch fitness/i }))
@@ -59,8 +63,9 @@ describe('busca — sugestões e histórico', () => {
     ).toBeInTheDocument()
   })
 
-  it('remover um item do histórico o tira da lista, sem afetar os outros', () => {
+  it('remover um item do histórico o tira da lista, sem afetar os outros', async () => {
     enterAsClient()
+    await waitForCatalog()
     fireEvent.focus(searchInput())
     fireEvent.change(searchInput(), { target: { value: 'ventilador' } })
     fireEvent.submit(screen.getByRole('search'))
@@ -111,8 +116,9 @@ describe('busca — sugestões e histórico', () => {
     ).toBeInTheDocument()
   })
 
-  it('busca sem resultado mostra estado vazio com ação de limpar', () => {
+  it('busca sem resultado mostra estado vazio com ação de limpar', async () => {
     enterAsClient()
+    await waitForCatalog()
     fireEvent.change(searchInput(), { target: { value: 'produto-inexistente-123' } })
 
     expect(screen.getByText(/nenhum produto encontrado/i)).toBeInTheDocument()
@@ -120,8 +126,9 @@ describe('busca — sugestões e histórico', () => {
     expect(searchInput()).toHaveValue('')
   })
 
-  it('ArrowDown move o foco para a primeira sugestão; Escape fecha e devolve o foco ao campo', () => {
+  it('ArrowDown move o foco para a primeira sugestão; Escape fecha e devolve o foco ao campo', async () => {
     enterAsClient()
+    await waitForCatalog()
     const input = searchInput()
     fireEvent.focus(input)
     fireEvent.change(input, { target: { value: 'casa' } })

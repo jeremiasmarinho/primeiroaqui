@@ -8,7 +8,7 @@ describe('pendingIntentMessage', () => {
   })
 
   it('favoritar explica o motivo do redirecionamento', () => {
-    const intent: PendingIntent = { type: 'favorite', productId: 7 }
+    const intent: PendingIntent = { type: 'favorite', productId: '7' }
     expect(pendingIntentMessage(intent)).toMatch(/favoritar/i)
   })
 

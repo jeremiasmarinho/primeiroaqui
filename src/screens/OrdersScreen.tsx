@@ -1,5 +1,4 @@
 import { PackageSearch, RotateCcw } from 'lucide-react'
-import { Link } from 'wouter'
 
 import BottomNav from '../components/BottomNav'
 import {
@@ -10,7 +9,6 @@ import {
   itemsLabel,
 } from '../components/ScreenShell'
 import { formatCurrency } from '../lib/format'
-import { ROUTES } from '../router/routes'
 import type { Order } from '../types'
 
 interface OrdersScreenProps {
@@ -77,13 +75,9 @@ export default function OrdersScreen({
             </p>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              <Link
-                href={ROUTES.order(order.id)}
-                aria-label={`Acompanhar pedido ${order.id}`}
-                className="btn-primary min-h-[44px] px-4 motion-safe:active:scale-95"
-              >
-                Acompanhar
-              </Link>
+              {/* O link "Acompanhar" saiu nesta fase: o rastreio (/pedido/:id)
+                  ainda é mock e não conhece os pedidos reais da API — esconder
+                  o ponto de entrada é melhor do que abrir uma tela vazia. */}
               <button
                 type="button"
                 onClick={() => onRepeatOrder(order)}

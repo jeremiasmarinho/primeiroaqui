@@ -6,19 +6,18 @@ import FavoritesScreen from '../screens/FavoritesScreen'
 import { ROUTES } from '../router/routes'
 import { STORAGE_KEYS } from '../state/session'
 import { makeProduct } from './factories'
-import { clickEnterAsClient as enterAsClient } from './authTestHelpers'
+import {
+  clickEnterAsClient as enterAsClient,
+  seedLoggedInStorage,
+  waitForCatalog,
+} from './authTestHelpers'
 
 /** WU-48 — favoritos com endereço próprio. */
 const goTo = (path: string) => {
   window.history.pushState({}, '', path)
 }
 
-const login = () => {
-  localStorage.setItem(
-    STORAGE_KEYS.user,
-    JSON.stringify({ name: 'Ana Paula', email: 'ana@teste.com', role: 'client' }),
-  )
-}
+const login = () => seedLoggedInStorage()
 
 const baseProps = {
   favorites: [],
@@ -57,7 +56,7 @@ describe('FavoritesScreen — os tres estados', () => {
   })
 
   it('lista os favoritos com contagem visivel', () => {
-    render(<FavoritesScreen {...baseProps} favorites={[makeProduct({ id: 3, title: 'Salvo A' })]} />)
+    render(<FavoritesScreen {...baseProps} favorites={[makeProduct({ id: '3', title: 'Salvo A' })]} />)
 
     expect(screen.getByRole('link', { name: 'Salvo A' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(/favoritos/i)
@@ -65,7 +64,7 @@ describe('FavoritesScreen — os tres estados', () => {
   })
 
   it('o controle de remover respeita o alvo minimo de toque', () => {
-    render(<FavoritesScreen {...baseProps} favorites={[makeProduct({ id: 3, title: 'Salvo A' })]} />)
+    render(<FavoritesScreen {...baseProps} favorites={[makeProduct({ id: '3', title: 'Salvo A' })]} />)
 
     const remove = screen.getByRole('button', { name: /remover salvo a dos favoritos/i })
     // Sem layout no jsdom, o contrato verificavel e a classe de tamanho:
@@ -82,9 +81,10 @@ describe('favoritos ponta a ponta', () => {
 
   const bottomNav = () => screen.getByRole('navigation', { name: /navegação principal/i })
 
-  it('favoritar na vitrine, aparecer em /favoritos e sumir ao remover', () => {
+  it('favoritar na vitrine, aparecer em /favoritos e sumir ao remover', async () => {
     render(<MarketplaceApp />)
     enterAsClient()
+    await waitForCatalog()
 
     const save = screen.getAllByRole('button', {
       name: /^salvar .+ nos favoritos$/i,
@@ -102,9 +102,10 @@ describe('favoritos ponta a ponta', () => {
     expect(screen.getByText(/nenhum favorito salvo/i)).toBeInTheDocument()
   })
 
-  it('a barra inferior mostra o contador de favoritos', () => {
+  it('a barra inferior mostra o contador de favoritos', async () => {
     render(<MarketplaceApp />)
     enterAsClient()
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /^salvar .+ nos favoritos$/i })[0] as HTMLElement)
 
     expect(within(bottomNav()).getByRole('link', { name: /favoritos — 1 itens/i })).toBeInTheDocument()
@@ -117,9 +118,10 @@ describe('favoritos ponta a ponta', () => {
     expect(screen.getByLabelText('Senha')).toBeInTheDocument()
   })
 
-  it('favoritos sobrevivem ao reload e continuam em /favoritos', () => {
+  it('favoritos sobrevivem ao reload e continuam em /favoritos', async () => {
     const first = render(<MarketplaceApp />)
     enterAsClient()
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /^salvar .+ nos favoritos$/i })[0] as HTMLElement)
     first.unmount()
 
@@ -127,7 +129,8 @@ describe('favoritos ponta a ponta', () => {
     goTo(ROUTES.favorites)
     render(<MarketplaceApp />)
 
-    expect(screen.getAllByRole('button', { name: /^remover .+ dos favoritos$/i }).length).toBe(1)
+    // A lista volta do GET /api/me/favorites (o MSW guarda o favorito do POST acima).
+    expect((await screen.findAllByRole('button', { name: /^remover .+ dos favoritos$/i })).length).toBe(1)
     expect(screen.queryByText(/nenhum favorito salvo/i)).not.toBeInTheDocument()
   })
 })

@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest'
 import { cleanup } from '@testing-library/react'
 import { afterEach, afterAll, beforeAll } from 'vitest'
 import { server } from './mocks/server'
+import { resetMockDb } from './mocks/handlers'
 
 /**
  * jsdom não implementa IntersectionObserver nem scrollIntoView, usados pelo
@@ -48,6 +49,9 @@ afterEach(() => {
   // proximo. Resetar aqui evita ordem-dependencia entre arquivos de teste.
   window.history.pushState({}, '', '/')
   server.resetHandlers()
+  resetMockDb()
+  // Sessão fake gravada por um teste não pode vazar para o próximo.
+  window.localStorage.clear()
 })
 
 afterAll(() => {

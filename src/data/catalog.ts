@@ -12,7 +12,7 @@ import type { Category, Customer, Product, Review, Store } from '../types'
 
 export const products: Product[] = [
   {
-    id: 1,
+    id: '1',
     title: 'Ventilador de Mesa Premium 6 Pás Silencioso',
     bestSeller: true,
     price: 199.9,
@@ -28,7 +28,7 @@ export const products: Product[] = [
     image: productImage(['electric','fan'], 'ventilador'),
   },
   {
-    id: 2,
+    id: '2',
     title: 'Kit Supermercado Express — 18 itens essenciais',
     price: 129.9,
     listPrice: 159.9,
@@ -43,7 +43,7 @@ export const products: Product[] = [
     image: productImage(['grocery','bag'], 'kit-supermercado'),
   },
   {
-    id: 3,
+    id: '3',
     title: 'Smartwatch Fitness GPS à Prova d’Água',
     price: 379.9,
     listPrice: 549.0,
@@ -58,7 +58,7 @@ export const products: Product[] = [
     image: productImage(['smartwatch'], 'smartwatch'),
   },
   {
-    id: 4,
+    id: '4',
     title: 'Box de Cuidados Pessoais com 12 Produtos',
     price: 84.9,
     listPrice: 106.0,
@@ -73,7 +73,7 @@ export const products: Product[] = [
     image: productImage(['cosmetics','skincare'], 'box-cuidados'),
   },
   {
-    id: 5,
+    id: '5',
     title: 'Barraca de Camping 4 Pessoas Impermeável',
     price: 199.9,
     listPrice: 249.9,
@@ -88,7 +88,7 @@ export const products: Product[] = [
     image: productImage(['camping','tent'], 'barraca-camping'),
   },
   {
-    id: 6,
+    id: '6',
     title: 'Conjunto de Jantar Mesa 6 Cadeiras Madeira',
     price: 2629.0,
     listPrice: 4103.0,
@@ -103,7 +103,7 @@ export const products: Product[] = [
     image: productImage(['dining','table'], 'conjunto-jantar'),
   },
   {
-    id: 7,
+    id: '7',
     title: 'Whey Concentrado 900g Sabor Baunilha',
     bestSeller: true,
     price: 137.69,
@@ -119,7 +119,7 @@ export const products: Product[] = [
     image: productImage(['protein','supplement'], 'whey-concentrado'),
   },
   {
-    id: 8,
+    id: '8',
     title: 'Painel para TV até 65" com Nicho e LED',
     price: 527.0,
     listPrice: 731.9,
@@ -210,20 +210,20 @@ const customers: Customer[] = [
  * lista de avaliações mostra quem escreveu — é o que liga os dois conjuntos.
  */
 export const reviews: Review[] = [
-  { id: 'r1', productId: 1, customerId: 'c1', rating: 5, comment: 'Silencioso de verdade, chegou no mesmo dia.', date: '2026-07-20' },
-  { id: 'r2', productId: 1, customerId: 'c3', rating: 5, comment: 'Ótimo custo-benefício, recomendo.', date: '2026-07-22' },
-  { id: 'r3', productId: 1, customerId: 'c2', rating: 4, comment: 'Bom, mas a embalagem veio amassada.', date: '2026-07-25' },
-  { id: 'r4', productId: 2, customerId: 'c2', rating: 5, comment: 'Kit completo, veio tudo certinho.', date: '2026-07-18' },
-  { id: 'r5', productId: 3, customerId: 'c4', rating: 5, comment: 'Bateria dura o dia inteiro.', date: '2026-07-28' },
-  { id: 'r6', productId: 7, customerId: 'c3', rating: 5, comment: 'Sabor bom e dissolve fácil.', date: '2026-07-30' },
+  { id: 'r1', productId: '1', customerId: 'c1', rating: 5, comment: 'Silencioso de verdade, chegou no mesmo dia.', date: '2026-07-20' },
+  { id: 'r2', productId: '1', customerId: 'c3', rating: 5, comment: 'Ótimo custo-benefício, recomendo.', date: '2026-07-22' },
+  { id: 'r3', productId: '1', customerId: 'c2', rating: 4, comment: 'Bom, mas a embalagem veio amassada.', date: '2026-07-25' },
+  { id: 'r4', productId: '2', customerId: 'c2', rating: 5, comment: 'Kit completo, veio tudo certinho.', date: '2026-07-18' },
+  { id: 'r5', productId: '3', customerId: 'c4', rating: 5, comment: 'Bateria dura o dia inteiro.', date: '2026-07-28' },
+  { id: 'r6', productId: '7', customerId: 'c3', rating: 5, comment: 'Sabor bom e dissolve fácil.', date: '2026-07-30' },
 ]
 
 /** Avaliações de um produto, da mais recente para a mais antiga. */
-export const reviewsForProduct = (productId: number): Review[] =>
+export const reviewsForProduct = (productId: string): Review[] =>
   reviews.filter((review) => review.productId === productId).sort((a, b) => b.date.localeCompare(a.date))
 
 /** Média das avaliações; `null` quando o produto ainda não tem nenhuma. */
-export const averageRating = (productId: number): number | null => {
+export const averageRating = (productId: string): number | null => {
   const list = reviewsForProduct(productId)
   if (list.length === 0) return null
   return Math.round((list.reduce((sum, review) => sum + review.rating, 0) / list.length) * 10) / 10

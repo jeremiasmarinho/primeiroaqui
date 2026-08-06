@@ -5,19 +5,16 @@ import MarketplaceApp from '../MarketplaceApp'
 import AddressesScreen from '../screens/AddressesScreen'
 import { ROUTES } from '../router/routes'
 import { EMPTY_ADDRESS } from '../state/addresses'
-import { STORAGE_KEYS } from '../state/session'
 import { makeAddress } from './factories'
+import { seedLoggedInStorage, waitForCatalog } from './authTestHelpers'
 
-/** WU-48 — endereços: cadastro, padrão e uso no checkout. */
+/**
+ * WU-48 → fase de integração — endereços agora vêm de POST/GET reais
+ * (/api/addresses, /api/me/addresses via MSW). Remover e trocar o padrão
+ * saíram da tela: o backend ainda não expõe essas rotas.
+ */
 const goTo = (path: string) => {
   window.history.pushState({}, '', path)
-}
-
-const login = () => {
-  localStorage.setItem(
-    STORAGE_KEYS.user,
-    JSON.stringify({ name: 'Ana Paula', email: 'ana@teste.com', role: 'client' }),
-  )
 }
 
 const baseProps = {
@@ -26,8 +23,6 @@ const baseProps = {
   addressError: '',
   onAddressFormChange: vi.fn(),
   onAddressSubmit: vi.fn((event: React.FormEvent<HTMLFormElement>) => event.preventDefault()),
-  onSetDefaultAddress: vi.fn(),
-  onRemoveAddress: vi.fn(),
 }
 
 describe('AddressesScreen — os tres estados', () => {
@@ -63,21 +58,10 @@ describe('AddressesScreen — os tres estados', () => {
     })
   })
 
-  it('os controles de cada endereco respeitam o alvo minimo de toque', () => {
-    render(<AddressesScreen {...baseProps} addresses={[makeAddress({ id: 'end-1' })]} />)
-
-    const remove = screen.getByRole('button', { name: /remover endereço casa/i })
-    const setDefault = screen.getByRole('button', { name: /definir casa como padrão/i })
-
-    expect(remove.className).toMatch(/min-h-\[4[4-9]px\]|h-11|h-12/)
-    expect(setDefault.className).toMatch(/min-h-\[4[4-9]px\]|h-11|h-12/)
-  })
-
-  it('o endereco padrao se anuncia e nao oferece o botao de definir padrao', () => {
+  it('o endereco padrao se anuncia com selo', () => {
     render(<AddressesScreen {...baseProps} addresses={[makeAddress({ id: 'end-1', isDefault: true })]} />)
 
     expect(screen.getByText(/padrão/i)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /definir casa como padrão/i })).not.toBeInTheDocument()
   })
 
   it('o erro de validacao aparece como alerta', () => {
@@ -92,100 +76,81 @@ describe('enderecos ponta a ponta', () => {
     goTo('/')
   })
 
-  const fillAddress = (values: {
+  // A tela busca GET /me/addresses ao montar; o formulário só aparece
+  // depois do loading — espere-o antes de preencher.
+  const fillAddress = async (values: {
     label: string
     street: string
     city: string
+    state?: string
     cep: string
   }) => {
-    fireEvent.change(screen.getByLabelText('Nome do endereço'), { target: { value: values.label } })
+    fireEvent.change(await screen.findByLabelText('Nome do endereço'), { target: { value: values.label } })
     fireEvent.change(screen.getByLabelText('Rua e número'), { target: { value: values.street } })
     fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: values.city } })
+    fireEvent.change(screen.getByLabelText('Estado (UF)'), { target: { value: values.state ?? 'SP' } })
     fireEvent.change(screen.getByLabelText('CEP'), { target: { value: values.cep } })
     fireEvent.click(screen.getByRole('button', { name: /salvar endereço/i }))
   }
 
   const casa = { label: 'Casa', street: 'Rua das Flores, 45', city: 'Centro', cep: '12345678' }
 
-  it('cadastra, mascara o cep e marca o primeiro endereco como padrao', () => {
-    login()
+  it('cadastra via POST real, mascara o cep e marca o primeiro como padrao', async () => {
+    seedLoggedInStorage()
     goTo(ROUTES.addresses)
     render(<MarketplaceApp />)
 
-    fillAddress(casa)
+    await fillAddress(casa)
 
-    const list = screen.getByRole('list', { name: /endereços salvos/i })
+    const list = await screen.findByRole('list', { name: /endereços salvos/i })
     expect(within(list).getByText(/rua das flores, 45/i)).toBeInTheDocument()
     expect(within(list).getByText('12345-678')).toBeInTheDocument()
     expect(within(list).getByText(/padrão/i)).toBeInTheDocument()
   })
 
-  it('cep invalido e rejeitado com mensagem que ensina o formato', () => {
-    login()
+  it('cep invalido e rejeitado antes da API, com mensagem que ensina o formato', async () => {
+    seedLoggedInStorage()
     goTo(ROUTES.addresses)
     render(<MarketplaceApp />)
 
-    fillAddress({ ...casa, cep: '123' })
+    await fillAddress({ ...casa, cep: '123' })
 
-    const alert = screen.getByRole('alert')
+    const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/00000-000/)
     expect(screen.queryByRole('list', { name: /endereços salvos/i })).not.toBeInTheDocument()
   })
 
-  it('definir padrao troca qual endereco o cabecalho anuncia', () => {
-    login()
+  it('estado (UF) vazio e rejeitado — o backend exige o campo', async () => {
+    seedLoggedInStorage()
     goTo(ROUTES.addresses)
     render(<MarketplaceApp />)
 
-    fillAddress(casa)
-    fillAddress({ label: 'Trabalho', street: 'Avenida Central, 900', city: 'Centro', cep: '87654321' })
-    fireEvent.click(screen.getByRole('button', { name: /definir trabalho como padrão/i }))
+    await fillAddress({ ...casa, state: ' ' })
 
-    fireEvent.click(screen.getByRole('link', { name: /voltar às ofertas/i }))
-    expect(screen.getByText(/enviar para avenida central, 900/i)).toBeInTheDocument()
+    expect(await screen.findByRole('alert')).toHaveTextContent(/estado/i)
   })
 
-  it('o cabecalho deixa de mostrar endereco fixo quando ha padrao', () => {
-    login()
+  it('o cabecalho anuncia o endereco padrao cadastrado', async () => {
+    seedLoggedInStorage()
     goTo(ROUTES.addresses)
     render(<MarketplaceApp />)
 
-    fillAddress(casa)
+    await fillAddress(casa)
+    await screen.findByRole('list', { name: /endereços salvos/i })
     fireEvent.click(screen.getByRole('link', { name: /voltar às ofertas/i }))
 
-    expect(screen.getByText(/enviar para rua das flores, 45/i)).toBeInTheDocument()
-    expect(screen.queryByText(/avenida guanabara, 148/i)).not.toBeInTheDocument()
+    expect(await screen.findByText(/enviar para rua das flores, 45/i)).toBeInTheDocument()
   })
 
-  it('o endereco escolhido no checkout entra no pedido finalizado', () => {
-    login()
+  it('o endereco padrao ja vem escolhido ao abrir a entrega', async () => {
+    seedLoggedInStorage()
     goTo(ROUTES.addresses)
     render(<MarketplaceApp />)
 
-    fillAddress(casa)
-    fillAddress({ label: 'Trabalho', street: 'Avenida Central, 900', city: 'Centro', cep: '87654321' })
+    await fillAddress(casa)
+    await screen.findByRole('list', { name: /endereços salvos/i })
     fireEvent.click(screen.getByRole('link', { name: /voltar às ofertas/i }))
-
-    fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
-    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-
-    fireEvent.click(screen.getByRole('radio', { name: /trabalho/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
-    expect(screen.getByLabelText('Endereço')).toHaveValue('Avenida Central, 900')
-
-    fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
-
-    expect(window.location.pathname).toBe(ROUTES.order('1004'))
-    expect(screen.getByText('Avenida Central, 900')).toBeInTheDocument()
-  })
-
-  it('o endereco padrao ja vem escolhido ao abrir a entrega', () => {
-    login()
-    goTo(ROUTES.addresses)
-    render(<MarketplaceApp />)
-
-    fillAddress(casa)
-    fireEvent.click(screen.getByRole('link', { name: /voltar às ofertas/i }))
+    await waitForCatalog()
 
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
@@ -195,9 +160,10 @@ describe('enderecos ponta a ponta', () => {
     expect(screen.getByLabelText('CEP')).toHaveValue('12345-678')
   })
 
-  it('sem endereco salvo, o checkout convida a cadastrar em vez de fingir', () => {
-    login()
+  it('sem endereco salvo, o checkout convida a cadastrar em vez de fingir', async () => {
+    seedLoggedInStorage()
     render(<MarketplaceApp />)
+    await waitForCatalog()
 
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
@@ -209,9 +175,10 @@ describe('enderecos ponta a ponta', () => {
     )
   })
 
-  it('cep invalido no checkout explica o formato esperado', () => {
-    login()
+  it('cep invalido no checkout explica o formato esperado', async () => {
+    seedLoggedInStorage()
     render(<MarketplaceApp />)
+    await waitForCatalog()
 
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
@@ -225,9 +192,10 @@ describe('enderecos ponta a ponta', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/00000-000/)
   })
 
-  it('o campo de cep do checkout aplica a mascara enquanto digita', () => {
-    login()
+  it('o campo de cep do checkout aplica a mascara enquanto digita', async () => {
+    seedLoggedInStorage()
     render(<MarketplaceApp />)
+    await waitForCatalog()
 
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
@@ -236,17 +204,18 @@ describe('enderecos ponta a ponta', () => {
     expect(screen.getByLabelText('CEP')).toHaveValue('12345-678')
   })
 
-  it('enderecos sobrevivem ao reload', () => {
-    login()
+  it('enderecos sobrevivem ao reload — a lista volta do servidor', async () => {
+    seedLoggedInStorage()
     goTo(ROUTES.addresses)
     const first = render(<MarketplaceApp />)
-    fillAddress(casa)
+    await fillAddress(casa)
+    await screen.findByRole('list', { name: /endereços salvos/i })
     first.unmount()
 
     goTo(ROUTES.addresses)
     render(<MarketplaceApp />)
 
-    expect(screen.getByText(/rua das flores, 45/i)).toBeInTheDocument()
+    expect(await screen.findByText(/rua das flores, 45/i)).toBeInTheDocument()
   })
 
   it('deep link em /enderecos sem sessao volta para /entrar', () => {

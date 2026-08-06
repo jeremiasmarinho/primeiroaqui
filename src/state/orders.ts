@@ -70,7 +70,7 @@ export const createOrder = ({
 
   return {
     id: idGenerator(),
-    customer: delivery.name || (role === 'admin' ? 'Operador' : 'Cliente'),
+    customer: delivery.name || (role === 'ADMIN' ? 'Operador' : 'Cliente'),
     agent: agentName || 'Agente',
     value,
     items: cartState.items.map((item) => item.product.title),
@@ -124,7 +124,9 @@ export const repeatOrder = (order: Order, catalog: Product[]): RepeatOrderResult
 }
 
 export const changeOrderStatus = (order: Order, nextStatus: OrderStatus): Order => {
-  const allowed = statusTransitions[order.status] ?? []
+  // `status` agora é string aberta (pedidos reais têm rótulos próprios);
+  // este fluxo só vale para os três status do mock admin.
+  const allowed = (statusTransitions as Record<string, OrderStatus[]>)[order.status] ?? []
 
   if (!allowed.includes(nextStatus)) {
     throw new Error(`Transicao invalida: ${order.status} -> ${nextStatus}`)

@@ -17,7 +17,6 @@ import type { AdminTab } from '../screens/admin/AdminScreen'
 
 import type { AppRouterProps } from './AppRouterProps'
 import { ROUTE_PATTERNS, ROUTES, isProtected, toCategorySlug } from './routes'
-import { categories, products } from '../data/catalog'
 import type { Category } from '../types'
 
 export type { AppRouterProps }
@@ -37,7 +36,9 @@ const AdminScreenFallback = () => (
   </div>
 )
 
-const categoryFromSlug = (slug: string): Category | null =>
+// Slug -> categoria real, resolvido contra a lista derivada do catálogo
+// carregado (o backend não tem endpoint de categorias).
+const categoryFromSlug = (categories: Category[], slug: string): Category | null =>
   categories.find((category) => toCategorySlug(category) === slug) ?? null
 
 /**
@@ -71,11 +72,11 @@ export default function AppRouter(props: AppRouterProps) {
     return <Redirect href={ROUTES.home} replace />
   }
 
-  const moreHref = !authUser ? ROUTES.login : userRole === 'admin' ? ROUTES.admin() : ROUTES.profile
+  const moreHref = !authUser ? ROUTES.login : userRole === 'ADMIN' ? ROUTES.admin() : ROUTES.profile
 
   const vitrine = (category: Category) => (
     <HomeScreen
-      products={products.filter((product) => {
+      products={props.products.filter((product) => {
         const matchesCategory = category === 'Tudo' || product.category === category
         const query = props.searchQuery.trim().toLowerCase()
         const matchesQuery =
@@ -84,7 +85,11 @@ export default function AppRouter(props: AppRouterProps) {
           product.seller.toLowerCase().includes(query)
         return matchesCategory && matchesQuery
       })}
-      allProducts={products}
+      allProducts={props.products}
+      categories={props.categories}
+      isLoading={props.productsLoading}
+      loadError={props.productsError}
+      onRetry={props.onRetryProducts}
       category={category}
       searchQuery={props.searchQuery}
       onSearchChange={props.onSearchChange}
@@ -113,6 +118,7 @@ export default function AppRouter(props: AppRouterProps) {
           onAuthFormChange={props.onAuthFormChange}
           authError={props.authError}
           onSubmit={props.onAuthSubmit}
+          authPending={props.authPending}
           onQuickLogin={props.onQuickLogin}
           isDevMode={props.isDevMode}
           contextMessage={props.loginContextMessage}
@@ -124,7 +130,10 @@ export default function AppRouter(props: AppRouterProps) {
 
       <Route path={ROUTE_PATTERNS.category}>
         {(params) => {
-          const category = categoryFromSlug(params.slug ?? '')
+          const category = categoryFromSlug(props.categories, params.slug ?? '')
+          // Enquanto o catálogo carrega, a lista de categorias ainda não
+          // existe — mostrar a vitrine (com skeleton) em vez de "não existe".
+          if (!category && props.productsLoading) return vitrine('Tudo')
           if (!category) {
             return (
               <EmptyState
@@ -141,13 +150,19 @@ export default function AppRouter(props: AppRouterProps) {
       </Route>
 
       <Route path={ROUTE_PATTERNS.categories}>
-        <CategoriesScreen />
+        <CategoriesScreen
+          categories={props.categories}
+          products={props.products}
+          isLoading={props.productsLoading}
+          error={props.productsError}
+        />
       </Route>
 
       <Route path={ROUTE_PATTERNS.product}>
         {(params) => (
           <ProductScreen
-            productId={Number(params.id)}
+            productId={params.id ?? ''}
+            allProducts={props.products}
             favorites={props.favorites}
             onToggleFavorite={props.onToggleFavorite}
             onAddToCart={props.onAddToCart}
@@ -159,7 +174,8 @@ export default function AppRouter(props: AppRouterProps) {
       <Route path={ROUTE_PATTERNS.store}>
         {(params) => (
           <StoreScreen
-            slug={params.slug ?? ''}
+            storeId={params.slug ?? ''}
+            allProducts={props.products}
             favorites={props.favorites}
             onToggleFavorite={props.onToggleFavorite}
             onAddToCart={props.onAddToCart}
@@ -190,6 +206,8 @@ export default function AppRouter(props: AppRouterProps) {
       <Route path={ROUTE_PATTERNS.orders}>
         <OrdersScreen
           orders={props.orders}
+          isLoading={props.ordersLoading}
+          error={props.ordersError}
           onRepeatOrder={props.onRepeatOrder}
           repeatError={props.repeatError}
           onOpenCart={props.onOpenCart}
@@ -202,12 +220,12 @@ export default function AppRouter(props: AppRouterProps) {
       <Route path={ROUTE_PATTERNS.addresses}>
         <AddressesScreen
           addresses={props.addresses}
+          isLoading={props.addressesLoading}
+          error={props.addressesError}
           addressForm={props.addressForm}
           addressError={props.addressError}
           onAddressFormChange={props.onAddressFormChange}
           onAddressSubmit={props.onAddressSubmit}
-          onSetDefaultAddress={props.onSetDefaultAddress}
-          onRemoveAddress={props.onRemoveAddress}
         />
       </Route>
 
@@ -233,7 +251,7 @@ export default function AppRouter(props: AppRouterProps) {
               onTabChange={(tab) => navigate(ROUTES.admin(tab))}
               metrics={props.metrics}
               schedule={props.schedule}
-              orders={props.orders}
+              orders={props.adminOrders}
               agents={props.agents}
               agentForm={props.agentForm}
               onAgentFormChange={props.onAgentFormChange}

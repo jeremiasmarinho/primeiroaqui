@@ -19,9 +19,9 @@ interface CartDrawerProps {
   selectedAddressId: string
   onSelectAddress: (id: string) => void
   onClose: () => void
-  onIncrement: (productId: number) => void
-  onDecrement: (productId: number) => void
-  onRemove: (productId: number) => void
+  onIncrement: (productId: string) => void
+  onDecrement: (productId: string) => void
+  onRemove: (productId: string) => void
   onDeliveryChange: (patch: Partial<DeliveryForm>) => void
   onCouponCodeChange: (code: string) => void
   onApplyCoupon: () => void

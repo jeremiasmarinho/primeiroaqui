@@ -11,8 +11,8 @@ import {
 } from './cart'
 import { makeProduct } from '../test/factories'
 
-const productA = makeProduct({ id: 1, title: 'A', price: 10 })
-const productB = makeProduct({ id: 2, title: 'B', price: 5 })
+const productA = makeProduct({ id: '1', title: 'A', price: 10 })
+const productB = makeProduct({ id: '2', title: 'B', price: 5 })
 
 describe('cart reducer', () => {
   it('adiciona item novo com quantity 1', () => {
@@ -71,7 +71,7 @@ describe('cart reducer', () => {
   })
 
   it('ignora remocao de produto inexistente', () => {
-    const state = cartReducer(createInitialCartState(), removeFromCart(999))
+    const state = cartReducer(createInitialCartState(), removeFromCart('999'))
     expect(state.items).toEqual([])
   })
 

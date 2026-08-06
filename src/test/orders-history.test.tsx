@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import MarketplaceApp from '../MarketplaceApp'
 import OrdersScreen from '../screens/OrdersScreen'
 import { ROUTES } from '../router/routes'
-import { STORAGE_KEYS } from '../state/session'
 import { makeOrder } from './factories'
-import { clickEnterAsClient as enterAsClient } from './authTestHelpers'
+import { clickEnterAsClient as enterAsClient, waitForCatalog } from './authTestHelpers'
+import { seedAddress } from './mocks/handlers'
 
-/** WU-48 — histórico de pedidos e "repetir pedido". */
+/** WU-48 → fase de integração — histórico agora vem de GET /api/me/orders. */
 const goTo = (path: string) => {
   window.history.pushState({}, '', path)
 }
@@ -69,18 +69,17 @@ describe('OrdersScreen — os tres estados', () => {
     expect(screen.getByText(/ventilador, whey/i)).toBeInTheDocument()
   })
 
-  it('cada pedido linka para o rastreio ja existente, sem duplicar tela', () => {
+  it('sem link de rastreio nesta fase — a tela de rastreio segue mock', () => {
+    // Decisão da fase de integração: esconder o ponto de entrada é melhor do
+    // que abrir /pedido/:id vazio para um pedido real que o mock não conhece.
     render(<OrdersScreen {...baseProps} orders={[makeOrder({ id: '2042' })]} />)
 
-    expect(screen.getByRole('link', { name: /acompanhar pedido 2042/i })).toHaveAttribute(
-      'href',
-      ROUTES.order('2042'),
-    )
+    expect(screen.queryByRole('link', { name: /acompanhar pedido/i })).not.toBeInTheDocument()
   })
 
   it('repetir pedido avisa o pai e respeita o alvo minimo de toque', () => {
     const onRepeatOrder = vi.fn()
-    const order = makeOrder({ id: '2042', lines: [{ productId: 1, quantity: 2 }] })
+    const order = makeOrder({ id: '2042', lines: [{ productId: '1', quantity: 2 }] })
     render(<OrdersScreen {...baseProps} orders={[order]} onRepeatOrder={onRepeatOrder} />)
 
     const button = screen.getByRole('button', { name: /repetir pedido 2042/i })
@@ -112,7 +111,12 @@ describe('historico ponta a ponta', () => {
 
   const bottomNav = () => screen.getByRole('navigation', { name: /navegação principal/i })
 
-  const buyTwoOfTheFirstProduct = () => {
+  it('pedido concluido entra no historico e repetir recria o carrinho igual', async () => {
+    seedAddress()
+    render(<MarketplaceApp />)
+    enterAsClient()
+    await waitForCatalog()
+
     const add = () =>
       fireEvent.click(
         screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement,
@@ -123,41 +127,17 @@ describe('historico ponta a ponta', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
     fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
-    fireEvent.change(screen.getByLabelText('Endereço'), { target: { value: 'Rua 1, 20' } })
-    fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: 'Centro' } })
-    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '12345678' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
-  }
 
-  it('pedido concluido entra no historico e repetir recria o carrinho igual', () => {
-    render(<MarketplaceApp />)
-    enterAsClient()
-    buyTwoOfTheFirstProduct()
+    // POST /api/orders responde e o app navega direto para o historico.
+    await waitFor(() => expect(window.location.pathname).toBe(ROUTES.orders))
+    expect(await screen.findByText(/ventilador de mesa premium/i)).toBeInTheDocument()
 
-    // Confirmar leva ao rastreio; de la se alcanca o historico por link real.
-    fireEvent.click(screen.getByRole('link', { name: /ver todos os pedidos/i }))
-    expect(window.location.pathname).toBe(ROUTES.orders)
-
-    const novo = screen.getByText('1004')
-    expect(novo).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: /repetir pedido 1004/i }))
+    fireEvent.click(screen.getByRole('button', { name: /repetir pedido/i }))
 
     // Mesmos itens e mesmas quantidades: 2 unidades do mesmo produto.
     expect(within(bottomNav()).getByRole('button', { name: /carrinho — 2 itens/i })).toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: /carrinho de compras/i })).toBeInTheDocument()
-  })
-
-  it('pedido do historico antigo, sem linhas, explica por que nao repete', () => {
-    localStorage.setItem(
-      STORAGE_KEYS.user,
-      JSON.stringify({ name: 'Ana', email: 'ana@teste.com', role: 'client' }),
-    )
-    goTo(ROUTES.orders)
-    render(<MarketplaceApp />)
-
-    fireEvent.click(screen.getAllByRole('button', { name: /repetir pedido/i })[0] as HTMLElement)
-    expect(screen.getByRole('alert')).toHaveTextContent(/não guarda os itens/i)
   })
 
   it('deep link em /pedidos sem sessao volta para /entrar', () => {

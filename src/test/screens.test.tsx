@@ -18,7 +18,7 @@ describe('ProductModal', () => {
   it('mostra desconto, prazo e loja do vendedor', () => {
     render(
       <ProductModal
-        product={makeProduct({ id: 1, price: 50, listPrice: 100, seller: 'Loja Vizinhança' })}
+        product={makeProduct({ id: '1', price: 50, listPrice: 100, seller: 'Loja Vizinhança' })}
         onClose={vi.fn()}
         onAddToCart={vi.fn()}
       />,
@@ -31,7 +31,7 @@ describe('ProductModal', () => {
   it('adicionar ao carrinho fecha o modal', () => {
     const onClose = vi.fn()
     const onAddToCart = vi.fn()
-    const product = makeProduct({ id: 1 })
+    const product = makeProduct({ id: '1' })
 
     render(<ProductModal product={product} onClose={onClose} onAddToCart={onAddToCart} />)
     fireEvent.click(screen.getByRole('button', { name: /adicionar ao carrinho/i }))
@@ -42,7 +42,7 @@ describe('ProductModal', () => {
 
   it('produto sem avaliacao mostra estado vazio, nao lista quebrada', () => {
     render(
-      <ProductModal product={makeProduct({ id: 9999 })} onClose={vi.fn()} onAddToCart={vi.fn()} />,
+      <ProductModal product={makeProduct({ id: '9999' })} onClose={vi.fn()} onAddToCart={vi.fn()} />,
     )
     expect(screen.getByText(/ainda não tem avaliações/i)).toBeInTheDocument()
   })
@@ -50,7 +50,7 @@ describe('ProductModal', () => {
   it('a media exibida bate com as avaliacoes listadas', () => {
     // Produto 1 tem avaliacoes 5, 5 e 4 -> media 4.7
     render(
-      <ProductModal product={makeProduct({ id: 1 })} onClose={vi.fn()} onAddToCart={vi.fn()} />,
+      <ProductModal product={makeProduct({ id: '1' })} onClose={vi.fn()} onAddToCart={vi.fn()} />,
     )
 
     const section = screen.getByRole('region', { name: /avaliações/i })
@@ -96,7 +96,7 @@ describe('TrackingScreen', () => {
 describe('ProfileScreen', () => {
   const baseProps = {
     authUser: makeUser({ name: 'Ana Paula', email: 'ana@teste.com' }),
-    userRole: 'client' as const,
+    userRole: 'BUYER' as const,
     businessProfile: null,
     favorites: [],
     orders: [],
@@ -118,7 +118,7 @@ describe('ProfileScreen', () => {
 
   it('remover favorito avisa o pai', () => {
     const onToggleFavorite = vi.fn()
-    const product = makeProduct({ id: 7, title: 'Salvo' })
+    const product = makeProduct({ id: '7', title: 'Salvo' })
 
     render(
       <ProfileScreen {...baseProps} favorites={[product]} onToggleFavorite={onToggleFavorite} />,

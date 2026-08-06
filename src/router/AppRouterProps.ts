@@ -6,6 +6,7 @@ import type {
   Address,
   Agent,
   BusinessProfile,
+  Category,
   Order,
   OrderStatus,
   Product,
@@ -34,12 +35,18 @@ export interface AppRouterProps {
   onAuthFormChange: (patch: Partial<AuthForm>) => void
   authError: string
   onAuthSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  authPending: boolean
   onQuickLogin: (role: Role) => void
   onLogout: () => void
   onRequireLogin: (path: string) => void
   loginContextMessage: string
 
-  // vitrine
+  // vitrine — catálogo real (GET /api/products)
+  products: Product[]
+  productsLoading: boolean
+  productsError: string
+  onRetryProducts: () => void
+  categories: Category[]
   searchQuery: string
   onSearchChange: (value: string) => void
   searchRef?: React.RefObject<HTMLInputElement | null>
@@ -51,11 +58,15 @@ export interface AppRouterProps {
   notificationCount: number
   onOpenCart: () => void
 
-  // pedidos e painel
+  // pedidos reais (GET /api/me/orders)
   orders: Order[]
+  ordersLoading: boolean
+  ordersError: string
   currentOrder: Order | null
   onRepeatOrder: (order: Order) => void
   repeatError: string
+  /** Pedidos mock do painel admin — o painel ainda não foi migrado. */
+  adminOrders: Order[]
   agents: Agent[]
   schedule: ScheduleItem[]
   metrics: Metric[]
@@ -68,13 +79,13 @@ export interface AppRouterProps {
   onStatusChange: (orderId: string, status: OrderStatus) => void
   businessProfile: BusinessProfile | null
 
-  // endereços
+  // endereços reais (GET /api/me/addresses)
   addresses: Address[]
+  addressesLoading: boolean
+  addressesError: string
   addressLine: string
   addressForm: AddressDraft
   addressError: string
   onAddressFormChange: (patch: Partial<AddressDraft>) => void
   onAddressSubmit: (event: React.FormEvent<HTMLFormElement>) => void
-  onSetDefaultAddress: (id: string) => void
-  onRemoveAddress: (id: string) => void
 }

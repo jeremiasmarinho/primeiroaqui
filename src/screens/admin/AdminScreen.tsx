@@ -52,7 +52,7 @@ export default function AdminScreen({
   onStatusChange,
   onBack,
 }: AdminScreenProps) {
-  if (userRole !== 'admin') {
+  if (userRole !== 'ADMIN') {
     return (
       <div className="grid min-h-dvh place-items-center bg-surface-page p-6">
         <div className="max-w-sm rounded-card bg-surface p-8 text-center shadow-card">

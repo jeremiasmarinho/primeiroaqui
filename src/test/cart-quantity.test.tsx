@@ -1,7 +1,7 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
-import { enterAsClient, goToLoginFromNav } from './authTestHelpers'
+import { enterAsClient, goToLoginFromNav, waitForCatalog } from './authTestHelpers'
 
 /**
  * WU-45: o reducer suporta quantidade desde a WU-06, mas a UI não expunha.
@@ -18,15 +18,17 @@ describe('quantidade no carrinho', () => {
 
   const drawer = () => screen.getByRole('dialog', { name: /carrinho de compras/i })
 
-  it('adicionar abre a gaveta com o item em quantidade 1', () => {
+  it('adicionar abre a gaveta com o item em quantidade 1', async () => {
     enterAsClient()
+    await waitForCatalog()
     addFirstProduct()
 
     expect(within(drawer()).getByText('1')).toBeInTheDocument()
   })
 
-  it('o botao + incrementa e o subtotal da linha acompanha', () => {
+  it('o botao + incrementa e o subtotal da linha acompanha', async () => {
     enterAsClient()
+    await waitForCatalog()
     addFirstProduct()
 
     fireEvent.click(within(drawer()).getByRole('button', { name: /aumentar quantidade/i }))
@@ -38,8 +40,9 @@ describe('quantidade no carrinho', () => {
     expect(within(drawer()).getAllByText(/R\$\s?399,80/)).toHaveLength(2)
   })
 
-  it('o botao − decrementa sem remover enquanto houver mais de um', () => {
+  it('o botao − decrementa sem remover enquanto houver mais de um', async () => {
     enterAsClient()
+    await waitForCatalog()
     addFirstProduct()
     fireEvent.click(within(drawer()).getByRole('button', { name: /aumentar quantidade/i }))
     fireEvent.click(within(drawer()).getByRole('button', { name: /diminuir quantidade/i }))
@@ -48,8 +51,9 @@ describe('quantidade no carrinho', () => {
     expect(within(drawer()).queryByText(/carrinho está vazio/i)).not.toBeInTheDocument()
   })
 
-  it('o botao de lixeira remove a linha inteira, nao so uma unidade', () => {
+  it('o botao de lixeira remove a linha inteira, nao so uma unidade', async () => {
     enterAsClient()
+    await waitForCatalog()
     addFirstProduct()
     fireEvent.click(within(drawer()).getByRole('button', { name: /aumentar quantidade/i }))
 
@@ -57,8 +61,9 @@ describe('quantidade no carrinho', () => {
     expect(within(drawer()).getByText(/carrinho está vazio/i)).toBeInTheDocument()
   })
 
-  it('o contador da barra inferior soma quantidades, nao linhas', () => {
+  it('o contador da barra inferior soma quantidades, nao linhas', async () => {
     enterAsClient()
+    await waitForCatalog()
     addFirstProduct()
     fireEvent.click(within(drawer()).getByRole('button', { name: /aumentar quantidade/i }))
     fireEvent.click(within(drawer()).getByRole('button', { name: /fechar carrinho/i }))
@@ -75,8 +80,9 @@ describe('quantidade no carrinho', () => {
     expect(screen.getByRole('button', { name: /continuar/i })).toBeDisabled()
   })
 
-  it('todos os controles de quantidade tem alvo de toque de 44px', () => {
+  it('todos os controles de quantidade tem alvo de toque de 44px', async () => {
     enterAsClient()
+    await waitForCatalog()
     addFirstProduct()
 
     const controls = [
@@ -97,16 +103,17 @@ describe('cupom no checkout', () => {
     localStorage.clear()
   })
 
-  const goToDelivery = () => {
+  const goToDelivery = async () => {
     render(<MarketplaceApp />)
     goToLoginFromNav()
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
+    await waitForCatalog()
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
   }
 
-  it('cupom invalido mostra o motivo e nao altera o total', () => {
-    goToDelivery()
+  it('cupom invalido mostra o motivo e nao altera o total', async () => {
+    await goToDelivery()
 
     fireEvent.change(screen.getByLabelText(/cupom de desconto/i), { target: { value: 'NAOEXISTE' } })
     fireEvent.click(screen.getByRole('button', { name: /aplicar/i }))
@@ -117,8 +124,8 @@ describe('cupom no checkout', () => {
     expect(screen.getAllByText(/R\$\s?199,90/).length).toBeGreaterThan(0)
   })
 
-  it('cupom expirado e rejeitado', () => {
-    goToDelivery()
+  it('cupom expirado e rejeitado', async () => {
+    await goToDelivery()
 
     fireEvent.change(screen.getByLabelText(/cupom de desconto/i), { target: { value: 'EXPIRADO' } })
     fireEvent.click(screen.getByRole('button', { name: /aplicar/i }))
@@ -126,8 +133,8 @@ describe('cupom no checkout', () => {
     expect(screen.getByRole('alert')).toHaveTextContent(/expirou/i)
   })
 
-  it('cupom valido abate no total e pode ser removido', () => {
-    goToDelivery()
+  it('cupom valido abate no total e pode ser removido', async () => {
+    await goToDelivery()
 
     fireEvent.change(screen.getByLabelText(/cupom de desconto/i), { target: { value: 'BAIRRO10' } })
     fireEvent.click(screen.getByRole('button', { name: /aplicar/i }))

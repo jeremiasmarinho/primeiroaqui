@@ -8,9 +8,9 @@ interface CartItemsStepProps {
   itemsCount: number
   subtotal: number
   onClose: () => void
-  onIncrement: (productId: number) => void
-  onDecrement: (productId: number) => void
-  onRemove: (productId: number) => void
+  onIncrement: (productId: string) => void
+  onDecrement: (productId: string) => void
+  onRemove: (productId: string) => void
   onContinue: () => void
 }
 

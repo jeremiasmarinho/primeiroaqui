@@ -22,10 +22,16 @@ export default function MarketplaceApp() {
         onAuthFormChange={state.onAuthFormChange}
         authError={state.authError}
         onAuthSubmit={state.onAuthSubmit}
+        authPending={state.authPending}
         onQuickLogin={state.onQuickLogin}
         onLogout={state.onLogout}
         onRequireLogin={state.onRequireLogin}
         loginContextMessage={state.loginContextMessage}
+        products={state.products}
+        productsLoading={state.productsLoading}
+        productsError={state.productsError}
+        onRetryProducts={state.onRetryProducts}
+        categories={state.categories}
         searchQuery={state.searchQuery}
         onSearchChange={state.onSearchChange}
         searchRef={state.searchInputRef}
@@ -37,6 +43,9 @@ export default function MarketplaceApp() {
         notificationCount={state.notificationCount}
         onOpenCart={state.onOpenCart}
         orders={state.orders}
+        ordersLoading={state.ordersLoading}
+        ordersError={state.ordersError}
+        adminOrders={state.adminOrders}
         currentOrder={state.currentOrder}
         onRepeatOrder={state.onRepeatOrder}
         repeatError={state.repeatError}
@@ -52,13 +61,13 @@ export default function MarketplaceApp() {
         onStatusChange={state.onStatusChange}
         businessProfile={state.businessProfile}
         addresses={state.addresses}
+        addressesLoading={state.addressesLoading}
+        addressesError={state.addressesError}
         addressLine={state.addressLine}
         addressForm={state.addressForm}
         addressError={state.addressError}
         onAddressFormChange={state.onAddressFormChange}
         onAddressSubmit={state.onAddressSubmit}
-        onSetDefaultAddress={state.onSetDefaultAddress}
-        onRemoveAddress={state.onRemoveAddress}
       />
 
       <BusinessSetupModal

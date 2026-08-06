@@ -4,7 +4,6 @@ import BannerCarousel from '../components/BannerCarousel'
 import ShortcutRail from '../components/ShortcutRail'
 import FlashDeals from '../components/FlashDeals'
 import ProductCard from '../components/ProductCard'
-import StoreRail from '../components/StoreRail'
 import { Link } from 'wouter'
 import BottomNav from '../components/BottomNav'
 import { ROUTES } from '../router/routes'
@@ -43,6 +42,11 @@ function SectionHeader({ title, action, id }: SectionHeaderProps) {
 interface HomeScreenProps {
   products: Product[]
   allProducts: Product[]
+  /** Categorias reais (derivadas do catálogo carregado), com 'Tudo'. */
+  categories: Category[]
+  isLoading?: boolean
+  loadError?: string
+  onRetry?: () => void
   category: Category
   searchQuery: string
   onSearchChange: (value: string) => void
@@ -64,6 +68,10 @@ interface HomeScreenProps {
 export default function HomeScreen({
   products,
   allProducts,
+  categories,
+  isLoading = false,
+  loadError = '',
+  onRetry,
   category,
   searchQuery,
   onSearchChange,
@@ -97,6 +105,8 @@ export default function HomeScreen({
   return (
     <div className="min-h-dvh bg-surface-page pb-nav">
       <TopBar
+        catalogProducts={allProducts}
+        categories={categories}
         searchQuery={searchQuery}
         onSearchChange={onSearchChange}
         onSearchSubmit={onSearchSubmit}
@@ -116,7 +126,6 @@ export default function HomeScreen({
             <BannerCarousel />
             <ShortcutRail />
             <FlashDeals products={allProducts} />
-            <StoreRail />
 
             <section aria-labelledby="recomendados">
               <SectionHeader id="recomendados" title="Entrega turbo perto de você" action="Ver mais" />
@@ -145,7 +154,32 @@ export default function HomeScreen({
             action={`${products.length} itens`}
           />
 
-          {products.length === 0 ? (
+          {isLoading ? (
+            // Skeleton com a mesma grade dos cards: a tela não "pula" quando
+            // o catálogo chega. `animate-pulse` já existe no Tailwind padrão.
+            <ul aria-hidden="true" className="grid grid-cols-2 gap-2 px-3 md:grid-cols-3 lg:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, index) => (
+                <li key={index} className="animate-pulse rounded-card bg-surface p-2 shadow-card">
+                  <div className="aspect-square w-full rounded-card bg-surface-sunken" />
+                  <div className="mt-2 h-4 w-3/4 rounded bg-surface-sunken" />
+                  <div className="mt-2 h-4 w-1/2 rounded bg-surface-sunken" />
+                </li>
+              ))}
+            </ul>
+          ) : loadError ? (
+            <div className="mx-3 rounded-card bg-surface p-8 text-center shadow-card">
+              <p role="alert" className="text-sm font-bold text-error">
+                {loadError}
+              </p>
+              <button
+                type="button"
+                onClick={onRetry}
+                className="btn-primary min-h-[44px] mt-4 motion-safe:active:scale-95"
+              >
+                Tentar de novo
+              </button>
+            </div>
+          ) : products.length === 0 ? (
             <div className="mx-3 rounded-card bg-surface p-8 text-center shadow-card">
               <PackageSearch className="mx-auto h-10 w-10 text-ink-faint" aria-hidden="true" />
               <p className="mt-3 font-display text-base font-bold text-ink">

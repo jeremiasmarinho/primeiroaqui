@@ -38,7 +38,7 @@ describe('Price', () => {
 })
 
 describe('ProductCard', () => {
-  const product = makeProduct({ id: 42, title: 'Ventilador Silencioso', bestSeller: true })
+  const product = makeProduct({ id: '42', title: 'Ventilador Silencioso', bestSeller: true })
 
   it('favoritar alterna aria-pressed e avisa o pai', () => {
     const onToggleFavorite = vi.fn()
@@ -166,8 +166,8 @@ describe('Countdown', () => {
 describe('FlashDeals', () => {
   it('inclui apenas produtos com 15% ou mais de desconto', () => {
     const products = [
-      makeProduct({ id: 1, title: 'Com desconto alto', price: 50, listPrice: 100 }),
-      makeProduct({ id: 2, title: 'Com desconto baixo', price: 95, listPrice: 100 }),
+      makeProduct({ id: '1', title: 'Com desconto alto', price: 50, listPrice: 100 }),
+      makeProduct({ id: '2', title: 'Com desconto baixo', price: 95, listPrice: 100 }),
     ]
     render(<FlashDeals products={products} />)
 
@@ -182,7 +182,7 @@ describe('FlashDeals', () => {
 
   it('mostra no maximo 3 ofertas', () => {
     const products = Array.from({ length: 6 }, (_, index) =>
-      makeProduct({ id: index + 1, title: `Oferta ${index}`, price: 50, listPrice: 100 }),
+      makeProduct({ id: String(index + 1), title: `Oferta ${index}`, price: 50, listPrice: 100 }),
     )
     render(<FlashDeals products={products} />)
 
@@ -197,6 +197,8 @@ describe('TopBar', () => {
     onSearchChange: vi.fn(),
     category: 'Tudo' as const,
     onCategoryChange: vi.fn(),
+    catalogProducts: [],
+    categories: ['Tudo', 'Farmácia', 'Casa'],
   }
 
   it('a busca tem label associado, nao so placeholder', () => {
