@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import type { ApiAdminStore } from '../../lib/api'
 
 interface AdminStoresTabProps {
@@ -6,12 +7,25 @@ interface AdminStoresTabProps {
 }
 
 const numberBR = new Intl.NumberFormat('pt-BR')
+const CONFIRM_WINDOW_MS = 4000
 
 /**
  * Lojas da plataforma com dono e volumes, e a moderação ativar/desativar.
  * Desativar pede confirmação — tira a loja do ar para os compradores.
+ * Confirmação é inline (dois cliques), não window.confirm nativo, para não
+ * travar automação/testes: o botão vira "Confirmar desativação?" por alguns
+ * segundos antes de voltar ao estado normal se não for clicado de novo.
  */
 export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabProps) {
+  const [pendingStoreId, setPendingStoreId] = useState<string | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+    }
+  }, [])
+
   if (stores.length === 0) {
     return (
       <div className="rounded-[24px] border border-line p-6 text-center">
@@ -25,10 +39,14 @@ export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabPr
 
   const handleToggle = (store: ApiAdminStore) => {
     if (store.isActive) {
-      const confirmed = window.confirm(
-        `Desativar a loja "${store.name}"? Ela sai do ar para os compradores até ser reativada.`,
-      )
-      if (!confirmed) return
+      if (pendingStoreId !== store.id) {
+        setPendingStoreId(store.id)
+        if (timeoutRef.current) clearTimeout(timeoutRef.current)
+        timeoutRef.current = setTimeout(() => setPendingStoreId(null), CONFIRM_WINDOW_MS)
+        return
+      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current)
+      setPendingStoreId(null)
     }
     onSetActive(store.id, !store.isActive)
   }
@@ -71,11 +89,17 @@ export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabPr
                   onClick={() => handleToggle(store)}
                   className={`min-h-[36px] rounded-[12px] px-3 py-1 text-xs font-semibold ${
                     store.isActive
-                      ? 'border border-line text-ink-muted'
+                      ? pendingStoreId === store.id
+                        ? 'border border-error bg-error text-white'
+                        : 'border border-line text-ink-muted'
                       : 'btn-primary'
                   }`}
                 >
-                  {store.isActive ? `Desativar ${store.name}` : `Reativar ${store.name}`}
+                  {store.isActive
+                    ? pendingStoreId === store.id
+                      ? 'Confirmar desativação?'
+                      : `Desativar ${store.name}`
+                    : `Reativar ${store.name}`}
                 </button>
               </td>
             </tr>

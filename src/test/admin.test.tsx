@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, vi, afterEach } from 'vitest'
+import { describe, expect, it, beforeEach } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
 import { seedLoggedInStorage } from './authTestHelpers'
@@ -107,38 +107,38 @@ describe('painel admin da plataforma', () => {
   })
 
   describe('moderação de lojas', () => {
-    afterEach(() => {
-      vi.restoreAllMocks()
-    })
-
-    it('lista lojas com dono e contagens, e desativa com confirmação', async () => {
+    it('lista lojas com dono e contagens, e desativa com confirmação inline (dois cliques)', async () => {
       seedAdmin()
       seedAdminStore({ name: 'Loja Suspeita', ownerName: 'Zé Dono', productCount: 7, orderCount: 2, isActive: true })
       seedLoggedInStorage()
-      const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
       renderAt('/admin/stores')
 
       expect(await screen.findByText('Loja Suspeita')).toBeInTheDocument()
       expect(screen.getByText('Zé Dono')).toBeInTheDocument()
       expect(screen.getByText('Ativa')).toBeInTheDocument()
 
+      // Primeiro clique só arma a confirmação, não desativa ainda.
       fireEvent.click(screen.getByRole('button', { name: /desativar loja suspeita/i }))
+      expect(db.adminStores[0]?.isActive).toBe(true)
+      const confirmButton = await screen.findByRole('button', { name: /confirmar desativação/i })
 
-      expect(confirmSpy).toHaveBeenCalledOnce()
+      // Segundo clique confirma.
+      fireEvent.click(confirmButton)
+
       expect(await screen.findByText('Desativada')).toBeInTheDocument()
       expect(db.adminStores[0]?.isActive).toBe(false)
       // A ação vira reativar — sem confirmação para religar.
       expect(screen.getByRole('button', { name: /reativar loja suspeita/i })).toBeInTheDocument()
     })
 
-    it('cancelar a confirmação não desativa a loja', async () => {
+    it('não clicar em confirmar não desativa a loja', async () => {
       seedAdmin()
       seedAdminStore({ name: 'Loja Boa', isActive: true })
       seedLoggedInStorage()
-      vi.spyOn(window, 'confirm').mockReturnValue(false)
       renderAt('/admin/stores')
 
       fireEvent.click(await screen.findByRole('button', { name: /desativar loja boa/i }))
+      await screen.findByRole('button', { name: /confirmar desativação/i })
 
       expect(screen.getByText('Ativa')).toBeInTheDocument()
       expect(db.adminStores[0]?.isActive).toBe(true)
