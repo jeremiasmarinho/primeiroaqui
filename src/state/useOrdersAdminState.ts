@@ -120,6 +120,7 @@ export function useOrdersAdminState(addNotification: AddNotification) {
     businessProfile,
     setBusinessProfile,
     isSetupOpen,
+    setIsSetupOpen,
     setupForm,
     setSetupForm,
     metrics,

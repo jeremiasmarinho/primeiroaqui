@@ -6,8 +6,10 @@ import type {
   ApiOrder,
   ApiProduct,
   ApiStore,
+  ApiStoreOrder,
   ApiUser,
 } from '../../lib/api'
+import { isValidOrderTransition, orderStatusLabel, type ApiOrderStatus } from '../../lib/orderStatus'
 
 /**
  * Fake em memória da API real para a suíte de UI.
@@ -46,18 +48,27 @@ const baseProducts: ApiProduct[] = [
 ]
 
 interface MockDb {
+  /** Usuário "logado" — o papel muda com POST /me/become-store-owner. */
+  user: ApiUser
   products: ApiProduct[]
   favorites: Set<string>
   addresses: ApiAddress[]
   orders: ApiOrder[]
+  /** Lojas do usuário logado (GET /me/stores, POST /stores). */
+  myStores: ApiStore[]
+  /** Pedidos recebidos pelas lojas do usuário (GET /me/store-orders). */
+  storeOrders: ApiStoreOrder[]
   seq: number
 }
 
 const createDb = (): MockDb => ({
+  user: { ...mockUser },
   products: baseProducts.map((product) => ({ ...product })),
   favorites: new Set<string>(),
   addresses: [],
   orders: [],
+  myStores: [],
+  storeOrders: [],
   seq: 0,
 })
 
@@ -86,6 +97,48 @@ export const seedAddress = (overrides: Partial<ApiAddress> = {}): ApiAddress => 
   }
   db.addresses.unshift(address)
   return address
+}
+
+/** Semeia loja + papel de lojista — atalho para testes do painel /minha-loja. */
+export const seedStoreOwner = (overrides: Partial<ApiStore> = {}): ApiStore => {
+  db.user.role = 'STORE_OWNER'
+  const store: ApiStore = {
+    id: `store-${++db.seq}`,
+    name: 'Loja da Ana',
+    slug: 'loja-da-ana',
+    description: 'Loja local',
+    latitude: 0,
+    longitude: 0,
+    isActive: true,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  }
+  db.myStores.push(store)
+  return store
+}
+
+/** Semeia um pedido recebido pela loja do lojista logado. */
+export const seedStoreOrder = (
+  storeId: string,
+  overrides: Partial<ApiStoreOrder> = {},
+): ApiStoreOrder => {
+  const orderId = `store-order-${++db.seq}`
+  const order: ApiStoreOrder = {
+    id: orderId,
+    buyerId: 'buyer-2',
+    buyerName: 'João Comprador',
+    storeId,
+    addressId: 'addr-x',
+    totalCents: 19990,
+    status: 'PENDING',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    items: [{ id: `${orderId}-item-0`, orderId, productId: '1', quantity: 1, unitPriceCents: 19990 }],
+    ...overrides,
+  }
+  db.storeOrders.unshift(order)
+  return order
 }
 
 const unauthorized = () => HttpResponse.json({ error: 'Nao autenticado' }, { status: 401 })
@@ -119,7 +172,7 @@ export const handlers = [
     }
     return HttpResponse.json({
       session: { accessToken: 'test-token', refreshToken: 'test-refresh', expiresAt: 9999999999 },
-      user: { ...mockUser, email: body.email },
+      user: { ...db.user, email: body.email },
     })
   }),
 
@@ -127,11 +180,23 @@ export const handlers = [
 
   http.get('/api/me', ({ request }) => {
     if (!requireAuth(request)) return unauthorized()
-    return HttpResponse.json({ user: mockUser })
+    return HttpResponse.json({ user: db.user })
   }),
 
   // --------------------------------------------------------------- catálogo
-  http.get('/api/products', () => HttpResponse.json({ products: db.products })),
+  http.get('/api/products', ({ request }) => {
+    const storeId = new URL(request.url).searchParams.get('storeId')
+    if (storeId) {
+      // Como no backend real: o dono (usuário logado com loja própria) vê
+      // também os inativos; público só os ativos.
+      const ownerView = requireAuth(request) && db.myStores.some((store) => store.id === storeId)
+      const products = db.products.filter(
+        (product) => product.storeId === storeId && (ownerView || product.isActive),
+      )
+      return HttpResponse.json({ products })
+    }
+    return HttpResponse.json({ products: db.products })
+  }),
 
   http.get('/api/products/:id', ({ params }) => {
     const product = db.products.find((item) => item.id === params.id)
@@ -265,5 +330,136 @@ export const handlers = [
   http.get('/api/me/orders', ({ request }) => {
     if (!requireAuth(request)) return unauthorized()
     return HttpResponse.json({ orders: db.orders })
+  }),
+
+  // ---------------------------------------------------------------- lojista
+  http.post('/api/me/become-store-owner', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role === 'BUYER') db.user.role = 'STORE_OWNER'
+    return HttpResponse.json({ user: db.user })
+  }),
+
+  http.get('/api/me/stores', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role === 'BUYER') {
+      return HttpResponse.json({ error: 'Acesso restrito a donos de loja' }, { status: 403 })
+    }
+    return HttpResponse.json({ stores: db.myStores })
+  }),
+
+  http.post('/api/stores', async ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role === 'BUYER') {
+      return HttpResponse.json({ error: 'Acesso restrito a donos de loja' }, { status: 403 })
+    }
+    const body = (await request.json()) as {
+      name?: string
+      slug?: string
+      description?: string
+      latitude?: number
+      longitude?: number
+    }
+    if (!body?.name || !body?.slug) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    if (db.myStores.some((store) => store.slug === body.slug)) {
+      return HttpResponse.json({ error: 'Slug ja esta em uso' }, { status: 409 })
+    }
+    const store: ApiStore = {
+      id: `store-${++db.seq}`,
+      name: body.name,
+      slug: body.slug,
+      description: body.description ?? null,
+      latitude: body.latitude ?? 0,
+      longitude: body.longitude ?? 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    }
+    db.myStores.push(store)
+    return HttpResponse.json({ store }, { status: 201 })
+  }),
+
+  http.get('/api/me/store-orders', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role === 'BUYER') {
+      return HttpResponse.json({ error: 'Acesso restrito a donos de loja' }, { status: 403 })
+    }
+    return HttpResponse.json({ orders: db.storeOrders })
+  }),
+
+  http.patch('/api/orders/:id/status', async ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const body = (await request.json()) as { status?: ApiOrderStatus }
+    const order = db.storeOrders.find((item) => item.id === params.id)
+    if (!order) return HttpResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
+    if (!body?.status || !isValidOrderTransition(order.status, body.status)) {
+      return HttpResponse.json(
+        {
+          error: `Transição de status inválida: um pedido "${orderStatusLabel(order.status)}" não pode ir para "${orderStatusLabel(String(body?.status))}".`,
+        },
+        { status: 409 },
+      )
+    }
+    order.status = body.status
+    order.updatedAt = new Date().toISOString()
+    return HttpResponse.json({ order })
+  }),
+
+  http.post('/api/stores/:storeId/products', async ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const body = (await request.json()) as {
+      title?: string
+      description?: string
+      category?: string
+      priceCents?: number
+      stock?: number
+    }
+    if (!body?.title || !body?.category || !body?.priceCents) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    const product: ApiProduct = {
+      id: `product-${++db.seq}`,
+      storeId: String(params.storeId),
+      title: body.title,
+      description: body.description ?? null,
+      category: body.category,
+      priceCents: body.priceCents,
+      stock: body.stock ?? 0,
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    }
+    db.products.push(product)
+    return HttpResponse.json({ product }, { status: 201 })
+  }),
+
+  http.patch('/api/products/:id', async ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const product = db.products.find((item) => item.id === params.id)
+    if (!product) return HttpResponse.json({ error: 'Produto nao encontrado' }, { status: 404 })
+    const body = (await request.json()) as Partial<
+      Pick<ApiProduct, 'title' | 'description' | 'category' | 'priceCents' | 'stock' | 'isActive'>
+    >
+    Object.assign(product, body, { updatedAt: new Date().toISOString() })
+    return HttpResponse.json({ product })
+  }),
+
+  http.post('/api/products/:id/photos', ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    return HttpResponse.json(
+      {
+        photo: {
+          id: `photo-${++db.seq}`,
+          productId: String(params.id),
+          url: 'https://example.com/foto.jpg',
+          thumbUrl: 'https://example.com/foto-thumb.jpg',
+          path: 'mock/foto.jpg',
+          position: 0,
+          createdAt: now,
+        },
+      },
+      { status: 201 },
+    )
   }),
 ]

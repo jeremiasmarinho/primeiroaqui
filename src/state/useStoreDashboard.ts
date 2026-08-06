@@ -1,0 +1,173 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+
+import { api, ApiError, type ApiProduct, type ApiStore, type ApiStoreOrder } from '../lib/api'
+import type { ApiOrderStatus } from '../lib/orderStatus'
+
+/**
+ * Estado do painel do lojista (/minha-loja): loja, pedidos recebidos e
+ * produtos, direto da API real. Fatia separada de `useMarketplaceState` de
+ * propósito — o painel é ferramenta do lojista e não compartilha nada com a
+ * vitrine do comprador além do cliente HTTP.
+ *
+ * MVP: um lojista opera UMA loja (a primeira de GET /me/stores). Multi-loja
+ * fica para quando o negócio pedir.
+ */
+export function useStoreDashboard(enabled: boolean) {
+  const [store, setStore] = useState<ApiStore | null>(null)
+  const [orders, setOrders] = useState<ApiStoreOrder[]>([])
+  const [products, setProducts] = useState<ApiProduct[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+
+  useEffect(() => {
+    if (!enabled) return
+    let cancelled = false
+    setIsLoading(true)
+    setLoadError('')
+    ;(async () => {
+      try {
+        const { stores } = await api.listMyStores()
+        const first = stores[0] ?? null
+        if (cancelled) return
+        setStore(first)
+        if (!first) {
+          setOrders([])
+          setProducts([])
+          return
+        }
+        const [{ orders: storeOrders }, { products: storeProducts }] = await Promise.all([
+          api.listStoreOrders(),
+          api.listProducts({ storeId: first.id, limit: 50 }),
+        ])
+        if (cancelled) return
+        setOrders(storeOrders)
+        setProducts(storeProducts)
+      } catch (err) {
+        if (cancelled) return
+        setLoadError(
+          err instanceof ApiError && err.status > 0
+            ? err.message
+            : 'Não foi possível carregar sua loja. Verifique a conexão e tente novamente.',
+        )
+      } finally {
+        if (!cancelled) setIsLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [enabled, reloadKey])
+
+  const retry = useCallback(() => setReloadKey((key) => key + 1), [])
+
+  /** Avança/cancela um pedido; a lista reflete a resposta do servidor. */
+  const changeOrderStatus = useCallback(async (orderId: string, status: ApiOrderStatus) => {
+    setActionError('')
+    try {
+      const { order } = await api.updateOrderStatus(orderId, status)
+      setOrders((prev) =>
+        prev.map((item) => (item.id === orderId ? { ...item, status: order.status, updatedAt: order.updatedAt } : item)),
+      )
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível atualizar o pedido. Tente novamente.',
+      )
+    }
+  }, [])
+
+  const createProduct = useCallback(
+    async (input: { title: string; category: string; priceCents: number; stock: number; description?: string }) => {
+      if (!store) return false
+      setActionError('')
+      try {
+        const { product } = await api.createProduct(store.id, input)
+        setProducts((prev) => [product, ...prev])
+        return true
+      } catch (err) {
+        setActionError(
+          err instanceof ApiError && err.status > 0
+            ? err.message
+            : 'Não foi possível publicar o produto. Tente novamente.',
+        )
+        return false
+      }
+    },
+    [store],
+  )
+
+  const updateProduct = useCallback(
+    async (
+      productId: string,
+      patch: Partial<{ title: string; category: string; priceCents: number; stock: number; isActive: boolean }>,
+    ) => {
+      setActionError('')
+      try {
+        const { product } = await api.updateProduct(productId, patch)
+        setProducts((prev) => prev.map((item) => (item.id === productId ? product : item)))
+        return true
+      } catch (err) {
+        setActionError(
+          err instanceof ApiError && err.status > 0
+            ? err.message
+            : 'Não foi possível salvar o produto. Tente novamente.',
+        )
+        return false
+      }
+    },
+    [],
+  )
+
+  const uploadPhoto = useCallback(async (productId: string, file: File) => {
+    setActionError('')
+    try {
+      await api.uploadProductPhoto(productId, file)
+      return true
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível enviar a foto. Tente novamente.',
+      )
+      return false
+    }
+  }, [])
+
+  /** Cards da visão geral: pedidos de hoje, pendentes e faturamento (pedidos não cancelados). */
+  const metrics = useMemo(() => {
+    const today = new Date()
+    const isToday = (iso: string) => {
+      const date = new Date(iso)
+      return (
+        date.getFullYear() === today.getFullYear() &&
+        date.getMonth() === today.getMonth() &&
+        date.getDate() === today.getDate()
+      )
+    }
+    return {
+      ordersToday: orders.filter((order) => isToday(order.createdAt)).length,
+      pending: orders.filter((order) => order.status === 'PENDING').length,
+      revenueCents: orders
+        .filter((order) => order.status !== 'CANCELED')
+        .reduce((sum, order) => sum + order.totalCents, 0),
+    }
+  }, [orders])
+
+  return {
+    store,
+    orders,
+    products,
+    metrics,
+    isLoading,
+    loadError,
+    actionError,
+    retry,
+    changeOrderStatus,
+    createProduct,
+    updateProduct,
+    uploadPhoto,
+  }
+}

@@ -40,6 +40,8 @@ export interface AppRouterProps {
   onLogout: () => void
   onRequireLogin: (path: string) => void
   loginContextMessage: string
+  /** Onboarding de lojista: promove BUYER→STORE_OWNER e abre o cadastro do negócio. */
+  onBecomeStoreOwner: () => void
 
   // vitrine — catálogo real (GET /api/products)
   products: Product[]

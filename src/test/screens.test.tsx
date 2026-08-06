@@ -103,6 +103,7 @@ describe('ProfileScreen', () => {
     onBack: vi.fn(),
     onLogout: vi.fn(),
     onToggleFavorite: vi.fn(),
+    onBecomeStoreOwner: vi.fn(),
   }
 
   it('mostra dados da conta', () => {

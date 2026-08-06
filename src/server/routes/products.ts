@@ -2,7 +2,7 @@ import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { prisma } from '../lib/prismaClient'
 import { searchProductIds } from '../lib/productSearch'
-import { requireUser, requireStoreOwner, type AuthEnv } from '../middleware/auth'
+import { requireUser, requireStoreOwner, resolveAuthedUser, type AuthEnv } from '../middleware/auth'
 
 export const productRoutes = new Hono<AuthEnv>()
 
@@ -30,6 +30,7 @@ const updateProductSchema = z
     category: z.string().trim().min(1, 'Categoria nao pode ser vazia'),
     priceCents: z.number().int().positive('Preco deve ser um inteiro positivo'),
     stock: z.number().int().min(0, 'Estoque nao pode ser negativo'),
+    isActive: z.boolean(),
   })
   .partial()
   .refine((data) => Object.keys(data).length > 0, {
@@ -38,6 +39,7 @@ const updateProductSchema = z
 
 const listProductsQuerySchema = z
   .object({
+    storeId: z.string().uuid('storeId deve ser um uuid').optional(),
     category: z.string().trim().min(1).optional(),
     q: z.string().trim().min(1).optional(),
     lat: z.coerce.number().min(-90).max(90).optional(),
@@ -133,13 +135,26 @@ productRoutes.get('/products', async (c) => {
   if (!parsed.success) {
     return c.json({ error: 'Parametros invalidos', details: parsed.error.flatten() }, 400)
   }
-  const { category, q, lat, lng, radiusKm, limit, offset } = parsed.data
+  const { storeId, category, q, lat, lng, radiusKm, limit, offset } = parsed.data
 
   if (q === undefined && lat === undefined) {
+    // Filtro por loja: publico ve so produtos ativos de loja ativa (mesma
+    // regra da vitrine); o dono da loja (ou ADMIN) autenticado ve tambem os
+    // inativos — e o que o painel do lojista usa para ativar/desativar.
+    let ownerView = false
+    if (storeId !== undefined) {
+      const store = await prisma.store.findUnique({ where: { id: storeId } })
+      if (!store) {
+        return c.json({ products: [] })
+      }
+      const viewer = await resolveAuthedUser(c)
+      ownerView = viewer !== null && canOperateOnStore(viewer, store.ownerId)
+    }
+
     const products = await prisma.product.findMany({
       where: {
-        isActive: true,
-        store: { isActive: true },
+        ...(storeId !== undefined ? { storeId } : {}),
+        ...(ownerView ? {} : { isActive: true, store: { isActive: true } }),
         ...(category !== undefined ? { category } : {}),
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
@@ -150,7 +165,9 @@ productRoutes.get('/products', async (c) => {
   }
 
   const ids = await searchProductIds({ category, q, lat, lng, radiusKm, limit, offset })
-  const products = await prisma.product.findMany({ where: { id: { in: ids } } })
+  const products = await prisma.product.findMany({
+    where: { id: { in: ids }, ...(storeId !== undefined ? { storeId } : {}) },
+  })
   const byId = new Map(products.map((product) => [product.id, product]))
   const ordered = ids.map((id) => byId.get(id)).filter((product): product is ProductRecord => product !== undefined)
   return c.json({ products: ordered.map(toPublicProduct) })
@@ -186,10 +203,10 @@ productRoutes.patch('/products/:id', requireUser, requireStoreOwner, async (c) =
     return c.json({ error: 'Voce nao tem permissao para editar este produto' }, 403)
   }
 
-  const { title, description, category, priceCents, stock } = parsed.data
+  const { title, description, category, priceCents, stock, isActive } = parsed.data
   const updated = await prisma.product.update({
     where: { id },
-    data: { title, description, category, priceCents, stock },
+    data: { title, description, category, priceCents, stock, isActive },
   })
   return c.json({ product: toPublicProduct(updated) })
 })

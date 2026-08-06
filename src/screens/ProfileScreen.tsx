@@ -19,6 +19,7 @@ interface ProfileScreenProps {
   onBack: () => void
   onLogout: () => void
   onToggleFavorite: (product: Product) => void
+  onBecomeStoreOwner: () => void
 }
 
 export default function ProfileScreen({
@@ -30,6 +31,7 @@ export default function ProfileScreen({
   onBack,
   onLogout,
   onToggleFavorite,
+  onBecomeStoreOwner,
 }: ProfileScreenProps) {
   return (
     <div className="min-h-screen bg-surface-page p-4 md:p-8">
@@ -63,6 +65,21 @@ export default function ProfileScreen({
                   {shortcut.label}
                 </Link>
               ))}
+              {userRole === 'BUYER' ? (
+                <button
+                  onClick={onBecomeStoreOwner}
+                  className="flex min-h-[44px] w-full items-center rounded-[18px] border border-line px-4 text-sm font-semibold text-primary"
+                >
+                  Vender no Primeiro Aqui
+                </button>
+              ) : (
+                <Link
+                  href={ROUTES.myStore}
+                  className="flex min-h-[44px] w-full items-center rounded-[18px] border border-line px-4 text-sm font-semibold text-primary"
+                >
+                  Minha loja
+                </Link>
+              )}
               <button onClick={() => onBack()} className="btn-primary min-h-[44px] w-full rounded-[18px] px-4 py-3">Voltar ao marketplace</button>
               <button onClick={onLogout} className="w-full rounded-[18px] border border-line px-4 py-3 text-sm font-semibold text-ink-muted">Sair da conta</button>
             </div>

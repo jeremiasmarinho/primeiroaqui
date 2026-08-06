@@ -107,6 +107,22 @@ export interface ApiOrder {
   items: ApiOrderItem[]
 }
 
+/** Pedido de GET /me/store-orders — o mesmo shape do pedido, mais o nome do comprador. */
+export interface ApiStoreOrder extends ApiOrder {
+  buyerName: string
+}
+
+/** Foto de produto criada por POST /products/:id/photos. */
+export interface ApiProductPhoto {
+  id: string
+  productId: string
+  url: string
+  thumbUrl: string
+  path: string
+  position: number
+  createdAt: string
+}
+
 // ---------------------------------------------------------------------------
 // Sessão persistida
 // ---------------------------------------------------------------------------
@@ -159,13 +175,15 @@ const GENERIC_ERROR = 'Não foi possível falar com o servidor. Tente novamente.
 
 interface RequestOptions {
   method?: string
+  /** Objeto JSON ou FormData (multipart — o browser define o Content-Type sozinho). */
   body?: unknown
 }
 
 async function request<T>(path: string, { method = 'GET', body }: RequestOptions = {}): Promise<T> {
   const session = loadStoredSession()
+  const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
   const headers: Record<string, string> = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  if (body !== undefined && !isFormData) headers['Content-Type'] = 'application/json'
   if (session) headers['Authorization'] = `Bearer ${session.accessToken}`
 
   let response: Response
@@ -173,7 +191,7 @@ async function request<T>(path: string, { method = 'GET', body }: RequestOptions
     response = await fetch(`/api${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
     })
   } catch {
     // Rede fora, DNS, CORS: sem resposta do servidor.
@@ -212,6 +230,7 @@ async function request<T>(path: string, { method = 'GET', body }: RequestOptions
 export interface ListProductsParams {
   category?: string
   q?: string
+  storeId?: string
   limit?: number
   offset?: number
 }
@@ -231,6 +250,7 @@ export const api = {
     const query = new URLSearchParams()
     if (params.category) query.set('category', params.category)
     if (params.q) query.set('q', params.q)
+    if (params.storeId) query.set('storeId', params.storeId)
     if (params.limit !== undefined) query.set('limit', String(params.limit))
     if (params.offset !== undefined) query.set('offset', String(params.offset))
     const suffix = query.size > 0 ? `?${query.toString()}` : ''
@@ -266,4 +286,45 @@ export const api = {
     request<{ orders: ApiOrder[] }>('/orders', { method: 'POST', body: input }),
 
   listMyOrders: () => request<{ orders: ApiOrder[] }>('/me/orders'),
+
+  // ------------------------------------------------------------ lojista
+  becomeStoreOwner: () =>
+    request<{ user: ApiUser }>('/me/become-store-owner', { method: 'POST' }),
+
+  listMyStores: () => request<{ stores: ApiStore[] }>('/me/stores'),
+
+  createStore: (input: {
+    name: string
+    slug: string
+    description?: string
+    latitude: number
+    longitude: number
+  }) => request<{ store: ApiStore }>('/stores', { method: 'POST', body: input }),
+
+  listStoreOrders: () => request<{ orders: ApiStoreOrder[] }>('/me/store-orders'),
+
+  updateOrderStatus: (orderId: string, status: ApiOrderStatus) =>
+    request<{ order: ApiOrder }>(`/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: { status },
+    }),
+
+  createProduct: (
+    storeId: string,
+    input: { title: string; description?: string; category: string; priceCents: number; stock: number },
+  ) => request<{ product: ApiProduct }>(`/stores/${storeId}/products`, { method: 'POST', body: input }),
+
+  updateProduct: (
+    productId: string,
+    input: Partial<{ title: string; description: string; category: string; priceCents: number; stock: number; isActive: boolean }>,
+  ) => request<{ product: ApiProduct }>(`/products/${productId}`, { method: 'PATCH', body: input }),
+
+  uploadProductPhoto: (productId: string, file: File) => {
+    const form = new FormData()
+    form.append('photo', file)
+    return request<{ photo: ApiProductPhoto }>(`/products/${productId}/photos`, {
+      method: 'POST',
+      body: form,
+    })
+  },
 }

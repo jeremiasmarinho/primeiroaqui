@@ -29,6 +29,12 @@ export type { AppRouterProps }
  */
 const AdminScreen = lazy(() => import('../screens/admin/AdminScreen'))
 
+/**
+ * Mesmo racional do AdminScreen: o painel do lojista não deve pesar no bundle
+ * de quem só compra.
+ */
+const StoreDashboardScreen = lazy(() => import('../screens/store/StoreDashboardScreen'))
+
 /** Fallback acessível enquanto o chunk do painel admin carrega. */
 const AdminScreenFallback = () => (
   <div role="status" className="grid min-h-dvh place-items-center bg-surface-page p-6">
@@ -239,7 +245,14 @@ export default function AppRouter(props: AppRouterProps) {
           onBack={() => navigate(ROUTES.home)}
           onLogout={props.onLogout}
           onToggleFavorite={props.onToggleFavorite}
+          onBecomeStoreOwner={props.onBecomeStoreOwner}
         />
+      </Route>
+
+      <Route path={ROUTE_PATTERNS.myStore}>
+        <Suspense fallback={<AdminScreenFallback />}>
+          <StoreDashboardScreen userRole={userRole} />
+        </Suspense>
       </Route>
 
       <Route path={ROUTE_PATTERNS.admin}>

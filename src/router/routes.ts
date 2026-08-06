@@ -21,6 +21,7 @@ export const ROUTE_PATTERNS = {
   profile: '/perfil',
   login: '/entrar',
   admin: '/admin/:tab?',
+  myStore: '/minha-loja',
 } as const
 
 export const ROUTES = {
@@ -32,6 +33,7 @@ export const ROUTES = {
   addresses: '/enderecos',
   profile: '/perfil',
   login: '/entrar',
+  myStore: '/minha-loja',
   category: (slug: string) => `/categoria/${slug}`,
   product: (id: number | string) => `/produto/${id}`,
   store: (slug: string) => `/loja/${slug}`,
@@ -59,6 +61,7 @@ export const PROTECTED_PATTERNS = [
   '/enderecos',
   '/favoritos',
   '/admin',
+  '/minha-loja',
 ] as const
 
 export const isProtected = (path: string): boolean =>

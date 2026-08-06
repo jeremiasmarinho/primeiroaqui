@@ -15,23 +15,39 @@ export type AuthEnv = { Variables: { authedUser: AuthedUser } }
 
 const CONTEXT_KEY = 'authedUser'
 
+/**
+ * Resolve o usuario autenticado a partir do header Authorization, sem exigir
+ * que ele exista — retorna null para token ausente/invalido. Usado por rotas
+ * publicas que mudam de comportamento quando quem pede e o dono (ex.: GET
+ * /products?storeId= inclui produtos inativos para o dono da loja).
+ */
+export const resolveAuthedUser = async (c: Context): Promise<AuthedUser | null> => {
+  const token = c.req.header('authorization')?.replace('Bearer ', '')
+  if (!token) return null
+
+  const { data, error } = await supabasePublic.auth.getUser(token)
+  if (error || !data.user) return null
+
+  const user = await prisma.user.findUnique({ where: { authUserId: data.user.id } })
+  if (!user) return null
+
+  return {
+    id: user.id,
+    authUserId: user.authUserId,
+    email: user.email,
+    role: user.role,
+  }
+}
+
 /** Exige token Bearer valido do Supabase Auth. Anexa o User correspondente (do Prisma) ao contexto Hono sob a chave `authedUser`. 401 se ausente/invalido. */
 export const requireUser = async (c: Context, next: Next) => {
   const token = c.req.header('authorization')?.replace('Bearer ', '')
   if (!token) return c.json({ error: 'Nao autenticado' }, 401)
 
-  const { data, error } = await supabasePublic.auth.getUser(token)
-  if (error || !data.user) return c.json({ error: 'Token invalido' }, 401)
+  const authedUser = await resolveAuthedUser(c)
+  if (!authedUser) return c.json({ error: 'Token invalido' }, 401)
 
-  const user = await prisma.user.findUnique({ where: { authUserId: data.user.id } })
-  if (!user) return c.json({ error: 'Usuario nao encontrado' }, 401)
-
-  c.set(CONTEXT_KEY, {
-    id: user.id,
-    authUserId: user.authUserId,
-    email: user.email,
-    role: user.role,
-  } satisfies AuthedUser)
+  c.set(CONTEXT_KEY, authedUser)
   await next()
 }
 

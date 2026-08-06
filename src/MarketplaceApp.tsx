@@ -27,6 +27,7 @@ export default function MarketplaceApp() {
         onLogout={state.onLogout}
         onRequireLogin={state.onRequireLogin}
         loginContextMessage={state.loginContextMessage}
+        onBecomeStoreOwner={state.onBecomeStoreOwner}
         products={state.products}
         productsLoading={state.productsLoading}
         productsError={state.productsError}

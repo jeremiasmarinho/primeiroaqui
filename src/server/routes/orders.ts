@@ -1,7 +1,8 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { prisma } from '../lib/prismaClient'
-import { requireUser, type AuthEnv } from '../middleware/auth'
+import { requireUser, requireStoreOwner, type AuthEnv } from '../middleware/auth'
+import { API_ORDER_STATUSES, isValidOrderTransition, orderStatusLabel } from '../../lib/orderStatus'
 
 export const orderRoutes = new Hono<AuthEnv>()
 
@@ -176,6 +177,61 @@ orderRoutes.post('/orders', requireUser, async (c) => {
     console.error('Checkout: erro inesperado na transacao', err)
     return c.json({ error: 'Erro interno' }, 500)
   }
+})
+
+const updateStatusSchema = z.object({
+  status: z.enum(API_ORDER_STATUSES),
+})
+
+/**
+ * Dono da loja do pedido (ou ADMIN) avanca o status seguindo a maquina de
+ * estados de `src/lib/orderStatus.ts`. 403 se a loja nao for do usuario;
+ * 409 (pt-BR) em transicao invalida.
+ */
+orderRoutes.patch('/orders/:id/status', requireUser, requireStoreOwner, async (c) => {
+  const id = c.req.param('id')
+  const body = await parseJsonBody(c)
+  if (body === undefined) {
+    return c.json({ error: 'Body invalido ou ausente' }, 400)
+  }
+  const parsed = updateStatusSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'Dados invalidos', details: parsed.error.flatten() }, 400)
+  }
+
+  const order = await prisma.order.findUnique({ where: { id }, include: { store: true } })
+  if (!order) {
+    return c.json({ error: 'Pedido nao encontrado' }, 404)
+  }
+
+  const authedUser = c.get('authedUser')
+  if (authedUser.role !== 'ADMIN' && order.store.ownerId !== authedUser.id) {
+    return c.json({ error: 'Voce nao tem permissao para atualizar este pedido' }, 403)
+  }
+
+  const nextStatus = parsed.data.status
+  if (!isValidOrderTransition(order.status, nextStatus)) {
+    return c.json(
+      {
+        error: `Transição de status inválida: um pedido "${orderStatusLabel(order.status)}" não pode ir para "${orderStatusLabel(nextStatus)}".`,
+      },
+      409,
+    )
+  }
+
+  // Escrita condicional: o WHERE inclui o status lido acima, entao uma
+  // requisicao concorrente que ja mudou o pedido faz o count cair para 0 e
+  // este PATCH responde 409 em vez de sobrescrever cegamente.
+  const result = await prisma.order.updateMany({
+    where: { id, status: order.status },
+    data: { status: nextStatus },
+  })
+  if (result.count === 0) {
+    return c.json({ error: 'O pedido mudou de status enquanto você atualizava. Recarregue e tente de novo.' }, 409)
+  }
+
+  const updated = await prisma.order.findUnique({ where: { id }, include: { items: true } })
+  return c.json({ order: updated })
 })
 
 orderRoutes.get('/me/orders', requireUser, async (c) => {

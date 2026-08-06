@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation } from 'wouter'
 
-import { ROUTES } from '../router/routes'
+import { ROUTES, toCategorySlug } from '../router/routes'
 import type { AuthForm } from '../screens/LoginScreen'
 import { writeStoredJSON } from '../lib/storage'
 import { api, ApiError, loadStoredSession, setOnUnauthorized } from '../lib/api'
@@ -276,6 +276,86 @@ export function useMarketplaceState() {
     resolvePendingLoginAndNavigate()
   }
 
+  // ------------------------------------------------------------------
+  // Onboarding de lojista
+  // ------------------------------------------------------------------
+
+  /**
+   * "Vender no Primeiro Aqui": promove BUYER→STORE_OWNER no servidor (rota
+   * idempotente, sem input — o papel nunca sai do cliente) e abre o cadastro
+   * do negócio.
+   */
+  const handleBecomeStoreOwner = async () => {
+    try {
+      const { user } = await api.becomeStoreOwner()
+      session.setAuthUser({ id: user.id, name: user.name, email: user.email, role: user.role })
+      session.setUserRole(user.role)
+      admin.setIsSetupOpen(true)
+    } catch (err) {
+      catalog.addNotification(
+        'Cadastro de lojista',
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível iniciar seu cadastro de lojista. Tente novamente.',
+        'warning',
+      )
+    }
+  }
+
+  /**
+   * Cadastro do negócio ligado ao POST /api/stores real. Decisões:
+   * - `categoria` do modal vira a `description` da loja (o backend não tem
+   *   campo de categoria de loja);
+   * - endereço/telefone do modal ficam só no perfil local (businessProfile)
+   *   até o backend ter esses campos;
+   * - lat/lng vão como 0 por ora (geolocalização é outra fase);
+   * - slug derivado do nome; colisão (409) tenta uma vez com sufixo único.
+   */
+  const handleBusinessSetupSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const name = admin.setupForm.name.trim()
+    if (!name) return
+
+    const baseSlug = toCategorySlug(name) || 'minha-loja'
+    const create = (slug: string) =>
+      api.createStore({
+        name,
+        slug,
+        description: admin.setupForm.category || undefined,
+        latitude: 0,
+        longitude: 0,
+      })
+
+    try {
+      let created
+      try {
+        created = await create(baseSlug)
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 409) {
+          created = await create(`${baseSlug}-${Date.now().toString(36)}`)
+        } else {
+          throw err
+        }
+      }
+      admin.setBusinessProfile({ ...admin.setupForm, name: created.store.name })
+      admin.setIsSetupOpen(false)
+      catalog.addNotification(
+        'Loja criada',
+        `${created.store.name} já está no Primeiro Aqui. Publique seus produtos!`,
+        'success',
+      )
+      navigate(ROUTES.myStore)
+    } catch (err) {
+      catalog.addNotification(
+        'Cadastro do negócio',
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível criar sua loja. Tente novamente.',
+        'warning',
+      )
+    }
+  }
+
   const handleRepeatOrder = (order: Order) => {
     const result = repeatOrder(order, remoteCatalog.products)
     if (!result.ok) {
@@ -381,6 +461,9 @@ export function useMarketplaceState() {
     onRequireLogin: session.recordReturnTo,
     loginContextMessage: pendingIntentMessage(session.pendingIntent),
     onLogout: handleLogout,
+    onBecomeStoreOwner: () => {
+      void handleBecomeStoreOwner()
+    },
 
     // vitrine / busca — catálogo real
     products: remoteCatalog.products,
@@ -425,7 +508,9 @@ export function useMarketplaceState() {
     isSetupOpen: admin.isSetupOpen,
     setupForm: admin.setupForm,
     onSetupFormChange: admin.onSetupFormChange,
-    onBusinessSetupSubmit: admin.onBusinessSetupSubmit,
+    onBusinessSetupSubmit: (event: React.FormEvent<HTMLFormElement>) => {
+      void handleBusinessSetupSubmit(event)
+    },
     onSetupClose: admin.onSetupClose,
 
     // carrinho e checkout
