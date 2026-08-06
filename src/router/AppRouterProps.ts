@@ -4,6 +4,7 @@ import type {
   Address,
   BusinessProfile,
   Category,
+  Notification,
   Order,
   Product,
   Role,
@@ -52,7 +53,9 @@ export interface AppRouterProps {
   onAddToCart: (product: Product) => void
   onBuyNow: (product: Product) => void
   cartCount: number
+  notifications: Notification[]
   notificationCount: number
+  onNotificationsOpen: () => void
   onOpenCart: () => void
 
   // pedidos reais (GET /api/me/orders)

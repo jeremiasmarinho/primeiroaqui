@@ -8,10 +8,10 @@ import type {
   User,
 } from '../types'
 
-export const initialNotifications: Notification[] = [
-  { id: 1, title: 'Entrega em andamento', message: 'João já saiu da loja com seu pedido.', type: 'info' },
-  { id: 2, title: 'Oferta para você', message: 'Frete grátis em produtos da categoria Casa.', type: 'success' },
-]
+// Sem notificação fake de largada: a lista só ganha itens quando uma ação
+// real acontece (checkout, cadastro de loja, erro de favoritos etc. — ver
+// catalog.addNotification em useMarketplaceState.ts).
+export const initialNotifications: Notification[] = []
 
 export const initialThreads: Thread[] = [
   {

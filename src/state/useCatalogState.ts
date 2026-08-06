@@ -24,6 +24,10 @@ export function useCatalogState() {
   const [notifications, setNotifications] = useState<Notification[]>(() =>
     readStoredJSON(STORAGE_KEYS.notifications, initialNotifications),
   )
+  // Nao lidas: quantas notificacoes existem desde a ultima vez que o sino foi
+  // aberto. Nao precisa persistir — reabrir o app com o sino fechado e ok
+  // mostrar tudo como nao lido de novo, e evita mais uma chave de storage.
+  const [unreadCount, setUnreadCount] = useState(() => notifications.length)
   const [messageThreads, setMessageThreads] = useState<Thread[]>(() =>
     readStoredJSON(STORAGE_KEYS.messages, initialThreads),
   )
@@ -38,7 +42,10 @@ export function useCatalogState() {
 
   const addNotification = (title: string, message: string, type: Notification['type'] = 'info') => {
     setNotifications((prev) => [{ id: prev.length + 1, title, message, type }, ...prev].slice(0, 4))
+    setUnreadCount((prev) => prev + 1)
   }
+
+  const markNotificationsRead = () => setUnreadCount(0)
 
   return {
     searchQuery,
@@ -49,6 +56,8 @@ export function useCatalogState() {
     toggleFavorite,
     notifications,
     setNotifications,
+    unreadCount,
+    markNotificationsRead,
     addNotification,
     messageThreads,
     setMessageThreads,

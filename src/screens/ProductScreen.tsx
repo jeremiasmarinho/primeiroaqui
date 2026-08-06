@@ -159,17 +159,22 @@ export default function ProductScreen({
 
       <main className="mx-auto max-w-4xl px-3 pb-6">
         <div className="mt-3 overflow-hidden rounded-card bg-surface shadow-card">
-          <img
-            src={product.image}
-            alt={product.title}
-            width={400}
-            height={400}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            onError={fallbackTo(product.title)}
-            className="aspect-square w-full bg-surface-sunken object-cover"
-          />
+          {/* max-w-sm trava o tamanho em telas largas — sem teto o placeholder
+              quadrado (sem foto real ainda) vira um quadrado gigante em desktop
+              e empurra preço/CTA para fora da primeira dobra. */}
+          <div className="mx-auto max-w-sm">
+            <img
+              src={product.image}
+              alt={product.title}
+              width={400}
+              height={400}
+              loading="eager"
+              fetchPriority="high"
+              decoding="async"
+              onError={fallbackTo(product.title)}
+              className="aspect-square w-full bg-surface-sunken object-cover"
+            />
+          </div>
 
           <div className="p-4">
             <h1 className="font-display text-xl font-bold leading-snug text-ink">{product.title}</h1>

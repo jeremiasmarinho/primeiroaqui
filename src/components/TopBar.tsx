@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { Bell, Camera, ChevronRight, LogIn, MapPin, Search } from 'lucide-react'
+import { Bell, ChevronRight, LogIn, MapPin, Search } from 'lucide-react'
 import { Link } from 'wouter'
 import { ROUTES, toCategorySlug } from '../router/routes'
 import { buildSearchSuggestions } from '../state/searchSuggestions'
 import { useSearchHistory } from '../state/useSearchHistory'
 import SearchSuggestions from './SearchSuggestions'
-import type { Category, Product } from '../types'
+import NotificationsPanel from './NotificationsPanel'
+import type { Category, Notification, Product } from '../types'
 
 /**
  * Header amarelo fixo: avatar, busca, notificações, endereço e abas de categoria.
@@ -29,10 +30,13 @@ interface TopBarProps {
   address?: string
   userInitials?: string
   userName?: string
+  /** Notificações reais geradas por ações (checkout, cadastro de loja etc.). */
+  notifications?: Notification[]
   notificationCount?: number
   /** Destino do avatar. Operação vai ao painel; cliente, ao perfil. */
   profileHref?: string
-  onNotifications?: () => void
+  /** Chamado quando o painel de notificações abre — zera o contador de não lidas. */
+  onNotificationsOpen?: () => void
   /** Guest (sem sessão) mostra ícone de entrada em vez de iniciais. */
   isAuthenticated?: boolean
 }
@@ -48,9 +52,10 @@ export default function TopBar({
   address,
   userInitials = 'PA',
   userName,
+  notifications = [],
   notificationCount = 0,
   profileHref,
-  onNotifications,
+  onNotificationsOpen,
   isAuthenticated = true,
 }: TopBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -61,7 +66,35 @@ export default function TopBar({
   // nunca sai do dropdown.
   const suppressFocusOpenRef = useRef(false)
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  const notificationsRef = useRef<HTMLDivElement>(null)
   const { history, addTerm, removeTerm, clear } = useSearchHistory()
+
+  const toggleNotifications = () => {
+    setIsNotificationsOpen((prev) => {
+      const next = !prev
+      if (next) onNotificationsOpen?.()
+      return next
+    })
+  }
+
+  useEffect(() => {
+    if (!isNotificationsOpen) return
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!notificationsRef.current?.contains(event.target as Node)) {
+        setIsNotificationsOpen(false)
+      }
+    }
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsNotificationsOpen(false)
+    }
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape as unknown as EventListener)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape as unknown as EventListener)
+    }
+  }, [isNotificationsOpen])
 
   // Derivado do catálogo carregado — nada de rede, então recalcular a cada
   // tecla é barato. `useMemo` evita refazer o trabalho em re-renders que não
@@ -200,17 +233,11 @@ export default function TopBar({
                 placeholder="Buscar no Primeiro Aqui"
                 enterKeyHint="search"
                 autoComplete="off"
-                className="h-11 w-full rounded-full border-0 bg-surface pl-9 pr-11 text-sm
+                className="h-11 w-full rounded-full border-0 bg-surface pl-9 pr-4 text-sm
                            text-ink shadow-card outline-none placeholder:text-ink-faint"
               />
-              <button
-                type="button"
-                aria-label="Buscar por foto"
-                className="absolute right-1 top-1/2 grid h-9 w-9 -translate-y-1/2 place-items-center
-                           rounded-full text-ink-muted transition-colors duration-150 hover:text-ink"
-              >
-                <Camera className="h-4 w-4" aria-hidden="true" />
-              </button>
+              {/* Busca por foto saiu do MVP: nao ha reconhecimento de imagem no
+                  backend — o botao so existia como promessa vazia. */}
             </form>
 
             {isSuggestionsOpen && (
@@ -227,24 +254,32 @@ export default function TopBar({
             )}
           </div>
 
-          <button
-            type="button"
-            onClick={onNotifications}
-            aria-label={`Notificações${notificationCount ? `, ${notificationCount} não lidas` : ''}`}
-            className="relative grid h-11 w-11 shrink-0 place-items-center rounded-full text-navy
-                       transition-colors duration-150 hover:bg-brand-deep"
-          >
-            <Bell className="h-5 w-5" aria-hidden="true" />
-            {notificationCount > 0 && (
-              <span
-                aria-hidden="true"
-                className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full
-                           bg-promo px-1 text-[0.625rem] font-bold leading-none text-white"
-              >
-                {notificationCount > 9 ? '9+' : notificationCount}
-              </span>
+          <div ref={notificationsRef} className="relative shrink-0">
+            <button
+              type="button"
+              onClick={toggleNotifications}
+              aria-haspopup="true"
+              aria-expanded={isNotificationsOpen}
+              aria-label={`Notificações${notificationCount ? `, ${notificationCount} não lidas` : ''}`}
+              className="relative grid h-11 w-11 place-items-center rounded-full text-navy
+                         transition-colors duration-150 hover:bg-brand-deep"
+            >
+              <Bell className="h-5 w-5" aria-hidden="true" />
+              {notificationCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute right-1.5 top-1.5 grid h-4 min-w-4 place-items-center rounded-full
+                             bg-promo px-1 text-[0.625rem] font-bold leading-none text-white"
+                >
+                  {notificationCount > 9 ? '9+' : notificationCount}
+                </span>
+              )}
+            </button>
+
+            {isNotificationsOpen && (
+              <NotificationsPanel notifications={notifications} onClose={() => setIsNotificationsOpen(false)} />
             )}
-          </button>
+          </div>
         </div>
 
         {/* Era texto fixo — "Avenida Guanabara, 148" fingia ser endereço da

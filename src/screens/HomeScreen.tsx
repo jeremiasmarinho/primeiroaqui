@@ -1,35 +1,25 @@
-import { ChevronRight, PackageSearch } from 'lucide-react'
+import { PackageSearch } from 'lucide-react'
 import TopBar from '../components/TopBar'
-import BannerCarousel from '../components/BannerCarousel'
-import ShortcutRail from '../components/ShortcutRail'
-import FlashDeals from '../components/FlashDeals'
 import ProductCard from '../components/ProductCard'
 import { Link } from 'wouter'
 import BottomNav from '../components/BottomNav'
 import { ROUTES } from '../router/routes'
-import type { Category, Product } from '../types'
+import type { Category, Notification, Product } from '../types'
 
 interface SectionHeaderProps {
   title: string
-  action?: string
+  /** Rótulo informativo (ex.: "50 itens") — não é ação, então não vira botão. */
+  hint?: string
   id: string
 }
 
-function SectionHeader({ title, action, id }: SectionHeaderProps) {
+function SectionHeader({ title, hint, id }: SectionHeaderProps) {
   return (
     <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-4">
       <h2 id={id} className="font-display text-base font-bold text-ink">
         {title}
       </h2>
-      {action && (
-        <button
-          type="button"
-          className="flex min-h-[44px] items-center gap-0.5 text-sm font-bold text-ink"
-        >
-          {action}
-          <ChevronRight className="h-4 w-4" aria-hidden="true" />
-        </button>
-      )}
+      {hint && <span className="text-sm font-semibold text-ink-muted">{hint}</span>}
     </div>
   )
 }
@@ -56,7 +46,9 @@ interface HomeScreenProps {
   onToggleFavorite: (product: Product) => void
   onAddToCart: (product: Product) => void
   cartCount: number
+  notifications: Notification[]
   notificationCount: number
+  onNotificationsOpen: () => void
   userName?: string
   /** Endereço padrão da pessoa, quando houver. */
   address?: string
@@ -81,7 +73,9 @@ export default function HomeScreen({
   onToggleFavorite,
   onAddToCart,
   cartCount,
+  notifications,
   notificationCount,
+  onNotificationsOpen,
   userName,
   address,
   onOpenCart,
@@ -96,12 +90,6 @@ export default function HomeScreen({
     .join('')
     .toUpperCase()
 
-  // Com filtro de categoria ou busca ativa, os blocos de descoberta saem de
-  // cena: mostrar produtos fora do filtro ao lado do resultado filtrado
-  // contradiz o que a pessoa acabou de pedir.
-  const isBrowsing = category === 'Tudo' && searchQuery.trim() === ''
-  const recommended = allProducts.filter((product) => product.express).slice(0, 6)
-
   return (
     <div className="min-h-dvh bg-surface-page pb-nav">
       <TopBar
@@ -115,43 +103,24 @@ export default function HomeScreen({
         userInitials={initials}
         userName={userName}
         address={address}
+        notifications={notifications}
         notificationCount={notificationCount}
+        onNotificationsOpen={onNotificationsOpen}
         profileHref={moreHref}
         isAuthenticated={isAuthenticated}
       />
 
       <main className="mx-auto max-w-6xl">
-        {isBrowsing && (
-          <>
-            <BannerCarousel />
-            <ShortcutRail />
-            <FlashDeals products={allProducts} />
-
-            <section aria-labelledby="recomendados">
-              <SectionHeader id="recomendados" title="Entrega turbo perto de você" action="Ver mais" />
-              <ul className="rail no-scrollbar px-3 pb-1">
-                {recommended.map((product, index) => (
-                  <li key={product.id}>
-                    <ProductCard
-                      product={product}
-                      variant="wide"
-                      priority={index < 3}
-                      isFavorite={isFavorite(product)}
-                      onToggleFavorite={onToggleFavorite}
-                      onAddToCart={onAddToCart}
-                    />
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </>
-        )}
+        {/* Banners de cupom/assinatura, atalhos de fidelidade e "entrega turbo"
+            saíram do MVP: nenhum tinha backend por trás (cupom, pontos, indicação,
+            frete grátis por assinatura, produto "express") e os CTAs não levavam
+            a lugar nenhum — religar quando essas features existirem de verdade. */}
 
         <section aria-labelledby="catalogo">
           <SectionHeader
             id="catalogo"
             title={category === 'Tudo' ? 'Ofertas do bairro' : category}
-            action={`${products.length} itens`}
+            hint={`${products.length} itens`}
           />
 
           {isLoading ? (

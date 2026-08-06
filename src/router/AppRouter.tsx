@@ -104,7 +104,9 @@ export default function AppRouter(props: AppRouterProps) {
       onToggleFavorite={props.onToggleFavorite}
       onAddToCart={props.onAddToCart}
       cartCount={props.cartCount}
+      notifications={props.notifications}
       notificationCount={props.notificationCount}
+      onNotificationsOpen={props.onNotificationsOpen}
       userName={authUser?.name}
       address={props.addressLine}
       onOpenCart={props.onOpenCart}

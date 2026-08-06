@@ -470,7 +470,9 @@ export function useMarketplaceState() {
     onAddToCart: cartCheckout.handleAddToCart,
     onBuyNow: guardedBuyNow,
     cartCount: cartCheckout.cartItemsCount,
-    notificationCount: catalog.notifications.length,
+    notifications: catalog.notifications,
+    notificationCount: catalog.unreadCount,
+    onNotificationsOpen: catalog.markNotificationsRead,
     onOpenCart: () => cartCheckout.setIsCartOpen(true),
 
     // pedidos reais da pessoa

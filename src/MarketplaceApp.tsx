@@ -41,7 +41,9 @@ export default function MarketplaceApp() {
         onAddToCart={state.onAddToCart}
         onBuyNow={state.onBuyNow}
         cartCount={state.cartCount}
+        notifications={state.notifications}
         notificationCount={state.notificationCount}
+        onNotificationsOpen={state.onNotificationsOpen}
         onOpenCart={state.onOpenCart}
         orders={state.orders}
         ordersLoading={state.ordersLoading}
