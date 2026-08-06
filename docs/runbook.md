@@ -159,3 +159,27 @@ com o do front. O custo é `tsx` viajar na imagem e o transpile acontecer no
 boot (uma vez, ~centenas de ms). Se o boot virar gargalo, o caminho é
 compilar `src/server` com `tsc`/`tsup` e trocar o `CMD` — nada mais no
 deploy muda.
+
+## PENDÊNCIA DE SEGURANÇA — rotação de credenciais (pós-go-live)
+
+**Status: PENDENTE. Fazer assim que o app estiver rodando estável na VPS.**
+
+Durante as sessões de deploy (ago/2026), a service-role key do Supabase e a
+senha do banco foram exibidas em terminal de sessão de IA (transcrições e
+logs de contexto). Risco aceito temporariamente porque o repo é privado e o
+projeto é MVP pré-lançamento — mas a rotação é obrigatória antes de tráfego
+real.
+
+Checklist de rotação (nesta ordem, com o app já no ar):
+
+1. Supabase → Settings → Database: resetar a senha do banco.
+2. Supabase → Settings → API: rotacionar a service-role key.
+3. Atualizar `/opt/<app>/.env` na VPS via scp (nunca colar segredo em chat):
+   `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_SERVICE_ROLE`.
+4. `docker restart <container>` e validar `/api/health` → 200 + um fluxo
+   autenticado (login) na URL pública.
+5. Apagar o `.env.production` local antigo (contém a senha velha) ou
+   regravá-lo com os valores novos.
+
+A `SUPABASE_ANON_KEY` não precisa rotacionar (é pública por design, RLS é a
+proteção).
