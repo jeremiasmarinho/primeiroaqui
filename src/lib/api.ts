@@ -48,6 +48,9 @@ export interface ApiProduct {
   isActive: boolean
   createdAt: string
   updatedAt: string
+  /** 1a foto (position 0) do produto; null se nao houver. */
+  photoUrl: string | null
+  thumbUrl: string | null
 }
 
 export interface ApiStore {

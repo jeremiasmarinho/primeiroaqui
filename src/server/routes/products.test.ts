@@ -247,6 +247,66 @@ describe('rotas de produto', () => {
       const body = (await res.json()) as { product: { id: string } }
       expect(body.product.id).toBe(product.id)
     }, 20_000)
+
+    it('photoUrl/thumbUrl null quando produto nao tem foto', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const store = await createStoreFixture(fixture.user.id)
+      createdStoreIds.push(store.id)
+
+      const product = await prisma.product.create({
+        data: { storeId: store.id, title: 'Sem Foto', category: unique('cat'), priceCents: 100 },
+      })
+      createdProductIds.push(product.id)
+
+      const res = await app.request(`/products/${product.id}`)
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { product: { photoUrl: string | null; thumbUrl: string | null } }
+      expect(body.product.photoUrl).toBeNull()
+      expect(body.product.thumbUrl).toBeNull()
+    }, 20_000)
+
+    it('photoUrl/thumbUrl vem da foto de position 0 quando produto tem fotos', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const store = await createStoreFixture(fixture.user.id)
+      createdStoreIds.push(store.id)
+
+      const product = await prisma.product.create({
+        data: { storeId: store.id, title: 'Com Foto', category: unique('cat'), priceCents: 100 },
+      })
+      createdProductIds.push(product.id)
+
+      await prisma.productPhoto.create({
+        data: {
+          productId: product.id,
+          url: 'https://example.com/foto-1.jpg',
+          thumbUrl: 'https://example.com/foto-1-thumb.jpg',
+          path: 'produtos/foto-1.jpg',
+          position: 1,
+        },
+      })
+      await prisma.productPhoto.create({
+        data: {
+          productId: product.id,
+          url: 'https://example.com/foto-0.jpg',
+          thumbUrl: 'https://example.com/foto-0-thumb.jpg',
+          path: 'produtos/foto-0.jpg',
+          position: 0,
+        },
+      })
+
+      const detail = await app.request(`/products/${product.id}`)
+      expect(detail.status).toBe(200)
+      const detailBody = (await detail.json()) as { product: { photoUrl: string | null; thumbUrl: string | null } }
+      expect(detailBody.product.photoUrl).toBe('https://example.com/foto-0.jpg')
+      expect(detailBody.product.thumbUrl).toBe('https://example.com/foto-0-thumb.jpg')
+
+      const list = await app.request(`/products?storeId=${store.id}`)
+      const listBody = (await list.json()) as { products: Array<{ id: string; photoUrl: string | null }> }
+      const listed = listBody.products.find((p) => p.id === product.id)
+      expect(listed?.photoUrl).toBe('https://example.com/foto-0.jpg')
+    }, 20_000)
   })
 
   describe('PATCH /products/:id', () => {

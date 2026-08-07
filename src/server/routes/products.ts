@@ -68,10 +68,24 @@ type ProductRecord = {
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  // Obrigatorio (nao opcional): forca tsc a apontar toda query que esqueceu
+  // `include: firstPhotoInclude` — foi assim que pegamos o bug em
+  // PATCH/DELETE, que devolviam photoUrl: null mesmo com foto cadastrada.
+  photos: Array<{ url: string; thumbUrl: string }>
 }
 
-/** Campos publicos de um produto. */
+/** Inclui apenas a foto de posicao 0 — evita N+1 (1 query com JOIN, nao 1 por produto). */
+const firstPhotoInclude = {
+  photos: { orderBy: { position: 'asc' as const }, take: 1 },
+}
+
+/**
+ * Campos publicos de um produto. `photoUrl`/`thumbUrl` vem da 1a foto
+ * (position 0); null se o produto nao tiver foto. Mesmo precedente de shape
+ * de `GET /me/favorites` (favorites.ts).
+ */
 function toPublicProduct(product: ProductRecord) {
+  const firstPhoto = product.photos?.[0]
   return {
     id: product.id,
     storeId: product.storeId,
@@ -83,6 +97,8 @@ function toPublicProduct(product: ProductRecord) {
     isActive: product.isActive,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt,
+    photoUrl: firstPhoto?.url ?? null,
+    thumbUrl: firstPhoto?.thumbUrl ?? null,
   }
 }
 
@@ -126,6 +142,7 @@ productRoutes.post('/stores/:storeId/products', requireUser, requireStoreOwner, 
   const { title, description, category, priceCents, stock } = parsed.data
   const product = await prisma.product.create({
     data: { storeId, title, description, category, priceCents, stock },
+    include: firstPhotoInclude,
   })
   return c.json({ product: toPublicProduct(product) }, 201)
 })
@@ -160,6 +177,7 @@ productRoutes.get('/products', async (c) => {
       orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
       take: limit,
       skip: offset,
+      include: firstPhotoInclude,
     })
     return c.json({ products: products.map(toPublicProduct) })
   }
@@ -167,15 +185,19 @@ productRoutes.get('/products', async (c) => {
   const ids = await searchProductIds({ category, q, lat, lng, radiusKm, limit, offset })
   const products = await prisma.product.findMany({
     where: { id: { in: ids }, ...(storeId !== undefined ? { storeId } : {}) },
+    include: firstPhotoInclude,
   })
   const byId = new Map(products.map((product) => [product.id, product]))
-  const ordered = ids.map((id) => byId.get(id)).filter((product): product is ProductRecord => product !== undefined)
+  const ordered = ids.map((id) => byId.get(id)).filter((product): product is (typeof products)[number] => product !== undefined)
   return c.json({ products: ordered.map(toPublicProduct) })
 })
 
 productRoutes.get('/products/:id', async (c) => {
   const id = c.req.param('id')
-  const product = await prisma.product.findUnique({ where: { id }, include: { store: true } })
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: { store: true, ...firstPhotoInclude },
+  })
   if (!product || !product.isActive || !product.store.isActive) {
     return c.json({ error: 'Produto nao encontrado' }, 404)
   }
@@ -207,6 +229,7 @@ productRoutes.patch('/products/:id', requireUser, requireStoreOwner, async (c) =
   const updated = await prisma.product.update({
     where: { id },
     data: { title, description, category, priceCents, stock, isActive },
+    include: firstPhotoInclude,
   })
   return c.json({ product: toPublicProduct(updated) })
 })
@@ -225,6 +248,10 @@ productRoutes.delete('/products/:id', requireUser, requireStoreOwner, async (c) 
 
   // Soft-delete: produtos com `OrderItem` associados nao podem ser removidos
   // fisicamente sem quebrar o historico de pedidos.
-  const updated = await prisma.product.update({ where: { id }, data: { isActive: false } })
+  const updated = await prisma.product.update({
+    where: { id },
+    data: { isActive: false },
+    include: firstPhotoInclude,
+  })
   return c.json({ product: toPublicProduct(updated) })
 })

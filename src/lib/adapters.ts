@@ -32,8 +32,9 @@ export const toViewProduct = (dto: ApiProduct, storeName?: string): Product => {
     freeShipping: false,
     express: false,
     arrival: 'Entrega combinada com a loja',
-    // Catálogo público ainda não expõe fotos — placeholder local (offline-safe).
-    image: localImage(dto.title),
+    // Foto real quando o produto tem uma cadastrada; senão placeholder local
+    // (offline-safe) — mesmo padrão de `favoriteToViewProduct`.
+    image: dto.photoUrl ?? localImage(dto.title),
     stock: dto.stock,
   }
 }

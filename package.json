@@ -17,6 +17,7 @@
     "test:e2e": "playwright test",
     "test:db": "vitest run src/test/db",
     "db:seed": "tsx prisma/seed.ts",
+    "db:photos": "tsx scripts/attach-seed-photos.ts",
     "dev:server": "tsx watch src/server/index.ts",
     "start:server": "tsx src/server/index.ts",
     "gate": "npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run check:bundle",

@@ -43,11 +43,12 @@ export const mockStores: ApiStore[] = [
 ]
 
 const baseProducts: ApiProduct[] = [
-  { id: '1', storeId: 'loja-vizinhanca', title: 'Ventilador de Mesa Premium 6 Pás Silencioso', description: null, category: 'Casa', priceCents: 19990, stock: 10, isActive: true, createdAt: now, updatedAt: now },
-  { id: '2', storeId: 'mercado-central', title: 'Kit Supermercado Express — 18 itens essenciais', description: null, category: 'Supermercado', priceCents: 12990, stock: 10, isActive: true, createdAt: now, updatedAt: now },
-  { id: '3', storeId: 'tech-shop', title: 'Smartwatch Fitness GPS à Prova d’Água', description: null, category: 'Eletrônico', priceCents: 37990, stock: 5, isActive: true, createdAt: now, updatedAt: now },
-  { id: '4', storeId: 'farmacia-local', title: 'Box de Cuidados Pessoais com 12 Produtos', description: null, category: 'Farmácia', priceCents: 8490, stock: 8, isActive: true, createdAt: now, updatedAt: now },
-  { id: '5', storeId: 'farmacia-local', title: 'Whey Concentrado 900g Sabor Baunilha', description: null, category: 'Farmácia', priceCents: 13769, stock: 3, isActive: true, createdAt: now, updatedAt: now },
+  // Produto 1 tem foto semeada — exercita o caminho "com foto" nos testes de UI.
+  { id: '1', storeId: 'loja-vizinhanca', title: 'Ventilador de Mesa Premium 6 Pás Silencioso', description: null, category: 'Casa', priceCents: 19990, stock: 10, isActive: true, createdAt: now, updatedAt: now, photoUrl: 'https://example.com/ventilador.jpg', thumbUrl: 'https://example.com/ventilador-thumb.jpg' },
+  { id: '2', storeId: 'mercado-central', title: 'Kit Supermercado Express — 18 itens essenciais', description: null, category: 'Supermercado', priceCents: 12990, stock: 10, isActive: true, createdAt: now, updatedAt: now, photoUrl: null, thumbUrl: null },
+  { id: '3', storeId: 'tech-shop', title: 'Smartwatch Fitness GPS à Prova d’Água', description: null, category: 'Eletrônico', priceCents: 37990, stock: 5, isActive: true, createdAt: now, updatedAt: now, photoUrl: null, thumbUrl: null },
+  { id: '4', storeId: 'farmacia-local', title: 'Box de Cuidados Pessoais com 12 Produtos', description: null, category: 'Farmácia', priceCents: 8490, stock: 8, isActive: true, createdAt: now, updatedAt: now, photoUrl: null, thumbUrl: null },
+  { id: '5', storeId: 'farmacia-local', title: 'Whey Concentrado 900g Sabor Baunilha', description: null, category: 'Farmácia', priceCents: 13769, stock: 3, isActive: true, createdAt: now, updatedAt: now, photoUrl: null, thumbUrl: null },
 ]
 
 interface MockDb {
@@ -512,6 +513,8 @@ export const handlers = [
       isActive: true,
       createdAt: now,
       updatedAt: now,
+      photoUrl: null,
+      thumbUrl: null,
     }
     db.products.push(product)
     return HttpResponse.json({ product }, { status: 201 })
