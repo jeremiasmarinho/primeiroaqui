@@ -68,6 +68,12 @@ model Store {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  // Pagar.me — recebedor (split). recipientStatus fica String (nao enum):
+  // os valores vem do Pagar.me (registration/affiliation/active/...) e podem
+  // mudar sem controle nosso sobre o schema deles.
+  pagarmeRecipientId String?
+  recipientStatus    String?
+
   products    Product[]
   orders      Order[]
 
@@ -155,6 +161,14 @@ model Order {
   totalCents  Int
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+
+  // Pagar.me — rastreamento do pagamento. paymentStatus fica String (nao
+  // enum) por simplicidade de migracao manual, mas os valores usados pela
+  // aplicacao sao fechados: NONE|PENDING|PAID|FAILED|REFUNDED|CHARGEDBACK.
+  pagarmeOrderId   String?
+  paymentStatus    String      @default("NONE")
+  platformFeeCents Int?
+  storeAmountCents Int?
 
   items       OrderItem[]
 
