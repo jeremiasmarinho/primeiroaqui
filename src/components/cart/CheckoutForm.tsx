@@ -66,7 +66,7 @@ export default function CheckoutForm({
       <button
         type="button"
         onClick={onConfirm}
-        className="min-h-[48px] w-full rounded-[20px] bg-success px-4 font-bold text-white transition-transform duration-150 motion-safe:active:scale-[0.98]"
+        className="btn-primary min-h-[48px] w-full rounded-[20px] motion-safe:active:scale-[0.98]"
       >
         Confirmar compra
       </button>

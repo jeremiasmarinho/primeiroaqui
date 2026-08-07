@@ -55,12 +55,12 @@ export default function CartItemsStep({
       </div>
 
       <div className="border-t border-line bg-surface p-4">
-        <div className="rounded-[20px] bg-ink p-4 text-white">
-          <div className="flex items-center justify-between text-sm text-ink-faint">
+        <div className="rounded-[20px] border border-line bg-surface-sunken p-4">
+          <div className="flex items-center justify-between text-sm text-ink-muted">
             <span>Subtotal</span>
             <span className="tabular">{formatCurrency(subtotal)}</span>
           </div>
-          <div className="mt-2 flex items-center justify-between text-sm text-ink-faint">
+          <div className="mt-2 flex items-center justify-between text-sm text-ink-muted">
             <span>Entrega</span>
             <span>Calculada no próximo passo</span>
           </div>
@@ -69,7 +69,7 @@ export default function CartItemsStep({
           type="button"
           onClick={onContinue}
           disabled={itemsCount === 0}
-          className="mt-3 min-h-[48px] w-full rounded-[20px] bg-success px-4 font-bold text-white transition-transform duration-150 disabled:cursor-not-allowed disabled:opacity-40 motion-safe:active:scale-[0.98]"
+          className="btn-primary mt-3 min-h-[48px] w-full rounded-[20px] disabled:cursor-not-allowed disabled:opacity-40 motion-safe:active:scale-[0.98]"
         >
           Continuar
         </button>

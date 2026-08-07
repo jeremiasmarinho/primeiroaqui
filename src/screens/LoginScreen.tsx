@@ -103,9 +103,11 @@ export default function LoginScreen({
           </div>
         </div>
 
-        <div className="mt-6 rounded-[28px] bg-ink p-6 text-white">
-          <h1 className="text-3xl font-black">Compre no bairro e gerencie suas vendas em um só lugar</h1>
-          <p className="mt-3 text-sm leading-6 text-ink-faint">Uma experiência de compra rápida, pensada para operações locais e crescimento futuro.</p>
+        {/* Hero na identidade da marca (amarelo + navy), nao no bg-ink escuro
+            do prototipo original — mesmo motivo do reskin do carrinho. */}
+        <div className="mt-6 rounded-[28px] bg-brand p-6 text-navy">
+          <h1 className="font-display text-3xl font-black">Compre no bairro e gerencie suas vendas em um só lugar</h1>
+          <p className="mt-3 text-sm leading-6 text-navy/80">Uma experiência de compra rápida, pensada para operações locais e crescimento futuro.</p>
         </div>
 
         {contextMessage ? (

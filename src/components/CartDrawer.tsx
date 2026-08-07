@@ -73,10 +73,10 @@ export default function CartDrawer({
         aria-label={step === 'cart' ? 'Carrinho de compras' : 'Dados de entrega'}
         className="ml-auto flex h-full max-w-md flex-col overflow-hidden rounded-[32px] bg-surface shadow-[0_30px_80px_rgba(15,23,42,0.25)]"
       >
-        <div className="flex items-center justify-between border-b border-line/80 bg-gradient-to-r from-ink to-ink-muted p-4 text-white">
+        <div className="flex items-center justify-between border-b border-navy/15 bg-brand p-4 text-navy">
           <div>
             <h2 className="font-display text-lg font-black">{step === 'cart' ? 'Carrinho' : 'Entrega'}</h2>
-            <p className="text-sm text-ink-faint">
+            <p className="text-sm text-navy/70">
               {step === 'cart' ? `${itemsCount} itens` : 'Complete os dados para o pedido'}
             </p>
           </div>
@@ -84,7 +84,7 @@ export default function CartDrawer({
             type="button"
             onClick={onClose}
             aria-label="Fechar carrinho"
-            className="grid h-11 w-11 place-items-center rounded-full bg-white/10 text-white transition-colors duration-150 hover:bg-white/20"
+            className="grid h-11 w-11 place-items-center rounded-full bg-navy/10 text-navy transition-colors duration-150 hover:bg-navy/20"
           >
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
