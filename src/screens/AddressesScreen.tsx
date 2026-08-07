@@ -18,6 +18,7 @@ interface AddressesScreenProps {
   onAddressSubmit: (event: React.FormEvent<HTMLFormElement>) => void
   isLoading?: boolean
   error?: string
+  isSubmitting?: boolean
 }
 
 const FIELDS = [
@@ -39,6 +40,7 @@ export default function AddressesScreen({
   onAddressSubmit,
   isLoading = false,
   error = '',
+  isSubmitting = false,
 }: AddressesScreenProps) {
   const form = (
     <form onSubmit={onAddressSubmit} className="rounded-card bg-surface p-4 shadow-card">
@@ -84,9 +86,12 @@ export default function AddressesScreen({
 
       <button
         type="submit"
-        className="btn-primary min-h-[44px] mt-4 min-h-[48px] w-full motion-safe:active:scale-[0.98]"
+        disabled={isSubmitting}
+        aria-busy={isSubmitting}
+        className="btn-primary min-h-[44px] mt-4 min-h-[48px] w-full motion-safe:active:scale-[0.98]
+                   disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Salvar endereço
+        {isSubmitting ? 'Salvando…' : 'Salvar endereço'}
       </button>
     </form>
   )

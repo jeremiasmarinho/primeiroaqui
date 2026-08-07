@@ -4,6 +4,7 @@ import { Link } from 'wouter'
 import { formatCurrency } from '../lib/format'
 import { ROUTES } from '../router/routes'
 import { api, ApiError } from '../lib/api'
+import { pushToast } from '../state/useToasts'
 import type { BusinessProfile, Order, Product, Role, User } from '../types'
 
 const SHORTCUTS = [
@@ -49,6 +50,10 @@ export default function ProfileScreen({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [avatarPending, setAvatarPending] = useState(false)
   const [avatarError, setAvatarError] = useState('')
+  // Preview local (blob) enquanto o upload roda — a foto real do usuário só
+  // troca quando a API confirma; se der erro, a preview cai e o avatar
+  // anterior volta a aparecer.
+  const [avatarPreview, setAvatarPreview] = useState('')
 
   const handleAvatarPick = () => fileInputRef.current?.click()
 
@@ -57,17 +62,28 @@ export default function ProfileScreen({
     event.target.value = ''
     if (!file) return
 
+    const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+    if (!ACCEPTED_TYPES.includes(file.type)) {
+      setAvatarError('Formato não suportado. Envie uma foto JPEG, PNG ou WebP.')
+      return
+    }
+
     setAvatarError('')
+    const previewUrl = URL.createObjectURL(file)
+    setAvatarPreview(previewUrl)
     setAvatarPending(true)
     try {
       const { user } = await api.uploadAvatar(file)
       onAuthUserChange({ id: user.id, name: user.name, email: user.email, role: user.role, avatarUrl: user.avatarUrl })
+      pushToast('Foto de perfil atualizada', 'success')
     } catch (error) {
       setAvatarError(
         error instanceof ApiError ? error.message : 'Não foi possível enviar a foto. Tente novamente.',
       )
     } finally {
       setAvatarPending(false)
+      URL.revokeObjectURL(previewUrl)
+      setAvatarPreview('')
     }
   }
 
@@ -77,6 +93,7 @@ export default function ProfileScreen({
     try {
       const { user } = await api.removeAvatar()
       onAuthUserChange({ id: user.id, name: user.name, email: user.email, role: user.role, avatarUrl: user.avatarUrl })
+      pushToast('Foto de perfil removida', 'success')
     } catch (error) {
       setAvatarError(
         error instanceof ApiError ? error.message : 'Não foi possível remover a foto. Tente novamente.',
@@ -93,9 +110,9 @@ export default function ProfileScreen({
           <div className="flex items-center gap-4">
             <div className="relative">
               <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-full bg-surface-page text-lg font-extrabold text-ink">
-                {authUser?.avatarUrl ? (
+                {avatarPreview || authUser?.avatarUrl ? (
                   <img
-                    src={authUser.avatarUrl}
+                    src={avatarPreview || authUser?.avatarUrl || undefined}
                     alt="Foto de perfil"
                     className="h-full w-full rounded-full object-cover"
                   />

@@ -100,4 +100,5 @@ export interface AppRouterProps {
   addressError: string
   onAddressFormChange: (patch: Partial<AddressDraft>) => void
   onAddressSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  addressSubmitting: boolean
 }

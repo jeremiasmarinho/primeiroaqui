@@ -4,7 +4,15 @@ import { useSearchParams } from 'wouter'
 import { readStoredJSON } from '../lib/storage'
 import { STORAGE_KEYS } from './session'
 import { initialNotifications, initialThreads } from './marketplaceSeed'
+import { pushToast } from './useToasts'
 import type { Notification, Product, Thread } from '../types'
+
+/** Notificação do sino usa 'warning'; o toast usa a paleta success/error/info. */
+const toastTypeByNotification: Record<Notification['type'], 'success' | 'error' | 'info'> = {
+  info: 'info',
+  success: 'success',
+  warning: 'error',
+}
 
 /** Busca, favoritos, notificações e mensagens exibidas na vitrine. */
 export function useCatalogState() {
@@ -48,6 +56,8 @@ export function useCatalogState() {
   ) => {
     setNotifications((prev) => [{ id: prev.length + 1, title, message, type, href }, ...prev].slice(0, 4))
     setUnreadCount((prev) => prev + 1)
+    // Notificação persiste no sino; o toast é só o flash imediato da mesma ação.
+    pushToast(message, toastTypeByNotification[type])
   }
 
   const markNotificationsRead = () => setUnreadCount(0)

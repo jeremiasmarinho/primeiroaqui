@@ -9,6 +9,7 @@ import {
   validateAddressDraft,
   type AddressDraft,
 } from './addresses'
+import { pushToast } from './useToasts'
 import type { Address } from '../types'
 
 /**
@@ -30,6 +31,7 @@ export function useAddressesState(hasSession: boolean) {
   const [loadError, setLoadError] = useState('')
   const [selectedAddressId, setSelectedAddressId] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     if (!hasSession || !loadStoredSession()) {
@@ -74,6 +76,7 @@ export function useAddressesState(hasSession: boolean) {
 
   const onAddressSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    if (isSubmitting) return // trava duplo clique/duplo submit
 
     const validated = validateAddressDraft(addressForm)
     if (!validated.ok) {
@@ -81,6 +84,7 @@ export function useAddressesState(hasSession: boolean) {
       return
     }
 
+    setIsSubmitting(true)
     try {
       const { address } = await api.createAddress({
         label: validated.label,
@@ -98,12 +102,15 @@ export function useAddressesState(hasSession: boolean) {
       setAddressError('')
       setAddresses((prev) => [toViewAddress(address), ...prev])
       setAddressForm(EMPTY_ADDRESS)
+      pushToast('Endereço salvo', 'success')
     } catch (err) {
       setAddressError(
         err instanceof ApiError && err.status > 0
           ? err.message
           : 'Não foi possível salvar o endereço. Tente novamente.',
       )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -122,5 +129,6 @@ export function useAddressesState(hasSession: boolean) {
     defaultAddress: getDefaultAddress(addresses),
     onAddressFormChange,
     onAddressSubmit,
+    isSubmitting,
   }
 }

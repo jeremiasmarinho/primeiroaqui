@@ -11,6 +11,7 @@ import { repeatOrder } from './orders'
 import { STORAGE_KEYS, clearSession } from './session'
 import { pendingIntentMessage } from './pendingIntent'
 import { EMPTY_DELIVERY, initialThreads, EMPTY_BUSINESS } from './marketplaceSeed'
+import { pushToast } from './useToasts'
 import { useSessionState } from './useSessionState'
 import { useCatalogState } from './useCatalogState'
 import { useRemoteCatalog } from './useRemoteCatalog'
@@ -41,6 +42,7 @@ export function useMarketplaceState() {
   const admin = useBusinessSetupState()
   const addresses = useAddressesState(!!session.authUser)
   const [repeatError, setRepeatError] = useState('')
+  const [isConfirmingOrder, setIsConfirmingOrder] = useState(false)
 
   // ------------------------------------------------------------------
   // Pedidos reais (GET /api/me/orders)
@@ -239,6 +241,7 @@ export function useMarketplaceState() {
   const toggleFavoriteWithApi = (product: Product) => {
     const wasFavorite = catalog.favorites.some((item) => item.id === product.id)
     catalog.toggleFavorite(product)
+    pushToast(wasFavorite ? 'Removido dos favoritos' : 'Favorito salvo', 'success')
 
     const call = wasFavorite ? api.removeFavorite(product.id) : api.addFavorite(product.id)
     call.catch((err: unknown) => {
@@ -413,6 +416,7 @@ export function useMarketplaceState() {
     cartCheckout.dispatchCart(replaceCart(result.items))
     cartCheckout.setCheckoutStep('cart')
     cartCheckout.setIsCartOpen(true)
+    pushToast('Itens do pedido adicionados ao carrinho', 'success')
   }
 
   /**
@@ -421,7 +425,7 @@ export function useMarketplaceState() {
    * (409 estoque, 404 produto) viram mensagens específicas aqui.
    */
   const handleFinalizePurchase = async () => {
-    if (cartCheckout.cartItemsCount === 0) return
+    if (cartCheckout.cartItemsCount === 0 || isConfirmingOrder) return // trava duplo clique
 
     if (!cartCheckout.deliveryForm.name) {
       cartCheckout.setCheckoutError('Informe o nome de quem recebe a entrega.')
@@ -440,6 +444,7 @@ export function useMarketplaceState() {
     }
 
     cartCheckout.setCheckoutError('')
+    setIsConfirmingOrder(true)
     try {
       const { orders } = await api.createOrder({
         items: cartCheckout.cartState.items.map((item) => ({
@@ -492,6 +497,8 @@ export function useMarketplaceState() {
           ? err.message
           : 'Não foi possível finalizar a compra. Verifique sua conexão e tente novamente.',
       )
+    } finally {
+      setIsConfirmingOrder(false)
     }
   }
 
@@ -594,6 +601,7 @@ export function useMarketplaceState() {
     onCartConfirm: () => {
       void handleFinalizePurchase()
     },
+    isConfirmingOrder,
 
     // endereços reais
     addresses: addresses.addresses,
@@ -607,6 +615,7 @@ export function useMarketplaceState() {
     onAddressSubmit: (event: React.FormEvent<HTMLFormElement>) => {
       void addresses.onAddressSubmit(event)
     },
+    addressSubmitting: addresses.isSubmitting,
     selectedAddressId: addresses.selectedAddressId,
     onSelectAddress: handleSelectAddress,
   }

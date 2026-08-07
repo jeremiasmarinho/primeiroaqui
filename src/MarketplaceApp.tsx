@@ -1,5 +1,6 @@
 import BusinessSetupModal from './components/BusinessSetupModal'
 import CartDrawer from './components/CartDrawer'
+import ToastStack from './components/Toast'
 import AppRouter from './router/AppRouter'
 import { useMarketplaceState } from './state/useMarketplaceState'
 
@@ -74,6 +75,7 @@ export default function MarketplaceApp() {
         addressError={state.addressError}
         onAddressFormChange={state.onAddressFormChange}
         onAddressSubmit={state.onAddressSubmit}
+        addressSubmitting={state.addressSubmitting}
       />
 
       <BusinessSetupModal
@@ -106,7 +108,10 @@ export default function MarketplaceApp() {
         onRemoveCoupon={state.onRemoveCoupon}
         onContinue={state.onCartContinue}
         onConfirm={state.onCartConfirm}
+        isConfirming={state.isConfirmingOrder}
       />
+
+      <ToastStack />
     </>
   )
 }

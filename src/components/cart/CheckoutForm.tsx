@@ -20,6 +20,7 @@ interface CheckoutFormProps {
   onApplyCoupon: () => void
   onRemoveCoupon: () => void
   onConfirm: () => void
+  isConfirming?: boolean
 }
 
 /** Corpo do passo "entrega": resumo do pedido, cupom, dados e confirmação. */
@@ -35,6 +36,7 @@ export default function CheckoutForm({
   onSelectAddress,
   onDeliveryChange,
   onConfirm,
+  isConfirming = false,
 }: CheckoutFormProps) {
   return (
     <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-surface to-surface-page p-4">
@@ -66,9 +68,12 @@ export default function CheckoutForm({
       <button
         type="button"
         onClick={onConfirm}
-        className="btn-primary min-h-[48px] w-full rounded-[20px] motion-safe:active:scale-[0.98]"
+        disabled={isConfirming}
+        aria-busy={isConfirming}
+        className="btn-primary min-h-[48px] w-full rounded-[20px] motion-safe:active:scale-[0.98]
+                   disabled:cursor-not-allowed disabled:opacity-70"
       >
-        Confirmar compra
+        {isConfirming ? 'Confirmando…' : 'Confirmar compra'}
       </button>
     </div>
   )

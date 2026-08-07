@@ -252,6 +252,7 @@ export default function AppRouter(props: AppRouterProps) {
           addressError={props.addressError}
           onAddressFormChange={props.onAddressFormChange}
           onAddressSubmit={props.onAddressSubmit}
+          isSubmitting={props.addressSubmitting}
         />
       </Route>
 

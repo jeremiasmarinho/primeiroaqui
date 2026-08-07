@@ -54,8 +54,10 @@ describe('avatar de perfil', () => {
     expect(api.uploadAvatar).toHaveBeenCalledTimes(1)
   })
 
-  it('tipo de arquivo invalido mostra erro do servidor e nao troca a foto', async () => {
-    vi.spyOn(api, 'uploadAvatar').mockRejectedValue(
+  it('tipo de arquivo invalido mostra erro sem round-trip ao servidor e nao troca a foto', async () => {
+    // Validação agora acontece no cliente antes de chamar a API: feedback
+    // imediato em vez de esperar a rejeição do servidor (régua ML item 4).
+    const uploadSpy = vi.spyOn(api, 'uploadAvatar').mockRejectedValue(
       new ApiError('Tipo de arquivo nao suportado: text/plain', 400),
     )
     enterAsClient()
@@ -66,9 +68,10 @@ describe('avatar de perfil', () => {
     fireEvent.change(input, { target: { files: [badFile] } })
 
     await waitFor(() => {
-      expect(screen.getByText(/tipo de arquivo nao suportado/i)).toBeInTheDocument()
+      expect(screen.getByText(/formato não suportado/i)).toBeInTheDocument()
     })
     expect(screen.queryByAltText('Foto de perfil')).not.toBeInTheDocument()
+    expect(uploadSpy).not.toHaveBeenCalled()
   })
 
   it('remover foto volta a mostrar iniciais', async () => {

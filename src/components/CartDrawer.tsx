@@ -28,6 +28,7 @@ interface CartDrawerProps {
   onRemoveCoupon: () => void
   onContinue: () => void
   onConfirm: () => void
+  isConfirming?: boolean
 }
 
 /**
@@ -58,6 +59,7 @@ export default function CartDrawer({
   onRemoveCoupon,
   onContinue,
   onConfirm,
+  isConfirming = false,
 }: CartDrawerProps) {
   if (!open) return null
 
@@ -119,6 +121,7 @@ export default function CartDrawer({
             onApplyCoupon={onApplyCoupon}
             onRemoveCoupon={onRemoveCoupon}
             onConfirm={onConfirm}
+            isConfirming={isConfirming}
           />
         )}
       </div>

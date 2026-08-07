@@ -14,6 +14,7 @@ import {
 import { applyCoupon } from './coupons'
 import { STORAGE_KEYS } from './session'
 import { EMPTY_DELIVERY, normalizeCartItems } from './marketplaceSeed'
+import { pushToast } from './useToasts'
 import type { DeliveryForm, Product } from '../types'
 
 /** Carrinho, gaveta e formulário de checkout (entrega, cupom, pagamento). */
@@ -37,6 +38,7 @@ export function useCartCheckoutState() {
   const handleAddToCart = (product: Product) => {
     dispatchCart(addToCart(product))
     setIsCartOpen(true)
+    pushToast('Adicionado ao carrinho', 'success')
   }
 
   /** Comprar agora: adiciona e ja abre o passo de entrega, pulando o carrinho. */
