@@ -31,6 +31,7 @@ export const mockUser: ApiUser = {
   email: 'cliente@primeiroaqui.com',
   name: 'Cliente Primeiro Aqui',
   role: 'BUYER',
+  avatarUrl: null,
 }
 
 // Ids e títulos espelham o catálogo de demonstração antigo — os testes de
@@ -258,6 +259,37 @@ export const handlers = [
   }),
 
   http.post('/api/auth/logout', () => HttpResponse.json({ ok: true })),
+
+  // Sempre 200 genérico — espelha a rota real (anti-enumeração).
+  http.post('/api/auth/forgot-password', () => HttpResponse.json({ ok: true })),
+
+  http.post('/api/auth/reset-password', async ({ request }) => {
+    const body = (await request.json()) as {
+      accessToken?: string
+      refreshToken?: string
+      password?: string
+    }
+    if (!body?.accessToken || !body?.refreshToken) {
+      return HttpResponse.json({ error: 'Link de redefinicao invalido ou expirado' }, { status: 401 })
+    }
+    if (!body?.password || body.password.length < 8) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    if (body.accessToken === 'token-expirado') {
+      return HttpResponse.json({ error: 'Link de redefinicao invalido ou expirado' }, { status: 401 })
+    }
+    return HttpResponse.json({ ok: true })
+  }),
+
+  http.post('/api/auth/refresh', async ({ request }) => {
+    const body = (await request.json()) as { refreshToken?: string }
+    if (!body?.refreshToken || body.refreshToken === 'refresh-invalido') {
+      return HttpResponse.json({ error: 'Sessao expirada, faca login novamente' }, { status: 401 })
+    }
+    return HttpResponse.json({
+      session: { accessToken: 'test-token-renovado', refreshToken: 'test-refresh-renovado', expiresAt: 9999999999 },
+    })
+  }),
 
   http.get('/api/me', ({ request }) => {
     if (!requireAuth(request)) return unauthorized()
@@ -569,6 +601,39 @@ export const handlers = [
     return HttpResponse.json({
       store: { id: store.id, name: store.name, slug: store.slug, isActive: store.isActive },
     })
+  }),
+
+  // ----------------------------------------------------------------- avatar
+  http.post('/api/me/avatar', async ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    let form: FormData
+    try {
+      form = await request.formData()
+    } catch {
+      return HttpResponse.json({ error: 'Body invalido ou ausente' }, { status: 400 })
+    }
+    const file = form.get('file')
+    // Nao usa `instanceof File`: o `File` reconstruido por `request.formData()`
+    // pertence a implementacao interna do fetch (undici), que pode nao ser o
+    // mesmo objeto de classe exposto em `globalThis.File` neste ambiente de
+    // teste (jsdom + fetch nativo) — duck-typing evita esse falso negativo.
+    const isFileLike = (value: unknown): value is { type: string } =>
+      !!value && typeof value === 'object' && 'type' in value && 'size' in value && 'arrayBuffer' in value
+    if (!isFileLike(file)) {
+      return HttpResponse.json({ error: 'Campo "file" (arquivo) e obrigatorio' }, { status: 400 })
+    }
+    const allowed = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowed.includes(file.type)) {
+      return HttpResponse.json({ error: `Tipo de arquivo nao suportado: ${file.type}` }, { status: 400 })
+    }
+    db.user.avatarUrl = `https://example.com/avatars/${db.user.id}-${++db.seq}.jpg`
+    return HttpResponse.json({ user: db.user })
+  }),
+
+  http.delete('/api/me/avatar', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    db.user.avatarUrl = null
+    return HttpResponse.json({ user: db.user })
   }),
 
   http.post('/api/products/:id/photos', ({ request, params }) => {

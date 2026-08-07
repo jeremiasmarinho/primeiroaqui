@@ -100,6 +100,8 @@ export interface User {
   name: string
   email: string
   role: Role
+  /** Foto de perfil (URL publica do bucket `avatars`); null/ausente mostra iniciais. */
+  avatarUrl?: string | null
 }
 
 export interface Store {

@@ -8,6 +8,7 @@ export type AuthedUser = {
   authUserId: string
   email: string
   role: 'BUYER' | 'STORE_OWNER' | 'ADMIN'
+  avatarUrl: string | null
 }
 
 /** Variaveis de contexto Hono usadas pelas rotas autenticadas — usar como `Hono<AuthEnv>`. */
@@ -36,6 +37,7 @@ export const resolveAuthedUser = async (c: Context): Promise<AuthedUser | null> 
     authUserId: user.authUserId,
     email: user.email,
     role: user.role,
+    avatarUrl: user.avatarUrl,
   }
 }
 

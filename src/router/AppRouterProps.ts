@@ -21,6 +21,7 @@ import type {
 export interface AppRouterProps {
   // sessão
   authUser: User | null
+  onAuthUserChange: (user: User) => void
   userRole: Role
   isDevMode: boolean
 
@@ -38,6 +39,18 @@ export interface AppRouterProps {
   loginContextMessage: string
   /** Onboarding de lojista: promove BUYER→STORE_OWNER e abre o cadastro do negócio. */
   onBecomeStoreOwner: () => void
+
+  // esqueci minha senha / redefinição
+  forgotPasswordOpen: boolean
+  forgotEmail: string
+  onForgotEmailChange: (value: string) => void
+  forgotStatus: 'idle' | 'pending' | 'sent'
+  forgotError: string
+  onOpenForgotPassword: () => void
+  onCloseForgotPassword: () => void
+  onForgotPasswordSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  /** Navega de volta ao login com aviso de sucesso após `/redefinir-senha`. */
+  onPasswordResetSuccess: () => void
 
   // vitrine — catálogo real (GET /api/products)
   products: Product[]

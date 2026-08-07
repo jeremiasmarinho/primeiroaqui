@@ -8,6 +8,7 @@ import { addressRoutes } from './routes/addresses'
 import { orderRoutes } from './routes/orders'
 import { storeOwnerRoutes } from './routes/storeOwner'
 import { adminRoutes } from './routes/admin'
+import { meRoutes } from './routes/me'
 
 export const app = new Hono()
 
@@ -20,6 +21,7 @@ app.route('/', addressRoutes)
 app.route('/', orderRoutes)
 app.route('/', storeOwnerRoutes)
 app.route('/', adminRoutes)
+app.route('/', meRoutes)
 
 // Placeholder minimo — health check completo (banco/storage) e escopo da Fase 8.
 app.get('/health', (c) => c.json({ status: 'ok' }))

@@ -30,6 +30,8 @@ interface TopBarProps {
   address?: string
   userInitials?: string
   userName?: string
+  /** Foto de perfil; se ausente ou falhar ao carregar, mostra as iniciais. */
+  userAvatarUrl?: string | null
   /** Notificações reais geradas por ações (checkout, cadastro de loja etc.). */
   notifications?: Notification[]
   notificationCount?: number
@@ -52,6 +54,7 @@ export default function TopBar({
   address,
   userInitials = 'PA',
   userName,
+  userAvatarUrl,
   notifications = [],
   notificationCount = 0,
   profileHref,
@@ -67,8 +70,15 @@ export default function TopBar({
   const suppressFocusOpenRef = useRef(false)
   const [isSuggestionsOpen, setIsSuggestionsOpen] = useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false)
+  // Falha ao carregar a foto (URL quebrada/removida) cai de volta para as
+  // iniciais em vez de deixar um ícone de imagem quebrada no header.
+  const [avatarFailed, setAvatarFailed] = useState(false)
   const notificationsRef = useRef<HTMLDivElement>(null)
   const { history, addTerm, removeTerm, clear } = useSearchHistory()
+
+  useEffect(() => {
+    setAvatarFailed(false)
+  }, [userAvatarUrl])
 
   const toggleNotifications = () => {
     setIsNotificationsOpen((prev) => {
@@ -192,10 +202,21 @@ export default function TopBar({
           <Link
             href={profileHref ?? ROUTES.profile}
             aria-label={isAuthenticated ? `Abrir perfil de ${userName || 'convidado'}` : 'Entrar ou criar conta'}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-surface
+            className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-surface
                        text-sm font-extrabold text-ink shadow-card"
           >
-            {isAuthenticated ? userInitials : <LogIn className="h-5 w-5" aria-hidden="true" />}
+            {isAuthenticated && userAvatarUrl && !avatarFailed ? (
+              <img
+                src={userAvatarUrl}
+                alt=""
+                className="h-full w-full rounded-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : isAuthenticated ? (
+              userInitials
+            ) : (
+              <LogIn className="h-5 w-5" aria-hidden="true" />
+            )}
           </Link>
 
           <div ref={containerRef} onBlur={handleBlur} className="relative flex-1">

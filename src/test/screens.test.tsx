@@ -96,6 +96,7 @@ describe('TrackingScreen', () => {
 describe('ProfileScreen', () => {
   const baseProps = {
     authUser: makeUser({ name: 'Ana Paula', email: 'ana@teste.com' }),
+    onAuthUserChange: vi.fn(),
     userRole: 'BUYER' as const,
     businessProfile: null,
     favorites: [],

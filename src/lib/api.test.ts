@@ -11,7 +11,7 @@ import {
   storeSession,
 } from './api'
 
-const session = { accessToken: 'token-abc', refreshToken: 'refresh-abc', expiresAt: 999 }
+const session = { accessToken: 'token-abc', refreshToken: 'refresh-abc', expiresAt: 9999999999 }
 
 afterEach(() => {
   clearStoredSession()
@@ -83,6 +83,95 @@ describe('api client', () => {
       status: 500,
       message: expect.stringContaining('servidor'),
     })
+  })
+
+  it('token perto de expirar: renova antes da chamada e usa o novo token', async () => {
+    storeSession({ accessToken: 'old-token', refreshToken: 'refresh-abc', expiresAt: Date.now() / 1000 + 30 })
+    let refreshCalls = 0
+    let usedAuthHeader: string | null = null
+    server.use(
+      http.post('/api/auth/refresh', () => {
+        refreshCalls += 1
+        return HttpResponse.json({
+          session: { accessToken: 'new-token', refreshToken: 'refresh-def', expiresAt: 9999999999 },
+        })
+      }),
+      http.get('/api/me', ({ request }) => {
+        usedAuthHeader = request.headers.get('authorization')
+        return HttpResponse.json({ user: { id: 'u1' } })
+      }),
+    )
+
+    await api.me()
+
+    expect(refreshCalls).toBe(1)
+    expect(usedAuthHeader).toBe('Bearer new-token')
+    expect(loadStoredSession()?.accessToken).toBe('new-token')
+  })
+
+  it('single-flight: chamadas concorrentes com token perto de expirar disparam só um refresh', async () => {
+    storeSession({ accessToken: 'old-token', refreshToken: 'refresh-abc', expiresAt: Date.now() / 1000 + 30 })
+    let refreshCalls = 0
+    server.use(
+      http.post('/api/auth/refresh', async () => {
+        refreshCalls += 1
+        await new Promise((resolve) => setTimeout(resolve, 20))
+        return HttpResponse.json({
+          session: { accessToken: 'new-token', refreshToken: 'refresh-def', expiresAt: 9999999999 },
+        })
+      }),
+      http.get('/api/me', () => HttpResponse.json({ user: { id: 'u1' } })),
+      http.get('/api/products', () => HttpResponse.json({ products: [] })),
+    )
+
+    await Promise.all([api.me(), api.listProducts()])
+
+    expect(refreshCalls).toBe(1)
+  })
+
+  it('401 com sessão: tenta renovar 1x e refaz a chamada original antes de derrubar', async () => {
+    storeSession({ accessToken: 'stale-token', refreshToken: 'refresh-abc', expiresAt: undefined })
+    const onUnauthorized = vi.fn()
+    setOnUnauthorized(onUnauthorized)
+    let meCalls = 0
+    server.use(
+      http.post('/api/auth/refresh', () =>
+        HttpResponse.json({
+          session: { accessToken: 'new-token', refreshToken: 'refresh-def', expiresAt: 9999999999 },
+        }),
+      ),
+      http.get('/api/me', ({ request }) => {
+        meCalls += 1
+        const auth = request.headers.get('authorization')
+        if (auth === 'Bearer stale-token') {
+          return HttpResponse.json({ error: 'Nao autenticado' }, { status: 401 })
+        }
+        return HttpResponse.json({ user: { id: 'u1' } })
+      }),
+    )
+
+    const result = await api.me()
+
+    expect(meCalls).toBe(2)
+    expect(result).toEqual({ user: { id: 'u1' } })
+    expect(onUnauthorized).not.toHaveBeenCalled()
+    expect(loadStoredSession()?.accessToken).toBe('new-token')
+  })
+
+  it('401 e refresh também falha: derruba a sessão como antes', async () => {
+    storeSession(session)
+    const onUnauthorized = vi.fn()
+    setOnUnauthorized(onUnauthorized)
+    server.use(
+      http.post('/api/auth/refresh', () =>
+        HttpResponse.json({ error: 'Sessao expirada' }, { status: 401 }),
+      ),
+      http.get('/api/me', () => HttpResponse.json({ error: 'Nao autenticado' }, { status: 401 })),
+    )
+
+    await expect(api.me()).rejects.toBeInstanceOf(ApiError)
+    expect(loadStoredSession()).toBeNull()
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
 
   it('409 de estoque expõe o body discriminado para o checkout', async () => {

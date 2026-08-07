@@ -133,6 +133,7 @@ authRoutes.post('/auth/login', async (c) => {
       email: user.email,
       name: user.name,
       role: user.role,
+      avatarUrl: user.avatarUrl,
     },
   })
 })
@@ -155,4 +156,104 @@ authRoutes.post('/auth/logout', async (c) => {
 
 authRoutes.get('/me', requireUser, (c) => {
   return c.json({ user: c.get('authedUser') })
+})
+
+const forgotPasswordSchema = z.object({
+  email: z.string().email('E-mail invalido'),
+})
+
+/**
+ * Sempre responde 200 com o mesmo corpo, exista ou nao o e-mail — igual ao
+ * login, para nao permitir enumeracao de contas. Erros do Supabase (rate
+ * limit, etc.) tambem nao vazam para a resposta.
+ */
+authRoutes.post('/auth/forgot-password', async (c) => {
+  const body = await parseJsonBody(c)
+  if (body === undefined) {
+    return c.json({ error: 'Body invalido ou ausente' }, 400)
+  }
+  const parsed = forgotPasswordSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'Dados invalidos', details: parsed.error.flatten() }, 400)
+  }
+
+  const origin = c.req.header('origin') ?? new URL(c.req.url).origin
+  try {
+    await supabasePublic.auth.resetPasswordForEmail(parsed.data.email, {
+      redirectTo: `${origin}/redefinir-senha`,
+    })
+  } catch {
+    // Falha de infra (rede com o Supabase) nao pode vazar para a resposta —
+    // o cliente sempre ve a mesma mensagem generica de sucesso.
+  }
+
+  return c.json({ ok: true })
+})
+
+const resetPasswordSchema = z.object({
+  accessToken: z.string().min(1, 'Token de redefinicao ausente'),
+  refreshToken: z.string().min(1, 'Token de redefinicao ausente'),
+  password: z.string().min(8, 'Senha deve ter ao menos 8 caracteres'),
+})
+
+/**
+ * Usa o par de tokens do link de recuperacao (enviado por e-mail pelo
+ * Supabase) para autenticar a troca de senha: `setSession` valida o token de
+ * recovery, `updateUser` grava a nova senha nessa sessao.
+ */
+authRoutes.post('/auth/reset-password', async (c) => {
+  const body = await parseJsonBody(c)
+  if (body === undefined) {
+    return c.json({ error: 'Body invalido ou ausente' }, 400)
+  }
+  const parsed = resetPasswordSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'Dados invalidos', details: parsed.error.flatten() }, 400)
+  }
+  const { accessToken, refreshToken, password } = parsed.data
+
+  const { error: sessionError } = await supabasePublic.auth.setSession({
+    access_token: accessToken,
+    refresh_token: refreshToken,
+  })
+  if (sessionError) {
+    return c.json({ error: 'Link de redefinicao invalido ou expirado' }, 401)
+  }
+
+  const { error: updateError } = await supabasePublic.auth.updateUser({ password })
+  if (updateError) {
+    return c.json({ error: 'Nao foi possivel redefinir a senha' }, 400)
+  }
+
+  return c.json({ ok: true })
+})
+
+const refreshSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token ausente'),
+})
+
+authRoutes.post('/auth/refresh', async (c) => {
+  const body = await parseJsonBody(c)
+  if (body === undefined) {
+    return c.json({ error: 'Body invalido ou ausente' }, 400)
+  }
+  const parsed = refreshSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'Dados invalidos', details: parsed.error.flatten() }, 400)
+  }
+
+  const { data, error } = await supabasePublic.auth.refreshSession({
+    refresh_token: parsed.data.refreshToken,
+  })
+  if (error || !data.session) {
+    return c.json({ error: 'Sessao expirada, faca login novamente' }, 401)
+  }
+
+  return c.json({
+    session: {
+      accessToken: data.session.access_token,
+      refreshToken: data.session.refresh_token,
+      expiresAt: data.session.expires_at,
+    },
+  })
 })

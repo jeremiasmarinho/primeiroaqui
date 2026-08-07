@@ -28,6 +28,7 @@ export interface ApiUser {
   email: string
   name: string
   role: ApiRole
+  avatarUrl: string | null
 }
 
 export interface ApiSession {
@@ -213,14 +214,66 @@ export class ApiError extends Error {
 
 const GENERIC_ERROR = 'Não foi possível falar com o servidor. Tente novamente.'
 
+/** Janela de antecedência para renovar a sessão antes do token expirar de verdade. */
+const REFRESH_SKEW_SECONDS = 60
+
+/**
+ * Renovação de sessão em voo único (single-flight): se várias chamadas
+ * percebem o token perto de expirar (ou tomam 401) ao mesmo tempo, todas
+ * aguardam a MESMA requisição de refresh em vez de disparar uma cada — evita
+ * corrida contra o refresh token do Supabase (de uso único).
+ */
+let refreshPromise: Promise<ApiSession | null> | null = null
+
+async function refreshSession(): Promise<ApiSession | null> {
+  if (refreshPromise) return refreshPromise
+
+  const current = loadStoredSession()
+  if (!current?.refreshToken) return null
+
+  refreshPromise = (async () => {
+    try {
+      const response = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken: current.refreshToken }),
+      })
+      if (!response.ok) return null
+      const payload = (await response.json()) as { session: ApiSession }
+      storeSession(payload.session)
+      return payload.session
+    } catch {
+      return null
+    } finally {
+      refreshPromise = null
+    }
+  })()
+
+  return refreshPromise
+}
+
 interface RequestOptions {
   method?: string
   /** Objeto JSON ou FormData (multipart — o browser define o Content-Type sozinho). */
   body?: unknown
 }
 
-async function request<T>(path: string, { method = 'GET', body }: RequestOptions = {}): Promise<T> {
-  const session = loadStoredSession()
+async function request<T>(
+  path: string,
+  { method = 'GET', body }: RequestOptions = {},
+  isRetryAfterRefresh = false,
+): Promise<T> {
+  // A própria rota de refresh nunca dispara outro refresh — evita recursão.
+  let session = path === '/auth/refresh' ? null : loadStoredSession()
+
+  if (session && !isRetryAfterRefresh && session.expiresAt !== undefined) {
+    const secondsToExpiry = session.expiresAt - Date.now() / 1000
+    if (secondsToExpiry < REFRESH_SKEW_SECONDS) {
+      const refreshed = await refreshSession()
+      if (refreshed) session = refreshed
+    }
+  }
+
   const isFormData = typeof FormData !== 'undefined' && body instanceof FormData
   const headers: Record<string, string> = {}
   if (body !== undefined && !isFormData) headers['Content-Type'] = 'application/json'
@@ -248,8 +301,14 @@ async function request<T>(path: string, { method = 'GET', body }: RequestOptions
   }
 
   if (!response.ok) {
-    if (response.status === 401 && session) {
-      // Token expirado/revogado: a sessão local não vale mais nada.
+    if (response.status === 401 && session && path !== '/auth/refresh') {
+      // Antes de derrubar a sessão, tenta renovar uma vez e refazer a
+      // chamada original — só se esta ainda não é a repetição pós-refresh.
+      if (!isRetryAfterRefresh) {
+        const refreshed = await refreshSession()
+        if (refreshed) return request<T>(path, { method, body }, true)
+      }
+      // Refresh falhou (ou já era retry): token expirado/revogado de vez.
       clearStoredSession()
       onUnauthorized?.()
     }
@@ -283,6 +342,12 @@ export const api = {
     request<{ session: ApiSession; user: ApiUser }>('/auth/login', { method: 'POST', body: input }),
 
   logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
+
+  forgotPassword: (email: string) =>
+    request<{ ok: true }>('/auth/forgot-password', { method: 'POST', body: { email } }),
+
+  resetPassword: (input: { accessToken: string; refreshToken: string; password: string }) =>
+    request<{ ok: true }>('/auth/reset-password', { method: 'POST', body: input }),
 
   me: () => request<{ user: ApiUser }>('/me'),
 
@@ -386,4 +451,12 @@ export const api = {
       body: form,
     })
   },
+
+  uploadAvatar: (file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<{ user: ApiUser }>('/me/avatar', { method: 'POST', body: form })
+  },
+
+  removeAvatar: () => request<{ user: ApiUser }>('/me/avatar', { method: 'DELETE' }),
 }

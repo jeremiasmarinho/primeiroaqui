@@ -50,6 +50,7 @@ interface HomeScreenProps {
   notificationCount: number
   onNotificationsOpen: () => void
   userName?: string
+  userAvatarUrl?: string | null
   /** Endereço padrão da pessoa, quando houver. */
   address?: string
   onOpenCart: () => void
@@ -77,6 +78,7 @@ export default function HomeScreen({
   notificationCount,
   onNotificationsOpen,
   userName,
+  userAvatarUrl,
   address,
   onOpenCart,
   moreHref,
@@ -102,6 +104,7 @@ export default function HomeScreen({
         category={category}
         userInitials={initials}
         userName={userName}
+        userAvatarUrl={userAvatarUrl}
         address={address}
         notifications={notifications}
         notificationCount={notificationCount}

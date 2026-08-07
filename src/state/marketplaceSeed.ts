@@ -49,6 +49,7 @@ export const normalizeStoredUser = (value: unknown): User | null => {
         : 'Cliente Primeiro Aqui',
     email: candidate.email,
     role: 'BUYER',
+    avatarUrl: typeof candidate.avatarUrl === 'string' ? candidate.avatarUrl : null,
   }
 }
 

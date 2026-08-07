@@ -279,7 +279,7 @@ export function useMarketplaceState() {
   const handleBecomeStoreOwner = async () => {
     try {
       const { user } = await api.becomeStoreOwner()
-      session.setAuthUser({ id: user.id, name: user.name, email: user.email, role: user.role })
+      session.setAuthUser({ id: user.id, name: user.name, email: user.email, role: user.role, avatarUrl: user.avatarUrl })
       session.setUserRole(user.role)
       admin.setIsSetupOpen(true)
     } catch (err) {
@@ -439,6 +439,7 @@ export function useMarketplaceState() {
   return {
     // sessão / autenticação
     authUser: session.authUser,
+    onAuthUserChange: session.setAuthUser,
     userRole: session.userRole,
     isDevMode: session.isDevMode,
     authMode: session.authMode,
@@ -450,11 +451,22 @@ export function useMarketplaceState() {
     onAuthSubmit,
     onQuickLogin,
     onRequireLogin: session.recordReturnTo,
-    loginContextMessage: pendingIntentMessage(session.pendingIntent),
+    loginContextMessage: session.resetSuccessMessage || pendingIntentMessage(session.pendingIntent),
     onLogout: handleLogout,
     onBecomeStoreOwner: () => {
       void handleBecomeStoreOwner()
     },
+    forgotPasswordOpen: session.forgotPasswordOpen,
+    forgotEmail: session.forgotEmail,
+    onForgotEmailChange: session.setForgotEmail,
+    forgotStatus: session.forgotStatus,
+    forgotError: session.forgotError,
+    onOpenForgotPassword: session.openForgotPassword,
+    onCloseForgotPassword: session.closeForgotPassword,
+    onForgotPasswordSubmit: (event: React.FormEvent<HTMLFormElement>) => {
+      void session.handleForgotPasswordSubmit(event)
+    },
+    onPasswordResetSuccess: session.notePasswordResetSuccess,
 
     // vitrine / busca — catálogo real
     products: remoteCatalog.products,

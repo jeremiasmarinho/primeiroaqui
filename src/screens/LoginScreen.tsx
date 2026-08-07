@@ -1,4 +1,5 @@
-import { Settings, ShoppingBag, User } from 'lucide-react'
+import { Eye, EyeOff, Settings, ShoppingBag, User } from 'lucide-react'
+import { useState } from 'react'
 import type { Role } from '../types'
 
 export interface AuthForm {
@@ -6,6 +7,9 @@ export interface AuthForm {
   password: string
   name: string
 }
+
+/** Mesmo formato aceito pelo zod do servidor (ver src/server/routes/auth.ts). */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 interface LoginScreenProps {
   authMode: 'login' | 'signup'
@@ -19,6 +23,16 @@ interface LoginScreenProps {
   onQuickLogin: (role: Role) => void
   isDevMode: boolean
   contextMessage: string
+
+  // "Esqueci minha senha"
+  forgotPasswordOpen: boolean
+  forgotEmail: string
+  onForgotEmailChange: (value: string) => void
+  forgotStatus: 'idle' | 'pending' | 'sent'
+  forgotError: string
+  onOpenForgotPassword: () => void
+  onCloseForgotPassword: () => void
+  onForgotPasswordSubmit: (event: React.FormEvent<HTMLFormElement>) => void
 }
 
 /**
@@ -36,7 +50,46 @@ export default function LoginScreen({
   onQuickLogin,
   isDevMode,
   contextMessage,
+  forgotPasswordOpen,
+  forgotEmail,
+  onForgotEmailChange,
+  forgotStatus,
+  forgotError,
+  onOpenForgotPassword,
+  onCloseForgotPassword,
+  onForgotPasswordSubmit,
 }: LoginScreenProps) {
+  const [showPassword, setShowPassword] = useState(false)
+  // Validação inline: só aparece depois que a pessoa saiu do campo (blur),
+  // nunca a cada tecla — evita erro piscando enquanto ainda se digita.
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({})
+
+  const handleEmailBlur = () => {
+    if (!authForm.email) {
+      setFieldErrors((prev) => ({ ...prev, email: undefined }))
+      return
+    }
+    setFieldErrors((prev) => ({
+      ...prev,
+      email: EMAIL_REGEX.test(authForm.email) ? undefined : 'Informe um e-mail válido.',
+    }))
+  }
+
+  const handlePasswordBlur = () => {
+    if (!authForm.password) {
+      setFieldErrors((prev) => ({ ...prev, password: undefined }))
+      return
+    }
+    const minLength = authMode === 'signup' ? 8 : 6
+    setFieldErrors((prev) => ({
+      ...prev,
+      password:
+        authForm.password.length >= minLength
+          ? undefined
+          : `Senha deve ter ao menos ${minLength} caracteres.`,
+    }))
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand p-6">
       <div className="w-full max-w-2xl rounded-[32px] bg-surface p-6 shadow-2xl">
@@ -61,76 +114,162 @@ export default function LoginScreen({
           </p>
         ) : null}
 
-        <form
-          onSubmit={onSubmit}
-          noValidate
-          className="mt-6 rounded-[28px] border border-line p-4"
-        >
-          <div className="flex gap-2">
-            <button type="button" onClick={() => onAuthModeChange('login')} className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${authMode === 'login' ? 'bg-primary text-white' : 'bg-surface-sunken text-ink-muted'}`}>Entrar</button>
-            <button type="button" onClick={() => onAuthModeChange('signup')} className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${authMode === 'signup' ? 'bg-primary text-white' : 'bg-surface-sunken text-ink-muted'}`}>Criar conta</button>
-          </div>
-          <div className="mt-4 space-y-3">
-            {authMode === 'signup' && (
+        {forgotPasswordOpen ? (
+          <form
+            onSubmit={onForgotPasswordSubmit}
+            noValidate
+            className="mt-6 rounded-[28px] border border-line p-4"
+          >
+            {forgotStatus === 'sent' ? (
+              <p className="text-sm leading-6 text-ink-muted">
+                Se este e-mail estiver cadastrado, você vai receber um link para redefinir sua senha em
+                instantes. Confira também a caixa de spam.
+              </p>
+            ) : (
+              <>
+                <p className="text-sm leading-6 text-ink-muted">
+                  Informe seu e-mail e enviaremos um link para você criar uma nova senha.
+                </p>
+                <div className="mt-3">
+                  <label htmlFor="forgot-email" className="text-sm font-semibold text-ink-muted">
+                    E-mail
+                  </label>
+                  <input
+                    id="forgot-email"
+                    type="email"
+                    value={forgotEmail}
+                    onChange={(event) => onForgotEmailChange(event.target.value)}
+                    placeholder="E-mail"
+                    autoComplete="email"
+                    inputMode="email"
+                    className="mt-1 h-12 w-full rounded-[16px] border border-line px-3 outline-none focus:border-primary"
+                  />
+                </div>
+                {forgotError ? (
+                  <p role="alert" className="mt-3 rounded-[14px] bg-error/10 px-3 py-2 text-sm font-semibold text-error">
+                    {forgotError}
+                  </p>
+                ) : null}
+                <button
+                  type="submit"
+                  disabled={forgotStatus === 'pending'}
+                  className="btn-primary min-h-[44px] mt-4 w-full rounded-[20px] px-4 py-3 disabled:opacity-60"
+                >
+                  {forgotStatus === 'pending' ? 'Enviando...' : 'Enviar link de redefinição'}
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              onClick={onCloseForgotPassword}
+              className="mt-3 w-full text-center text-sm font-semibold text-primary"
+            >
+              Voltar para o login
+            </button>
+          </form>
+        ) : (
+          <form
+            onSubmit={onSubmit}
+            noValidate
+            className="mt-6 rounded-[28px] border border-line p-4"
+          >
+            <div className="flex gap-2">
+              <button type="button" onClick={() => onAuthModeChange('login')} className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${authMode === 'login' ? 'bg-primary text-white' : 'bg-surface-sunken text-ink-muted'}`}>Entrar</button>
+              <button type="button" onClick={() => onAuthModeChange('signup')} className={`flex-1 rounded-full px-4 py-2 text-sm font-semibold ${authMode === 'signup' ? 'bg-primary text-white' : 'bg-surface-sunken text-ink-muted'}`}>Criar conta</button>
+            </div>
+            <div className="mt-4 space-y-3">
+              {authMode === 'signup' && (
+                <div>
+                  <label htmlFor="auth-nome" className="text-sm font-semibold text-ink-muted">
+                    Seu nome
+                  </label>
+                  <input
+                    id="auth-nome"
+                    value={authForm.name}
+                    onChange={(event) => onAuthFormChange({ name: event.target.value })}
+                    placeholder="Seu nome"
+                    autoComplete="name"
+                    className="mt-1 h-12 w-full rounded-[16px] border border-line px-3 outline-none focus:border-primary"
+                  />
+                </div>
+              )}
               <div>
-                <label htmlFor="auth-nome" className="text-sm font-semibold text-ink-muted">
-                  Seu nome
+                <label htmlFor="auth-email" className="text-sm font-semibold text-ink-muted">
+                  E-mail
                 </label>
                 <input
-                  id="auth-nome"
-                  value={authForm.name}
-                  onChange={(event) => onAuthFormChange({ name: event.target.value })}
-                  placeholder="Seu nome"
-                  autoComplete="name"
+                  id="auth-email"
+                  type="email"
+                  value={authForm.email}
+                  onChange={(event) => onAuthFormChange({ email: event.target.value })}
+                  onBlur={handleEmailBlur}
+                  placeholder="E-mail"
+                  autoComplete="email"
+                  inputMode="email"
+                  aria-invalid={fieldErrors.email || authError.includes('e-mail') ? true : undefined}
                   className="mt-1 h-12 w-full rounded-[16px] border border-line px-3 outline-none focus:border-primary"
                 />
+                {fieldErrors.email ? (
+                  <p role="alert" className="mt-1 text-xs font-semibold text-error">
+                    {fieldErrors.email}
+                  </p>
+                ) : null}
               </div>
-            )}
-            <div>
-              <label htmlFor="auth-email" className="text-sm font-semibold text-ink-muted">
-                E-mail
-              </label>
-              <input
-                id="auth-email"
-                type="email"
-                value={authForm.email}
-                onChange={(event) => onAuthFormChange({ email: event.target.value })}
-                placeholder="E-mail"
-                autoComplete="email"
-                inputMode="email"
-                aria-invalid={authError.includes('e-mail') ? true : undefined}
-                className="mt-1 h-12 w-full rounded-[16px] border border-line px-3 outline-none focus:border-primary"
-              />
+              <div>
+                <label htmlFor="auth-senha" className="text-sm font-semibold text-ink-muted">
+                  Senha
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    id="auth-senha"
+                    type={showPassword ? 'text' : 'password'}
+                    value={authForm.password}
+                    onChange={(event) => onAuthFormChange({ password: event.target.value })}
+                    onBlur={handlePasswordBlur}
+                    placeholder="Senha"
+                    autoComplete={authMode === 'signup' ? 'new-password' : 'current-password'}
+                    aria-invalid={fieldErrors.password || authError.includes('Senha') ? true : undefined}
+                    className="h-12 w-full rounded-[16px] border border-line px-3 pr-11 outline-none focus:border-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    className="absolute inset-y-0 right-3 flex items-center text-ink-muted"
+                  >
+                    {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  </button>
+                </div>
+                {fieldErrors.password ? (
+                  <p role="alert" className="mt-1 text-xs font-semibold text-error">
+                    {fieldErrors.password}
+                  </p>
+                ) : null}
+              </div>
+              {authMode === 'login' && (
+                <button
+                  type="button"
+                  onClick={onOpenForgotPassword}
+                  className="text-sm font-semibold text-primary"
+                >
+                  Esqueci minha senha
+                </button>
+              )}
             </div>
-            <div>
-              <label htmlFor="auth-senha" className="text-sm font-semibold text-ink-muted">
-                Senha
-              </label>
-              <input
-                id="auth-senha"
-                type="password"
-                value={authForm.password}
-                onChange={(event) => onAuthFormChange({ password: event.target.value })}
-                placeholder="Senha"
-                autoComplete="current-password"
-                aria-invalid={authError.includes('Senha') ? true : undefined}
-                className="mt-1 h-12 w-full rounded-[16px] border border-line px-3 outline-none focus:border-primary"
-              />
-            </div>
-          </div>
-          {authError ? (
-            <p role="alert" className="mt-3 rounded-[14px] bg-error/10 px-3 py-2 text-sm font-semibold text-error">
-              {authError}
-            </p>
-          ) : null}
-          <button
-            type="submit"
-            disabled={authPending}
-            className="btn-primary min-h-[44px] mt-4 w-full rounded-[20px] px-4 py-3 disabled:opacity-60"
-          >
-            {authPending ? 'Entrando...' : authMode === 'signup' ? 'Criar conta' : 'Entrar'}
-          </button>
-        </form>
+            {authError ? (
+              <p role="alert" className="mt-3 rounded-[14px] bg-error/10 px-3 py-2 text-sm font-semibold text-error">
+                {authError}
+              </p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={authPending}
+              className="btn-primary min-h-[44px] mt-4 w-full rounded-[20px] px-4 py-3 disabled:opacity-60"
+            >
+              {authPending ? 'Entrando...' : authMode === 'signup' ? 'Criar conta' : 'Entrar'}
+            </button>
+          </form>
+        )}
 
         {import.meta.env.DEV && isDevMode ? (
         <div className="mt-6 grid gap-4 md:grid-cols-2">

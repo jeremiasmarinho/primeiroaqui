@@ -11,6 +11,7 @@ import LoginScreen from '../screens/LoginScreen'
 import OrdersScreen from '../screens/OrdersScreen'
 import ProductScreen from '../screens/ProductScreen'
 import ProfileScreen from '../screens/ProfileScreen'
+import ResetPasswordScreen from '../screens/ResetPasswordScreen'
 import StoreScreen from '../screens/StoreScreen'
 import type { AdminTab } from '../screens/admin/AdminScreen'
 
@@ -108,6 +109,7 @@ export default function AppRouter(props: AppRouterProps) {
       notificationCount={props.notificationCount}
       onNotificationsOpen={props.onNotificationsOpen}
       userName={authUser?.name}
+      userAvatarUrl={authUser?.avatarUrl}
       address={props.addressLine}
       onOpenCart={props.onOpenCart}
       moreHref={moreHref}
@@ -129,7 +131,19 @@ export default function AppRouter(props: AppRouterProps) {
           onQuickLogin={props.onQuickLogin}
           isDevMode={props.isDevMode}
           contextMessage={props.loginContextMessage}
+          forgotPasswordOpen={props.forgotPasswordOpen}
+          forgotEmail={props.forgotEmail}
+          onForgotEmailChange={props.onForgotEmailChange}
+          forgotStatus={props.forgotStatus}
+          forgotError={props.forgotError}
+          onOpenForgotPassword={props.onOpenForgotPassword}
+          onCloseForgotPassword={props.onCloseForgotPassword}
+          onForgotPasswordSubmit={props.onForgotPasswordSubmit}
         />
+      </Route>
+
+      <Route path={ROUTE_PATTERNS.resetPassword}>
+        <ResetPasswordScreen onSuccess={props.onPasswordResetSuccess} />
       </Route>
 
       <Route path={ROUTE_PATTERNS.home}>{vitrine('Tudo')}</Route>
@@ -237,6 +251,7 @@ export default function AppRouter(props: AppRouterProps) {
       <Route path={ROUTE_PATTERNS.profile}>
         <ProfileScreen
           authUser={authUser}
+          onAuthUserChange={props.onAuthUserChange}
           userRole={userRole}
           businessProfile={props.businessProfile}
           favorites={props.favorites}

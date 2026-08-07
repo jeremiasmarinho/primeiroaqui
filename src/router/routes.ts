@@ -20,6 +20,7 @@ export const ROUTE_PATTERNS = {
   addresses: '/enderecos',
   profile: '/perfil',
   login: '/entrar',
+  resetPassword: '/redefinir-senha',
   admin: '/admin/:tab?',
   myStore: '/minha-loja',
 } as const
@@ -33,6 +34,7 @@ export const ROUTES = {
   addresses: '/enderecos',
   profile: '/perfil',
   login: '/entrar',
+  resetPassword: '/redefinir-senha',
   myStore: '/minha-loja',
   category: (slug: string) => `/categoria/${slug}`,
   product: (id: number | string) => `/produto/${id}`,

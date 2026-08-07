@@ -14,6 +14,7 @@ export default function MarketplaceApp() {
     <>
       <AppRouter
         authUser={state.authUser}
+        onAuthUserChange={state.onAuthUserChange}
         userRole={state.userRole}
         isDevMode={state.isDevMode}
         authMode={state.authMode}
@@ -28,6 +29,15 @@ export default function MarketplaceApp() {
         onRequireLogin={state.onRequireLogin}
         loginContextMessage={state.loginContextMessage}
         onBecomeStoreOwner={state.onBecomeStoreOwner}
+        forgotPasswordOpen={state.forgotPasswordOpen}
+        forgotEmail={state.forgotEmail}
+        onForgotEmailChange={state.onForgotEmailChange}
+        forgotStatus={state.forgotStatus}
+        forgotError={state.forgotError}
+        onOpenForgotPassword={state.onOpenForgotPassword}
+        onCloseForgotPassword={state.onCloseForgotPassword}
+        onForgotPasswordSubmit={state.onForgotPasswordSubmit}
+        onPasswordResetSuccess={state.onPasswordResetSuccess}
         products={state.products}
         productsLoading={state.productsLoading}
         productsError={state.productsError}

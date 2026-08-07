@@ -15,6 +15,7 @@ const toViewUser = (dto: ApiUser): User => ({
   name: dto.name,
   email: dto.email,
   role: dto.role,
+  avatarUrl: dto.avatarUrl,
 })
 
 /**
@@ -43,6 +44,14 @@ export function useSessionState(
   const [authPending, setAuthPending] = useState(false)
   const [pendingReturnTo, setPendingReturnTo] = useState<string | null>(null)
   const [pendingIntent, setPendingIntent] = useState<PendingIntent | null>(null)
+
+  // "Esqueci minha senha": um mini-formulário dentro da tela de login.
+  const [forgotPasswordOpen, setForgotPasswordOpen] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotStatus, setForgotStatus] = useState<'idle' | 'pending' | 'sent'>('idle')
+  const [forgotError, setForgotError] = useState('')
+  // Aviso mostrado no login após voltar de /redefinir-senha com sucesso.
+  const [resetSuccessMessage, setResetSuccessMessage] = useState('')
 
   const isDevMode = import.meta.env.DEV
 
@@ -120,6 +129,7 @@ export function useSessionState(
     }
 
     setAuthError('')
+    setResetSuccessMessage('')
     setAuthPending(true)
     try {
       if (authMode === 'signup') {
@@ -164,6 +174,45 @@ export function useSessionState(
     })
   }
 
+  const openForgotPassword = () => {
+    setForgotPasswordOpen(true)
+    setForgotEmail(authForm.email)
+    setForgotStatus('idle')
+    setForgotError('')
+  }
+
+  const closeForgotPassword = () => {
+    setForgotPasswordOpen(false)
+    setForgotStatus('idle')
+    setForgotError('')
+  }
+
+  /**
+   * Sempre termina em "sent": o backend já responde 200 genérico mesmo para
+   * e-mail inexistente (anti-enumeração — ver `auth.ts`), e uma falha de
+   * rede aqui não deveria dar pista alguma sobre a conta, então a mensagem
+   * de sucesso é mostrada de qualquer forma.
+   */
+  const handleForgotPasswordSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!EMAIL_REGEX.test(forgotEmail)) {
+      setForgotError('Informe um e-mail valido.')
+      return
+    }
+    setForgotError('')
+    setForgotStatus('pending')
+    try {
+      await api.forgotPassword(forgotEmail)
+    } finally {
+      setForgotStatus('sent')
+    }
+  }
+
+  const notePasswordResetSuccess = () => {
+    navigate(ROUTES.login)
+    setResetSuccessMessage('Senha redefinida com sucesso. Entre com sua nova senha.')
+  }
+
   return {
     authUser,
     setAuthUser,
@@ -183,5 +232,15 @@ export function useSessionState(
     clearPendingLogin,
     handleAuthSubmit,
     handleQuickLogin,
+    forgotPasswordOpen,
+    forgotEmail,
+    setForgotEmail,
+    forgotStatus,
+    forgotError,
+    openForgotPassword,
+    closeForgotPassword,
+    handleForgotPasswordSubmit,
+    resetSuccessMessage,
+    notePasswordResetSuccess,
   }
 }
