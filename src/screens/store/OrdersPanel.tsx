@@ -24,7 +24,7 @@ interface OrdersPanelProps {
 export default function OrdersPanel({ orders, onChangeStatus }: OrdersPanelProps) {
   if (orders.length === 0) {
     return (
-      <div className="rounded-[24px] border border-line p-6 text-center">
+      <div className="rounded-card border border-line p-6 text-center">
         <h3 className="text-lg font-black text-ink">Nenhum pedido por enquanto</h3>
         <p className="mt-2 text-sm text-ink-muted">
           Quando alguém comprar da sua loja, o pedido aparece aqui para você confirmar e preparar.
@@ -38,7 +38,7 @@ export default function OrdersPanel({ orders, onChangeStatus }: OrdersPanelProps
       {orders.map((order) => {
         const next = nextOrderStatus(order.status)
         return (
-          <li key={order.id} className="rounded-[24px] border border-line p-4">
+          <li key={order.id} className="rounded-card border border-line p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="font-bold text-ink">{order.buyerName || 'Comprador'}</p>

@@ -75,6 +75,8 @@ export interface Order {
    * pedidos mock do painel admin seguem o union `OrderStatus`.
    */
   status: string
+  /** Status cru da API (`ApiOrderStatus`), quando o pedido veio de lá — permite agrupar sem reinterpretar o rótulo pt-BR. */
+  rawStatus?: string
   region: string
   items?: string[]
   lines?: OrderLine[]
@@ -82,6 +84,10 @@ export interface Order {
   payment?: PaymentMethod
   couponCode?: string
   discount?: number
+  /** Loja dona do pedido (uuid) — presente quando o pedido veio da API. */
+  storeId?: string
+  /** Nome da loja, resolvido no adaptador a partir do catálogo carregado; ausente quando a loja não foi encontrada. */
+  storeName?: string
 }
 
 export type PaymentMethod = 'Pix' | 'Cartão' | 'Boleto'
@@ -115,6 +121,8 @@ export interface Store {
   deliveries: number
   neighborhood: string
   cover: string
+  /** Logo circular da loja, quando cadastrado — null/undefined cai no fallback (cover/iniciais). */
+  logoUrl?: string | null
 }
 
 export interface Customer {

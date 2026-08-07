@@ -60,6 +60,7 @@ storeOwnerRoutes.get('/me/stores', requireUser, requireStoreOwner, async (c) => 
       description: store.description,
       latitude: store.latitude,
       longitude: store.longitude,
+      logoUrl: store.logoUrl,
       isActive: store.isActive,
       createdAt: store.createdAt,
       updatedAt: store.updatedAt,
@@ -90,6 +91,71 @@ storeOwnerRoutes.get('/me/store-orders', requireUser, requireStoreOwner, async (
       updatedAt: order.updatedAt,
       items: order.items,
       buyerName: order.buyer.name,
+    })),
+  })
+})
+
+/**
+ * CRM basico: clientes que ja compraram de QUALQUER loja do usuario logado,
+ * agregados por comprador. Uma unica query (sem N+1) — pedidos ja vem
+ * ordenados por criacao desc, entao o primeiro pedido de cada comprador
+ * encontrado no loop e o mais recente.
+ */
+storeOwnerRoutes.get('/me/store-customers', requireUser, requireStoreOwner, async (c) => {
+  const authedUser = c.get('authedUser')
+  const orders = await prisma.order.findMany({
+    where: { store: { ownerId: authedUser.id } },
+    orderBy: { createdAt: 'desc' },
+    select: {
+      buyerId: true,
+      totalCents: true,
+      status: true,
+      createdAt: true,
+      buyer: { select: { name: true } },
+    },
+  })
+
+  type Aggregate = {
+    buyerId: string
+    name: string
+    ordersCount: number
+    totalCents: number
+    lastOrderAt: Date
+    lastOrderStatus: string
+  }
+  const byBuyer = new Map<string, Aggregate>()
+
+  for (const order of orders) {
+    const existing = byBuyer.get(order.buyerId)
+    if (existing) {
+      existing.ordersCount += 1
+      existing.totalCents += order.totalCents
+    } else {
+      // Primeira ocorrencia para este comprador == pedido mais recente, pois
+      // `orders` ja veio ordenado por createdAt desc.
+      byBuyer.set(order.buyerId, {
+        buyerId: order.buyerId,
+        name: order.buyer.name,
+        ordersCount: 1,
+        totalCents: order.totalCents,
+        lastOrderAt: order.createdAt,
+        lastOrderStatus: order.status,
+      })
+    }
+  }
+
+  const customers = Array.from(byBuyer.values()).sort(
+    (a, b) => b.lastOrderAt.getTime() - a.lastOrderAt.getTime(),
+  )
+
+  return c.json({
+    customers: customers.map((customer) => ({
+      buyerId: customer.buyerId,
+      name: customer.name,
+      ordersCount: customer.ordersCount,
+      totalCents: customer.totalCents,
+      lastOrderAt: customer.lastOrderAt,
+      lastOrderStatus: customer.lastOrderStatus,
     })),
   })
 })

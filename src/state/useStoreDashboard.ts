@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
-import { api, ApiError, type ApiProduct, type ApiStore, type ApiStoreOrder } from '../lib/api'
+import { api, ApiError, type ApiProduct, type ApiStore, type ApiStoreCustomer, type ApiStoreOrder } from '../lib/api'
 import type { ApiOrderStatus } from '../lib/orderStatus'
 
 /**
@@ -16,6 +16,7 @@ export function useStoreDashboard(enabled: boolean) {
   const [store, setStore] = useState<ApiStore | null>(null)
   const [orders, setOrders] = useState<ApiStoreOrder[]>([])
   const [products, setProducts] = useState<ApiProduct[]>([])
+  const [customers, setCustomers] = useState<ApiStoreCustomer[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
@@ -35,15 +36,18 @@ export function useStoreDashboard(enabled: boolean) {
         if (!first) {
           setOrders([])
           setProducts([])
+          setCustomers([])
           return
         }
-        const [{ orders: storeOrders }, { products: storeProducts }] = await Promise.all([
+        const [{ orders: storeOrders }, { products: storeProducts }, { customers: storeCustomers }] = await Promise.all([
           api.listStoreOrders(),
           api.listProducts({ storeId: first.id, limit: 50 }),
+          api.listStoreCustomers(),
         ])
         if (cancelled) return
         setOrders(storeOrders)
         setProducts(storeProducts)
+        setCustomers(storeCustomers)
       } catch (err) {
         if (cancelled) return
         setLoadError(
@@ -136,6 +140,40 @@ export function useStoreDashboard(enabled: boolean) {
     }
   }, [])
 
+  const uploadLogo = useCallback(async (file: File) => {
+    if (!store) return false
+    setActionError('')
+    try {
+      const { store: updated } = await api.uploadStoreLogo(store.id, file)
+      setStore(updated)
+      return true
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível enviar o logo. Tente novamente.',
+      )
+      return false
+    }
+  }, [store])
+
+  const removeLogo = useCallback(async () => {
+    if (!store) return false
+    setActionError('')
+    try {
+      const { store: updated } = await api.removeStoreLogo(store.id)
+      setStore(updated)
+      return true
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível remover o logo. Tente novamente.',
+      )
+      return false
+    }
+  }, [store])
+
   /** Cards da visão geral: pedidos de hoje, pendentes e faturamento (pedidos não cancelados). */
   const metrics = useMemo(() => {
     const today = new Date()
@@ -160,6 +198,7 @@ export function useStoreDashboard(enabled: boolean) {
     store,
     orders,
     products,
+    customers,
     metrics,
     isLoading,
     loadError,
@@ -169,5 +208,7 @@ export function useStoreDashboard(enabled: boolean) {
     createProduct,
     updateProduct,
     uploadPhoto,
+    uploadLogo,
+    removeLogo,
   }
 }

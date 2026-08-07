@@ -70,6 +70,7 @@ export const toViewStore = (dto: ApiStore): Store => ({
   deliveries: 0,
   neighborhood: dto.description ?? '',
   cover: localImage(dto.name),
+  logoUrl: dto.logoUrl,
 })
 
 /** cep exibido = zipCode do backend; lat/lng ficam no backend, a UI não usa. */
@@ -85,15 +86,24 @@ export const toViewAddress = (dto: ApiAddress): Address => ({
 /**
  * Pedido da API → linha do histórico. `titleById` resolve nomes de produto a
  * partir do catálogo carregado; item cujo produto saiu do catálogo aparece
- * como "Produto".
+ * como "Produto". `storeNameById` resolve o nome da loja a partir do
+ * catálogo carregado (sem endpoint novo); loja não encontrada some com
+ * graça — `storeName` fica undefined.
  */
-export const toViewOrder = (dto: ApiOrder, titleById: Map<string, string> = new Map()): Order => ({
+export const toViewOrder = (
+  dto: ApiOrder,
+  titleById: Map<string, string> = new Map(),
+  storeNameById: Map<string, string> = new Map(),
+): Order => ({
   id: dto.id,
   customer: '',
   agent: '',
   value: centsToReais(dto.totalCents),
   status: orderStatusLabel(dto.status),
+  rawStatus: dto.status,
   region: '',
   items: dto.items.map((item) => titleById.get(item.productId) ?? 'Produto'),
   lines: dto.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+  storeId: dto.storeId,
+  storeName: storeNameById.get(dto.storeId),
 })

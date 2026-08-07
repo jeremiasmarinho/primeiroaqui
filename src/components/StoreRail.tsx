@@ -71,6 +71,14 @@ export default function StoreRail() {
                 className="block h-full overflow-hidden rounded-card bg-surface p-3 text-left shadow-card
                            transition-shadow duration-200 hover:shadow-raised"
               >
+                {store.logoUrl ? (
+                  <img
+                    src={store.logoUrl}
+                    alt=""
+                    aria-hidden="true"
+                    className="mb-2 h-10 w-10 rounded-full object-cover"
+                  />
+                ) : null}
                 <p className="truncate font-display font-bold text-ink">{store.name}</p>
                 <p className="mt-1 flex items-center gap-1 text-micro text-ink-muted">
                   <CategoryIcon className="h-3 w-3" aria-hidden="true" />

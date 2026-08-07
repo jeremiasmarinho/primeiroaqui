@@ -58,6 +58,7 @@ export default function MarketplaceApp() {
         orders={state.orders}
         ordersLoading={state.ordersLoading}
         ordersError={state.ordersError}
+        onRetryOrders={state.onRetryOrders}
         currentOrder={state.currentOrder}
         onRepeatOrder={state.onRepeatOrder}
         repeatError={state.repeatError}

@@ -8,7 +8,7 @@ import type { BusinessProfile, Order, Product, Role, User } from '../types'
 
 const SHORTCUTS = [
   { href: ROUTES.favorites, label: 'Meus favoritos' },
-  { href: ROUTES.orders, label: 'Meus pedidos' },
+  { href: ROUTES.orders, label: 'Meus pedidos', subtitle: 'Acompanhe compras e entregas' },
   { href: ROUTES.addresses, label: 'Meus endereços' },
 ] as const
 
@@ -165,9 +165,12 @@ export default function ProfileScreen({
                 <Link
                   key={shortcut.href}
                   href={shortcut.href}
-                  className="flex min-h-[44px] w-full items-center rounded-[18px] border border-line px-4 text-sm font-semibold text-ink-muted"
+                  className="flex min-h-[44px] w-full flex-col justify-center rounded-[18px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted"
                 >
-                  {shortcut.label}
+                  <span>{shortcut.label}</span>
+                  {'subtitle' in shortcut ? (
+                    <span className="text-xs font-normal text-ink-faint">{shortcut.subtitle}</span>
+                  ) : null}
                 </Link>
               ))}
               {userRole === 'BUYER' ? (

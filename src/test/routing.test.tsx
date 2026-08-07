@@ -153,7 +153,7 @@ describe('rotas', () => {
       fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
 
       expect(window.location.pathname).toBe(ROUTES.orders)
-      expect(screen.getByRole('heading', { name: /pedidos/i })).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: /minhas compras/i })).toBeInTheDocument()
     })
   })
 

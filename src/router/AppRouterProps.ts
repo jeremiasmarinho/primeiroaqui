@@ -75,6 +75,7 @@ export interface AppRouterProps {
   orders: Order[]
   ordersLoading: boolean
   ordersError: string
+  onRetryOrders: () => void
   currentOrder: Order | null
   onRepeatOrder: (order: Order) => void
   repeatError: string

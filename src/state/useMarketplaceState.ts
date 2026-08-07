@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLocation } from 'wouter'
 
 import { ROUTES, toCategorySlug } from '../router/routes'
@@ -52,6 +52,20 @@ export function useMarketplaceState() {
 
   const hasSession = !!session.authUser
 
+  // Nome da loja por pedido: sem endpoint novo, deriva de storeId → nome a
+  // partir do catálogo já carregado (mesmo `seller` mostrado nos cards de
+  // produto). Loja fora do catálogo carregado fica sem nome — a tela
+  // degrada em vez de inventar dado de backend.
+  const storeNameById = useMemo(
+    () =>
+      new Map(
+        remoteCatalog.products
+          .filter((product) => product.storeId && product.seller)
+          .map((product) => [product.storeId as string, product.seller]),
+      ),
+    [remoteCatalog.products],
+  )
+
   useEffect(() => {
     if (!hasSession || !loadStoredSession()) {
       setMyOrders([])
@@ -67,7 +81,7 @@ export function useMarketplaceState() {
         const titleById = new Map(
           remoteCatalog.products.map((product) => [product.id, product.title]),
         )
-        setMyOrders(orders.map((order) => toViewOrder(order, titleById)))
+        setMyOrders(orders.map((order) => toViewOrder(order, titleById, storeNameById)))
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -87,6 +101,30 @@ export function useMarketplaceState() {
     // mudança do catálogo seria requisição à toa.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasSession, ordersReloadKey])
+
+  const titleById = useMemo(
+    () => new Map(remoteCatalog.products.map((product) => [product.id, product.title])),
+    [remoteCatalog.products],
+  )
+
+  // /me/orders e /products (catálogo, fonte do nome da loja e dos títulos)
+  // carregam em paralelo — se o catálogo chega depois, `storeNameById`/
+  // `titleById` estavam vazios no momento do map original em `toViewOrder` e
+  // o nome da loja/dos itens nunca era resolvido. Reaplica aqui, fora da
+  // corrida entre as duas requisições. `lines` (usado por `onRepeatOrder`)
+  // não muda, só a projeção de exibição.
+  const ordersForView = useMemo(
+    () =>
+      myOrders.map((order) => ({
+        ...order,
+        storeName:
+          order.storeName ?? (order.storeId ? storeNameById.get(order.storeId) : undefined),
+        items: order.lines?.length
+          ? order.lines.map((line) => titleById.get(line.productId) ?? 'Produto')
+          : order.items,
+      })),
+    [myOrders, storeNameById, titleById],
+  )
 
   // ------------------------------------------------------------------
   // Favoritos reais (GET /api/me/favorites): hidrata a fatia local.
@@ -397,7 +435,10 @@ export function useMarketplaceState() {
       const titleById = new Map(
         remoteCatalog.products.map((product) => [product.id, product.title]),
       )
-      setMyOrders((prev) => [...orders.map((order) => toViewOrder(order, titleById)), ...prev])
+      setMyOrders((prev) => [
+        ...orders.map((order) => toViewOrder(order, titleById, storeNameById)),
+        ...prev,
+      ])
       cartCheckout.dispatchCart(clearCart())
       catalog.addNotification(
         'Compra confirmada',
@@ -488,9 +529,10 @@ export function useMarketplaceState() {
     onOpenCart: () => cartCheckout.setIsCartOpen(true),
 
     // pedidos reais da pessoa
-    orders: myOrders,
+    orders: ordersForView,
     ordersLoading,
     ordersError,
+    onRetryOrders: () => setOrdersReloadKey((key) => key + 1),
     onRepeatOrder: handleRepeatOrder,
     repeatError,
 

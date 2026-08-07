@@ -158,6 +158,14 @@ export default function StoreScreen({
           />
           <div className="p-4">
             <div className="flex flex-wrap items-center gap-2">
+              {store.logoUrl ? (
+                <img
+                  src={store.logoUrl}
+                  alt=""
+                  aria-hidden="true"
+                  className="h-8 w-8 shrink-0 rounded-full object-cover"
+                />
+              ) : null}
               <h1 className="font-display text-xl font-bold text-ink">{store.name}</h1>
               {store.storeCategory ? (
                 (() => {

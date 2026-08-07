@@ -1,9 +1,11 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
+import { vi } from 'vitest'
 import MarketplaceApp from '../MarketplaceApp'
+import { api } from '../lib/api'
 import { seedLoggedInStorage } from './authTestHelpers'
-import { db, seedStoreOwner, seedStoreOrder } from './mocks/handlers'
+import { db, seedStoreOwner, seedStoreOrder, seedStoreCustomer } from './mocks/handlers'
 
 /**
  * Fluxos do lojista: onboarding (BUYER → STORE_OWNER → loja criada) e painel
@@ -136,5 +138,65 @@ describe('painel /minha-loja', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/preço válido/i)
     expect(db.products.some((product) => product.title === 'Produto X')).toBe(false)
+  })
+})
+
+describe('aba Clientes do painel /minha-loja', () => {
+  it('renderiza os clientes agregados vindos de GET /me/store-customers', async () => {
+    seedStoreOwner()
+    seedStoreCustomer({
+      buyerId: 'buyer-9',
+      name: 'Maria Compradora',
+      ordersCount: 3,
+      totalCents: 15000,
+      lastOrderStatus: 'DELIVERED',
+    })
+    seedLoggedInStorage()
+    renderAt('/minha-loja')
+
+    fireEvent.click(await screen.findByRole('tab', { name: /clientes/i }))
+
+    expect(await screen.findByText('Maria Compradora')).toBeInTheDocument()
+    expect(screen.getByText('3')).toBeInTheDocument()
+    expect(screen.getByText('R$ 150,00')).toBeInTheDocument()
+  })
+
+  it('mostra o estado vazio quando não há clientes', async () => {
+    seedStoreOwner()
+    seedLoggedInStorage()
+    renderAt('/minha-loja')
+
+    fireEvent.click(await screen.findByRole('tab', { name: /clientes/i }))
+
+    expect(await screen.findByText(/suas vendas aparecem aqui/i)).toBeInTheDocument()
+  })
+})
+
+describe('logo da loja no painel /minha-loja', () => {
+  // `api.uploadStoreLogo` é mockado diretamente em vez de ir até o MSW via
+  // fetch real — mesmo motivo documentado em profile-avatar.test.tsx: um
+  // `<input type="file">` simulado em jsdom + fetch nativo do Node (undici)
+  // produz um `File` que as checagens internas do undici não reconhecem ao
+  // montar o corpo multipart. A rota real é exercitada pelos testes de
+  // integração do servidor (src/server/routes/stores.test.ts).
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('envia um novo logo e atualiza a exibição', async () => {
+    const store = seedStoreOwner()
+    vi.spyOn(api, 'uploadStoreLogo').mockResolvedValue({
+      store: { ...store, logoUrl: 'https://example.com/store-logos/logo.jpg' },
+    })
+    seedLoggedInStorage()
+    renderAt('/minha-loja')
+
+    await screen.findByRole('heading', { name: store.name })
+    const input = screen.getByLabelText('Selecionar logo da loja') as HTMLInputElement
+    const file = new File(['conteudo'], 'logo.jpg', { type: 'image/jpeg' })
+    fireEvent.change(input, { target: { files: [file] } })
+
+    expect(await screen.findByAltText('Logo da loja')).toBeInTheDocument()
+    expect(api.uploadStoreLogo).toHaveBeenCalledTimes(1)
   })
 })

@@ -9,6 +9,7 @@ import type {
   ApiOrder,
   ApiProduct,
   ApiStore,
+  ApiStoreCustomer,
   ApiStoreOrder,
   ApiUser,
 } from '../../lib/api'
@@ -37,10 +38,10 @@ export const mockUser: ApiUser = {
 // Ids e títulos espelham o catálogo de demonstração antigo — os testes de
 // tela citam esses nomes/urls (ex.: /produto/1, /loja/mercado-central).
 export const mockStores: ApiStore[] = [
-  { id: 'loja-vizinhanca', name: 'Loja Vizinhança', slug: 'loja-vizinhanca', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', isActive: true, createdAt: now, updatedAt: now },
-  { id: 'mercado-central', name: 'Mercado Central', slug: 'mercado-central', description: 'Zona Norte', latitude: 0, longitude: 0, category: 'MERCADO', isActive: true, createdAt: now, updatedAt: now },
-  { id: 'tech-shop', name: 'Tech Shop', slug: 'tech-shop', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', isActive: true, createdAt: now, updatedAt: now },
-  { id: 'farmacia-local', name: 'Farmácia Local', slug: 'farmacia-local', description: 'Zona Sul', latitude: 0, longitude: 0, category: 'FARMACIA', isActive: true, createdAt: now, updatedAt: now },
+  { id: 'loja-vizinhanca', name: 'Loja Vizinhança', slug: 'loja-vizinhanca', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, createdAt: now, updatedAt: now },
+  { id: 'mercado-central', name: 'Mercado Central', slug: 'mercado-central', description: 'Zona Norte', latitude: 0, longitude: 0, category: 'MERCADO', logoUrl: null, isActive: true, createdAt: now, updatedAt: now },
+  { id: 'tech-shop', name: 'Tech Shop', slug: 'tech-shop', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, createdAt: now, updatedAt: now },
+  { id: 'farmacia-local', name: 'Farmácia Local', slug: 'farmacia-local', description: 'Zona Sul', latitude: 0, longitude: 0, category: 'FARMACIA', logoUrl: null, isActive: true, createdAt: now, updatedAt: now },
 ]
 
 const baseProducts: ApiProduct[] = [
@@ -63,6 +64,8 @@ interface MockDb {
   myStores: ApiStore[]
   /** Pedidos recebidos pelas lojas do usuário (GET /me/store-orders). */
   storeOrders: ApiStoreOrder[]
+  /** Clientes agregados das lojas do usuário (GET /me/store-customers). */
+  storeCustomers: ApiStoreCustomer[]
   /** Visão da plataforma inteira (GET /admin/*). */
   adminMetrics: ApiAdminMetrics
   adminOrders: ApiAdminOrder[]
@@ -88,6 +91,7 @@ const createDb = (): MockDb => ({
   orders: [],
   myStores: [],
   storeOrders: [],
+  storeCustomers: [],
   adminMetrics: emptyAdminMetrics(),
   adminOrders: [],
   adminStores: [],
@@ -132,6 +136,7 @@ export const seedStoreOwner = (overrides: Partial<ApiStore> = {}): ApiStore => {
     latitude: 0,
     longitude: 0,
     category: 'OUTROS',
+    logoUrl: null,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -162,6 +167,21 @@ export const seedStoreOrder = (
   }
   db.storeOrders.unshift(order)
   return order
+}
+
+/** Semeia um cliente agregado do painel de CRM (aba "Clientes"). */
+export const seedStoreCustomer = (overrides: Partial<ApiStoreCustomer> = {}): ApiStoreCustomer => {
+  const customer: ApiStoreCustomer = {
+    buyerId: `buyer-${++db.seq}`,
+    name: 'João Comprador',
+    ordersCount: 1,
+    totalCents: 19990,
+    lastOrderAt: new Date().toISOString(),
+    lastOrderStatus: 'DELIVERED',
+    ...overrides,
+  }
+  db.storeCustomers.push(customer)
+  return customer
 }
 
 /**
@@ -507,6 +527,7 @@ export const handlers = [
       latitude: body.latitude ?? 0,
       longitude: body.longitude ?? 0,
       category: body.category ?? 'OUTROS',
+      logoUrl: null,
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -674,5 +695,47 @@ export const handlers = [
       },
       { status: 201 },
     )
+  }),
+
+  // ------------------------------------------------------------- logo da loja
+  http.post('/api/me/stores/:id/logo', async ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const store = db.myStores.find((item) => item.id === params.id)
+    if (!store) {
+      return HttpResponse.json({ error: 'Voce nao tem permissao para editar esta loja' }, { status: 403 })
+    }
+    let form: FormData
+    try {
+      form = await request.formData()
+    } catch {
+      return HttpResponse.json({ error: 'Body invalido ou ausente' }, { status: 400 })
+    }
+    const file = form.get('file')
+    const isFileLike = (value: unknown): value is { type: string } =>
+      !!value && typeof value === 'object' && 'type' in value && 'size' in value && 'arrayBuffer' in value
+    if (!isFileLike(file)) {
+      return HttpResponse.json({ error: 'Campo "file" (arquivo) e obrigatorio' }, { status: 400 })
+    }
+    store.logoUrl = `https://example.com/store-logos/${store.id}-${++db.seq}.jpg`
+    return HttpResponse.json({ store })
+  }),
+
+  http.delete('/api/me/stores/:id/logo', ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const store = db.myStores.find((item) => item.id === params.id)
+    if (!store) {
+      return HttpResponse.json({ error: 'Voce nao tem permissao para editar esta loja' }, { status: 403 })
+    }
+    store.logoUrl = null
+    return HttpResponse.json({ store })
+  }),
+
+  // --------------------------------------------------------------------- CRM
+  http.get('/api/me/store-customers', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (db.user.role === 'BUYER') {
+      return HttpResponse.json({ error: 'Acesso restrito a donos de loja' }, { status: 403 })
+    }
+    return HttpResponse.json({ customers: db.storeCustomers })
   }),
 ]

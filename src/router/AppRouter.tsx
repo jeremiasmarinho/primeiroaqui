@@ -227,6 +227,7 @@ export default function AppRouter(props: AppRouterProps) {
           orders={props.orders}
           isLoading={props.ordersLoading}
           error={props.ordersError}
+          onRetry={props.onRetryOrders}
           onRepeatOrder={props.onRepeatOrder}
           repeatError={props.repeatError}
           onOpenCart={props.onOpenCart}

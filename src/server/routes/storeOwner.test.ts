@@ -228,4 +228,100 @@ describe('rotas de onboarding e painel do lojista', () => {
       expect(body.orders).toEqual([])
     }, 30_000)
   })
+
+  describe('GET /me/store-customers', () => {
+    it('agrega compradores de multiplas lojas do usuario, ordenado por ultima compra desc', async () => {
+      const owner = await createFixtureUser('STORE_OWNER')
+      const buyerA = await createFixtureUser('BUYER')
+      const buyerB = await createFixtureUser('BUYER')
+      createdAuthUserIds.push(owner.authUserId, buyerA.authUserId, buyerB.authUserId)
+      const storeOne = await createStoreFixture(owner.user.id)
+      const storeTwo = await createStoreFixture(owner.user.id)
+
+      const product = await prisma.product.create({
+        data: { storeId: storeOne.id, title: unique('Produto CRM'), category: unique('cat'), priceCents: 1000, stock: 10 },
+      })
+      createdProductIds.push(product.id)
+
+      const address = await prisma.address.create({
+        data: {
+          userId: buyerA.user.id,
+          label: 'Casa',
+          street: 'Rua Um, 1',
+          city: 'SP',
+          state: 'SP',
+          zipCode: '01000-000',
+          latitude: 0,
+          longitude: 0,
+        },
+      })
+      createdAddressIds.push(address.id)
+
+      // buyerA: dois pedidos (lojas diferentes), buyerB: um pedido.
+      const orderA1 = await prisma.order.create({
+        data: {
+          buyerId: buyerA.user.id,
+          storeId: storeOne.id,
+          addressId: address.id,
+          totalCents: 1000,
+          status: 'DELIVERED',
+          createdAt: new Date(Date.now() - 120_000),
+          items: { create: [{ productId: product.id, quantity: 1, unitPriceCents: 1000 }] },
+        },
+      })
+      const orderB1 = await prisma.order.create({
+        data: {
+          buyerId: buyerB.user.id,
+          storeId: storeTwo.id,
+          addressId: address.id,
+          totalCents: 500,
+          status: 'PENDING',
+          createdAt: new Date(Date.now() - 60_000),
+          items: { create: [{ productId: product.id, quantity: 1, unitPriceCents: 500 }] },
+        },
+      })
+      const orderA2 = await prisma.order.create({
+        data: {
+          buyerId: buyerA.user.id,
+          storeId: storeTwo.id,
+          addressId: address.id,
+          totalCents: 2000,
+          status: 'CONFIRMED',
+          items: { create: [{ productId: product.id, quantity: 2, unitPriceCents: 1000 }] },
+        },
+      })
+      createdOrderIds.push(orderA1.id, orderB1.id, orderA2.id)
+
+      const token = await loginToken(owner.email, owner.password)
+      const res = await app.request('/me/store-customers', {
+        headers: { authorization: `Bearer ${token}` },
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as {
+        customers: Array<{
+          buyerId: string
+          name: string
+          ordersCount: number
+          totalCents: number
+          lastOrderStatus: string
+        }>
+      }
+      expect(body.customers.map((c) => c.buyerId)).toEqual([buyerA.user.id, buyerB.user.id])
+      const customerA = body.customers[0]!
+      expect(customerA.ordersCount).toBe(2)
+      expect(customerA.totalCents).toBe(3000)
+      expect(customerA.lastOrderStatus).toBe('CONFIRMED')
+    }, 30_000)
+
+    it('BUYER (sem loja) recebe 403', async () => {
+      const fixture = await createFixtureUser('BUYER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+
+      const res = await app.request('/me/store-customers', {
+        headers: { authorization: `Bearer ${token}` },
+      })
+      expect(res.status).toBe(403)
+    }, 20_000)
+  })
 })

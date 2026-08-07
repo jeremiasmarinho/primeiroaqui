@@ -87,7 +87,7 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleCreate} className="rounded-[24px] border border-line p-4">
+      <form onSubmit={handleCreate} className="rounded-card border border-line p-4">
         <h3 className="text-lg font-black text-ink">Publicar produto</h3>
         <div className="mt-3 grid gap-3 md:grid-cols-2">
           <input
@@ -132,7 +132,7 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
       {photoNotice ? <p role="status" className="text-sm font-semibold text-success">{photoNotice}</p> : null}
 
       {products.length === 0 ? (
-        <div className="rounded-[24px] border border-line p-6 text-center">
+        <div className="rounded-card border border-line p-6 text-center">
           <h3 className="text-lg font-black text-ink">Sua vitrine está vazia</h3>
           <p className="mt-2 text-sm text-ink-muted">
             Publique seu primeiro produto acima — é ele que os vizinhos vão encontrar na busca.
@@ -141,7 +141,7 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
       ) : (
         <ul className="space-y-3">
           {products.map((product) => (
-            <li key={product.id} className="rounded-[24px] border border-line p-4">
+            <li key={product.id} className="rounded-card border border-line p-4">
               {editingId === product.id ? (
                 <div className="space-y-3">
                   <div className="grid gap-3 md:grid-cols-2">

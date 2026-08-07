@@ -1,7 +1,16 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { prisma } from '../lib/prismaClient'
+import { supabaseAdmin } from '../lib/supabaseClient'
 import { requireUser, requireStoreOwner, type AuthEnv } from '../middleware/auth'
+import {
+  validateStoreLogo,
+  buildStoreLogoStoragePath,
+  processStoreLogoImage,
+  ensureStoreLogosBucket,
+  StorageValidationError,
+  STORE_LOGOS_BUCKET,
+} from '../lib/storeLogoStorage'
 
 export const storeRoutes = new Hono<AuthEnv>()
 
@@ -67,6 +76,7 @@ function toPublicStore(store: {
   latitude: number
   longitude: number
   category: string
+  logoUrl: string | null
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -79,10 +89,24 @@ function toPublicStore(store: {
     latitude: store.latitude,
     longitude: store.longitude,
     category: store.category,
+    logoUrl: store.logoUrl,
     isActive: store.isActive,
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,
   }
+}
+
+/**
+ * Deriva o path de storage a partir de uma URL publica do bucket
+ * `store-logos` (`.../storage/v1/object/public/store-logos/<path>`), para
+ * poder remover o arquivo anterior antes de subir o novo. Mesmo padrao de
+ * `storagePathFromPublicUrl` em routes/me.ts.
+ */
+const storagePathFromPublicUrl = (url: string): string | null => {
+  const marker = `/${STORE_LOGOS_BUCKET}/`
+  const index = url.indexOf(marker)
+  if (index === -1) return null
+  return url.slice(index + marker.length)
 }
 
 storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
@@ -149,6 +173,7 @@ storeRoutes.get('/stores', async (c) => {
       slug: store.slug,
       description: store.description,
       category: store.category,
+      logoUrl: store.logoUrl,
     })),
   })
 })
@@ -204,4 +229,121 @@ storeRoutes.patch('/stores/:id', requireUser, requireStoreOwner, async (c) => {
   } catch {
     return c.json({ error: 'Slug ja esta em uso' }, 409)
   }
+})
+
+/**
+ * Upload do logo da loja: dono da loja OU ADMIN. `requireStoreOwner` so
+ * garante o papel — a checagem de dono DESTA loja e feita aqui, mesmo padrao
+ * do PATCH /stores/:id acima.
+ */
+storeRoutes.post('/me/stores/:id/logo', requireUser, requireStoreOwner, async (c) => {
+  const id = c.req.param('id')
+  const authedUser = c.get('authedUser')
+
+  const store = await prisma.store.findUnique({ where: { id } })
+  if (!store) {
+    return c.json({ error: 'Loja nao encontrada' }, 404)
+  }
+  if (authedUser.role !== 'ADMIN' && store.ownerId !== authedUser.id) {
+    return c.json({ error: 'Voce nao tem permissao para editar esta loja' }, 403)
+  }
+
+  let body: Record<string, string | File>
+  try {
+    body = await c.req.parseBody()
+  } catch {
+    return c.json({ error: 'Body invalido ou ausente' }, 400)
+  }
+  const file = body['file']
+  if (!(file instanceof File)) {
+    return c.json({ error: 'Campo "file" (arquivo) e obrigatorio' }, 400)
+  }
+
+  try {
+    validateStoreLogo({ size: file.size, type: file.type })
+  } catch (error) {
+    if (error instanceof StorageValidationError) {
+      return c.json({ error: error.message }, 400)
+    }
+    throw error
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer())
+  let processedBuffer: Buffer
+  try {
+    processedBuffer = await processStoreLogoImage(buffer)
+  } catch (error) {
+    if (error instanceof StorageValidationError) {
+      return c.json({ error: error.message }, 400)
+    }
+    throw error
+  }
+
+  await ensureStoreLogosBucket()
+
+  const path = buildStoreLogoStoragePath(store.id)
+  const bucket = supabaseAdmin.storage.from(STORE_LOGOS_BUCKET)
+
+  const { error: uploadError } = await bucket.upload(path, processedBuffer, { contentType: 'image/jpeg' })
+  if (uploadError) {
+    return c.json({ error: `Falha ao enviar logo: ${uploadError.message}` }, 500)
+  }
+
+  const { data: publicUrlData } = bucket.getPublicUrl(path)
+
+  let updated
+  try {
+    updated = await prisma.store.update({
+      where: { id: store.id },
+      data: { logoUrl: publicUrlData.publicUrl },
+    })
+  } catch (error) {
+    await bucket.remove([path])
+    console.error('Falha ao atualizar logoUrl da loja:', error)
+    return c.json({ error: 'Falha ao salvar logo da loja' }, 500)
+  }
+
+  // Remove o logo anterior so depois do novo estar salvo com sucesso — mesmo
+  // padrao de POST /me/avatar.
+  const previousPath = store.logoUrl ? storagePathFromPublicUrl(store.logoUrl) : null
+  if (previousPath) {
+    const { error: removeError } = await bucket.remove([previousPath])
+    if (removeError) {
+      console.error(`Falha ao remover logo anterior (path=${previousPath}): ${removeError.message}`)
+    }
+  }
+
+  return c.json({ store: toPublicStore(updated) })
+})
+
+/** Remove o logo da loja: dono da loja OU ADMIN. */
+storeRoutes.delete('/me/stores/:id/logo', requireUser, requireStoreOwner, async (c) => {
+  const id = c.req.param('id')
+  const authedUser = c.get('authedUser')
+
+  const store = await prisma.store.findUnique({ where: { id } })
+  if (!store) {
+    return c.json({ error: 'Loja nao encontrada' }, 404)
+  }
+  if (authedUser.role !== 'ADMIN' && store.ownerId !== authedUser.id) {
+    return c.json({ error: 'Voce nao tem permissao para editar esta loja' }, 403)
+  }
+
+  const path = store.logoUrl ? storagePathFromPublicUrl(store.logoUrl) : null
+  if (path) {
+    const { error: removeError } = await supabaseAdmin.storage.from(STORE_LOGOS_BUCKET).remove([path])
+    if (removeError) {
+      return c.json(
+        { error: `Falha ao remover logo do storage, registro mantido para nova tentativa: ${removeError.message}` },
+        500,
+      )
+    }
+  }
+
+  const updated = await prisma.store.update({
+    where: { id: store.id },
+    data: { logoUrl: null },
+  })
+
+  return c.json({ store: toPublicStore(updated) })
 })

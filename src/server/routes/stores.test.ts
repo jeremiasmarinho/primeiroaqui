@@ -275,4 +275,106 @@ describe('rotas de loja', () => {
       expect(body.store.name).toBe('Editado Pelo Admin')
     }, 20_000)
   })
+
+  describe('logo da loja', () => {
+    const STORE_LOGOS_BUCKET = 'store-logos'
+
+    const tinyJpeg = async (): Promise<Buffer> => {
+      const sharp = (await import('sharp')).default
+      return sharp({ create: { width: 20, height: 20, channels: 3, background: { r: 10, g: 200, b: 30 } } })
+        .jpeg()
+        .toBuffer()
+    }
+
+    const buildFormData = (file: Buffer, filename: string, type: string) => {
+      const formData = new FormData()
+      formData.append('file', new File([new Uint8Array(file)], filename, { type }))
+      return formData
+    }
+
+    const pathFromUrl = (url: string): string => {
+      const marker = `/${STORE_LOGOS_BUCKET}/`
+      return url.slice(url.indexOf(marker) + marker.length)
+    }
+
+    const createStoreFixture = async (ownerId: string) => {
+      const store = await prisma.store.create({
+        data: {
+          ownerId,
+          name: 'Loja Logo',
+          slug: uniqueSlug('logo'),
+          latitude: -23.55,
+          longitude: -46.63,
+        },
+      })
+      createdStoreIds.push(store.id)
+      return store
+    }
+
+    it('dono da loja envia logo com sucesso (200) e logoUrl fica salvo', async () => {
+      const owner = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(owner.authUserId)
+      const store = await createStoreFixture(owner.user.id)
+      const token = await loginToken(owner.email, owner.password)
+
+      const jpeg = await tinyJpeg()
+      const res = await app.request(`/me/stores/${store.id}/logo`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: buildFormData(jpeg, 'logo.jpg', 'image/jpeg'),
+      })
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { store: { logoUrl: string } }
+      expect(body.store.logoUrl).toMatch(/^https?:\/\//)
+
+      const { supabaseAdmin } = await import('../lib/supabaseClient')
+      await supabaseAdmin.storage.from(STORE_LOGOS_BUCKET).remove([pathFromUrl(body.store.logoUrl)])
+
+      const dbStore = await prisma.store.findUnique({ where: { id: store.id } })
+      expect(dbStore?.logoUrl).toBe(body.store.logoUrl)
+    }, 30_000)
+
+    it('usuario que nao e dono da loja recebe 403 ao enviar logo', async () => {
+      const owner = await createFixtureUser('STORE_OWNER')
+      const other = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(owner.authUserId, other.authUserId)
+      const store = await createStoreFixture(owner.user.id)
+      const token = await loginToken(other.email, other.password)
+
+      const jpeg = await tinyJpeg()
+      const res = await app.request(`/me/stores/${store.id}/logo`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: buildFormData(jpeg, 'logo.jpg', 'image/jpeg'),
+      })
+      expect(res.status).toBe(403)
+    }, 30_000)
+
+    it('DELETE remove o logo e limpa logoUrl', async () => {
+      const owner = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(owner.authUserId)
+      const store = await createStoreFixture(owner.user.id)
+      const token = await loginToken(owner.email, owner.password)
+
+      const jpeg = await tinyJpeg()
+      const uploadRes = await app.request(`/me/stores/${store.id}/logo`, {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+        body: buildFormData(jpeg, 'logo.jpg', 'image/jpeg'),
+      })
+      expect(uploadRes.status).toBe(200)
+
+      const res = await app.request(`/me/stores/${store.id}/logo`, {
+        method: 'DELETE',
+        headers: { authorization: `Bearer ${token}` },
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { store: { logoUrl: string | null } }
+      expect(body.store.logoUrl).toBeNull()
+
+      const dbStore = await prisma.store.findUnique({ where: { id: store.id } })
+      expect(dbStore?.logoUrl).toBeNull()
+    }, 30_000)
+  })
 })

@@ -62,6 +62,7 @@ export interface ApiStore {
   latitude: number
   longitude: number
   category: string
+  logoUrl: string | null
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -74,6 +75,17 @@ export interface ApiPublicStore {
   slug: string
   description: string | null
   category: string
+  logoUrl: string | null
+}
+
+/** Cliente agregado de GET /me/store-customers — CRM básico do lojista. */
+export interface ApiStoreCustomer {
+  buyerId: string
+  name: string
+  ordersCount: number
+  totalCents: number
+  lastOrderAt: string
+  lastOrderStatus: ApiOrderStatus
 }
 
 /** Item de GET /me/favorites — projeção reduzida do produto, com a 1ª foto. */
@@ -479,4 +491,15 @@ export const api = {
   },
 
   removeAvatar: () => request<{ user: ApiUser }>('/me/avatar', { method: 'DELETE' }),
+
+  uploadStoreLogo: (storeId: string, file: File) => {
+    const form = new FormData()
+    form.append('file', file)
+    return request<{ store: ApiStore }>(`/me/stores/${storeId}/logo`, { method: 'POST', body: form })
+  },
+
+  removeStoreLogo: (storeId: string) =>
+    request<{ store: ApiStore }>(`/me/stores/${storeId}/logo`, { method: 'DELETE' }),
+
+  listStoreCustomers: () => request<{ customers: ApiStoreCustomer[] }>('/me/store-customers'),
 }

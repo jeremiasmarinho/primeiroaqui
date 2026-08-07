@@ -27,14 +27,19 @@ describe('OrdersScreen — os tres estados', () => {
     expect(screen.getByRole('status')).toHaveTextContent(/carregando/i)
   })
 
-  it('erro mostra motivo e saida', () => {
-    render(<OrdersScreen {...baseProps} error="Não foi possível carregar seus pedidos." />)
+  it('erro mostra motivo e permite tentar de novo', () => {
+    const onRetry = vi.fn()
+    render(
+      <OrdersScreen
+        {...baseProps}
+        error="Não foi possível carregar seus pedidos."
+        onRetry={onRetry}
+      />,
+    )
 
     expect(screen.getByRole('alert')).toHaveTextContent(/não foi possível carregar/i)
-    expect(screen.getByRole('link', { name: /explorar ofertas/i })).toHaveAttribute(
-      'href',
-      ROUTES.home,
-    )
+    fireEvent.click(screen.getByRole('button', { name: /tentar de novo/i }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
   })
 
   it('sem pedidos, o estado vazio oferece uma saida', () => {
@@ -65,7 +70,7 @@ describe('OrdersScreen — os tres estados', () => {
 
     expect(screen.getByText('2042')).toBeInTheDocument()
     expect(screen.getByText('Em rota')).toBeInTheDocument()
-    expect(screen.getByText(/R\$\s?250,00/)).toBeInTheDocument()
+    expect(screen.getAllByText(/R\$\s?250,00/).length).toBeGreaterThan(0)
     expect(screen.getByText(/ventilador, whey/i)).toBeInTheDocument()
   })
 
@@ -132,6 +137,12 @@ describe('historico ponta a ponta', () => {
     // POST /api/orders responde e o app navega direto para o historico.
     await waitFor(() => expect(window.location.pathname).toBe(ROUTES.orders))
     expect(await screen.findByText(/ventilador de mesa premium/i)).toBeInTheDocument()
+
+    // Pedido recém-criado é PENDING: cai na seção "Em andamento", com chip
+    // destacado — é a "entrega" do cliente, ponta a ponta com a API real.
+    const inProgress = screen.getByRole('region', { name: /pedidos em andamento/i })
+    expect(within(inProgress).getByText(/ventilador de mesa premium/i)).toBeInTheDocument()
+    expect(within(inProgress).getByText(/aguardando confirmação/i)).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /repetir pedido/i }))
 
