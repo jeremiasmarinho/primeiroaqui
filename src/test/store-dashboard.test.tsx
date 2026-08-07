@@ -35,7 +35,27 @@ describe('onboarding de lojista', () => {
     // Sucesso → navega para /minha-loja com a loja recém-criada.
     expect(await screen.findByRole('heading', { name: /padaria do bairro/i })).toBeInTheDocument()
     expect(db.myStores).toHaveLength(1)
-    expect(db.myStores[0]?.description).toBe('Loja local')
+    // Categoria padrão do form (nenhuma selecionada explicitamente) vai no
+    // payload de POST /stores como `category`, não mais empilhada em description.
+    expect(db.myStores[0]?.category).toBe('OUTROS')
+  })
+
+  it('cadastro do negócio envia a categoria selecionada no payload de POST /stores', async () => {
+    seedLoggedInStorage()
+    renderAt('/perfil')
+
+    fireEvent.click(await screen.findByRole('button', { name: /vender no primeiro aqui/i }))
+    expect(await screen.findByText(/configure seu negócio/i)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByPlaceholderText(/nome do negócio/i), {
+      target: { value: 'Farmácia do Bairro' },
+    })
+    fireEvent.change(screen.getByDisplayValue('Outros'), { target: { value: 'FARMACIA' } })
+    fireEvent.click(screen.getByRole('button', { name: /salvar cadastro/i }))
+
+    expect(await screen.findByRole('heading', { name: /farmácia do bairro/i })).toBeInTheDocument()
+    expect(db.myStores).toHaveLength(1)
+    expect(db.myStores[0]?.category).toBe('FARMACIA')
   })
 
   it('STORE_OWNER vê o atalho "Minha loja" no perfil em vez do onboarding', async () => {

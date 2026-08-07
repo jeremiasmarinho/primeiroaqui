@@ -37,10 +37,10 @@ export const mockUser: ApiUser = {
 // Ids e títulos espelham o catálogo de demonstração antigo — os testes de
 // tela citam esses nomes/urls (ex.: /produto/1, /loja/mercado-central).
 export const mockStores: ApiStore[] = [
-  { id: 'loja-vizinhanca', name: 'Loja Vizinhança', slug: 'loja-vizinhanca', description: 'Centro', latitude: 0, longitude: 0, isActive: true, createdAt: now, updatedAt: now },
-  { id: 'mercado-central', name: 'Mercado Central', slug: 'mercado-central', description: 'Zona Norte', latitude: 0, longitude: 0, isActive: true, createdAt: now, updatedAt: now },
-  { id: 'tech-shop', name: 'Tech Shop', slug: 'tech-shop', description: 'Centro', latitude: 0, longitude: 0, isActive: true, createdAt: now, updatedAt: now },
-  { id: 'farmacia-local', name: 'Farmácia Local', slug: 'farmacia-local', description: 'Zona Sul', latitude: 0, longitude: 0, isActive: true, createdAt: now, updatedAt: now },
+  { id: 'loja-vizinhanca', name: 'Loja Vizinhança', slug: 'loja-vizinhanca', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', isActive: true, createdAt: now, updatedAt: now },
+  { id: 'mercado-central', name: 'Mercado Central', slug: 'mercado-central', description: 'Zona Norte', latitude: 0, longitude: 0, category: 'MERCADO', isActive: true, createdAt: now, updatedAt: now },
+  { id: 'tech-shop', name: 'Tech Shop', slug: 'tech-shop', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', isActive: true, createdAt: now, updatedAt: now },
+  { id: 'farmacia-local', name: 'Farmácia Local', slug: 'farmacia-local', description: 'Zona Sul', latitude: 0, longitude: 0, category: 'FARMACIA', isActive: true, createdAt: now, updatedAt: now },
 ]
 
 const baseProducts: ApiProduct[] = [
@@ -131,6 +131,7 @@ export const seedStoreOwner = (overrides: Partial<ApiStore> = {}): ApiStore => {
     description: 'Loja local',
     latitude: 0,
     longitude: 0,
+    category: 'OUTROS',
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -209,6 +210,7 @@ export const seedAdminStore = (overrides: Partial<ApiAdminStore> = {}): ApiAdmin
     id: `admin-store-${++db.seq}`,
     name: 'Loja da Ana',
     slug: 'loja-da-ana',
+    category: 'OUTROS',
     ownerName: 'Ana Lojista',
     productCount: 3,
     orderCount: 5,
@@ -323,6 +325,24 @@ export const handlers = [
     const store = mockStores.find((item) => item.id === params.id)
     if (!store) return HttpResponse.json({ error: 'Loja nao encontrada' }, { status: 404 })
     return HttpResponse.json({ store })
+  }),
+
+  http.get('/api/stores', ({ request }) => {
+    const url = new URL(request.url)
+    const category = url.searchParams.get('category')
+    const stores = mockStores
+      .filter((store) => store.isActive)
+      .filter((store) => !category || store.category === category)
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(({ id, name, slug, description, category: storeCategory }) => ({
+        id,
+        name,
+        slug,
+        description,
+        category: storeCategory,
+      }))
+    return HttpResponse.json({ stores })
   }),
 
   // -------------------------------------------------------------- favoritos
@@ -471,6 +491,7 @@ export const handlers = [
       description?: string
       latitude?: number
       longitude?: number
+      category?: string
     }
     if (!body?.name || !body?.slug) {
       return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
@@ -485,6 +506,7 @@ export const handlers = [
       description: body.description ?? null,
       latitude: body.latitude ?? 0,
       longitude: body.longitude ?? 0,
+      category: body.category ?? 'OUTROS',
       isActive: true,
       createdAt: now,
       updatedAt: now,

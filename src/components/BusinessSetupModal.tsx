@@ -1,5 +1,6 @@
 import { X } from 'lucide-react'
 import type { BusinessProfile } from '../types'
+import { API_STORE_CATEGORIES, storeCategoryLabel } from '../lib/storeCategory'
 
 interface BusinessSetupModalProps {
   open: boolean
@@ -32,10 +33,11 @@ export default function BusinessSetupModal({
             <form onSubmit={onSubmit} className="mt-4 space-y-3">
               <input value={form.name} onChange={(event) => onChange({ name: event.target.value })} placeholder="Nome do negócio" className="w-full rounded-[16px] border border-line px-3 py-3 outline-none" />
               <select value={form.category} onChange={(event) => onChange({ category: event.target.value })} className="w-full rounded-[16px] border border-line px-3 py-3 outline-none">
-                <option value="Loja local">Loja local</option>
-                <option value="Mercado">Mercado</option>
-                <option value="Farmácia">Farmácia</option>
-                <option value="Serviço">Serviço</option>
+                {API_STORE_CATEGORIES.map((category) => (
+                  <option key={category} value={category}>
+                    {storeCategoryLabel(category)}
+                  </option>
+                ))}
               </select>
               <input value={form.address} onChange={(event) => onChange({ address: event.target.value })} placeholder="Endereço" className="w-full rounded-[16px] border border-line px-3 py-3 outline-none" />
               <input value={form.phone} onChange={(event) => onChange({ phone: event.target.value })} placeholder="Telefone" className="w-full rounded-[16px] border border-line px-3 py-3 outline-none" />

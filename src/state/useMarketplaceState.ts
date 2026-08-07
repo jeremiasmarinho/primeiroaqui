@@ -295,8 +295,8 @@ export function useMarketplaceState() {
 
   /**
    * Cadastro do negócio ligado ao POST /api/stores real. Decisões:
-   * - `categoria` do modal vira a `description` da loja (o backend não tem
-   *   campo de categoria de loja);
+   * - `categoria` do modal (um valor de `StoreCategory`, ver
+   *   src/lib/storeCategory.ts) vai como `category` da loja;
    * - endereço/telefone do modal ficam só no perfil local (businessProfile)
    *   até o backend ter esses campos;
    * - lat/lng vão como 0 por ora (geolocalização é outra fase);
@@ -312,9 +312,9 @@ export function useMarketplaceState() {
       api.createStore({
         name,
         slug,
-        description: admin.setupForm.category || undefined,
         latitude: 0,
         longitude: 0,
+        category: admin.setupForm.category || undefined,
       })
 
     try {

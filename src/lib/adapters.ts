@@ -65,6 +65,7 @@ export const toViewStore = (dto: ApiStore): Store => ({
   slug: dto.slug,
   name: dto.name,
   category: '',
+  storeCategory: dto.category,
   rating: 0,
   deliveries: 0,
   neighborhood: dto.description ?? '',

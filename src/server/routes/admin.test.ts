@@ -251,10 +251,12 @@ describe('rotas /admin', () => {
           productCount: number
           orderCount: number
           isActive: boolean
+          category: string
         }>
       }
       const row = body.stores.find((s) => s.id === store.id)
       expect(row).toBeDefined()
+      expect(row?.category).toBe('OUTROS')
       expect(row?.ownerName).toBe(ownerFixture.user.name)
       expect(row?.productCount).toBe(1)
       expect(row?.orderCount).toBe(1)

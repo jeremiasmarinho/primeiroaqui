@@ -28,7 +28,7 @@ export const initialThreads: Thread[] = [
 ]
 
 export const EMPTY_DELIVERY: DeliveryForm = { name: '', address: '', city: '', cep: '', payment: 'Pix' }
-export const EMPTY_BUSINESS: BusinessProfile = { name: '', category: 'Loja local', address: '', phone: '' }
+export const EMPTY_BUSINESS: BusinessProfile = { name: '', category: 'OUTROS', address: '', phone: '' }
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 

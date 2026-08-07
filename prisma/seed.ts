@@ -28,7 +28,7 @@ loadEnv({ path: envFile, quiet: true })
 const { prisma } = await import('../src/server/lib/prismaClient')
 const { supabaseAdmin } = await import('../src/server/lib/supabaseClient')
 const { productImage, storeImage } = await import('../src/lib/images')
-const { UserRole, OrderStatus } = await import('@prisma/client')
+const { UserRole, OrderStatus, StoreCategory } = await import('@prisma/client')
 
 /** Senha forte fixa de seed — apenas ambientes de dev/homolog, nunca producao real de cliente. */
 const SEED_PASSWORD = 'PrimeiroAqui!Seed2026'
@@ -79,6 +79,7 @@ type StoreSeed = {
   name: string
   description: string
   category: string
+  storeCategory: (typeof StoreCategory)[keyof typeof StoreCategory]
   ownerName: string
   ownerEmail: string
   latitude: number
@@ -93,6 +94,7 @@ const STORE_SEEDS: StoreSeed[] = [
     name: 'Mercearia do Bairro',
     description: 'Mercearia de bairro com hortifruti fresco, mercearia seca e atendimento de confianca.',
     category: 'Supermercado',
+    storeCategory: StoreCategory.MERCADO,
     ownerName: 'Rosana Ferreira',
     ownerEmail: 'rosana.ferreira@exemplo-primeiroaqui.com.br',
     latitude: -19.9227,
@@ -103,6 +105,7 @@ const STORE_SEEDS: StoreSeed[] = [
     name: 'Farmácia Vida Nova',
     description: 'Farmácia de manipulação e genéricos, com entrega expressa no bairro.',
     category: 'Farmácia',
+    storeCategory: StoreCategory.FARMACIA,
     ownerName: 'Carlos Eduardo Nunes',
     ownerEmail: 'carlos.nunes@exemplo-primeiroaqui.com.br',
     latitude: -19.9186,
@@ -113,6 +116,7 @@ const STORE_SEEDS: StoreSeed[] = [
     name: 'Padaria São José',
     description: 'Pães e salgados fresquinhos desde 1998, direto do forno para sua mesa.',
     category: 'Padaria',
+    storeCategory: StoreCategory.PADARIA,
     ownerName: 'José Antônio Silva',
     ownerEmail: 'jose.silva@exemplo-primeiroaqui.com.br',
     latitude: -19.9294,
@@ -123,6 +127,7 @@ const STORE_SEEDS: StoreSeed[] = [
     name: 'Petshop Amigo Fiel',
     description: 'Ração, banho e tosa, e acessórios para cães e gatos com carinho de vizinho.',
     category: 'Pet',
+    storeCategory: StoreCategory.PETSHOP,
     ownerName: 'Fernanda Lima',
     ownerEmail: 'fernanda.lima@exemplo-primeiroaqui.com.br',
     latitude: -19.9155,
@@ -133,6 +138,7 @@ const STORE_SEEDS: StoreSeed[] = [
     name: 'Hortifruti Flor do Campo',
     description: 'Frutas, verduras e legumes selecionados direto do produtor, todos os dias.',
     category: 'Hortifruti',
+    storeCategory: StoreCategory.HORTIFRUTI,
     ownerName: 'Marcos Paulo Andrade',
     ownerEmail: 'marcos.andrade@exemplo-primeiroaqui.com.br',
     latitude: -19.9263,
@@ -272,6 +278,7 @@ async function main() {
       update: {
         name: seed.name,
         description: seed.description,
+        category: seed.storeCategory,
         latitude: seed.latitude,
         longitude: seed.longitude,
         ownerId: owner.id,
@@ -281,6 +288,7 @@ async function main() {
         slug: seed.slug,
         name: seed.name,
         description: seed.description,
+        category: seed.storeCategory,
         latitude: seed.latitude,
         longitude: seed.longitude,
         ownerId: owner.id,

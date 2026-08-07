@@ -116,6 +116,8 @@ describe('painel admin da plataforma', () => {
       expect(await screen.findByText('Loja Suspeita')).toBeInTheDocument()
       expect(screen.getByText('Zé Dono')).toBeInTheDocument()
       expect(screen.getByText('Ativa')).toBeInTheDocument()
+      // category default do fixture (seedAdminStore) é 'OUTROS' -> rótulo pt-BR "Outros".
+      expect(screen.getByText('Outros')).toBeInTheDocument()
 
       // Primeiro clique só arma a confirmação, não desativa ainda.
       fireEvent.click(screen.getByRole('button', { name: /desativar loja suspeita/i }))

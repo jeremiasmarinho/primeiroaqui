@@ -9,6 +9,7 @@ import { toViewStore } from '../lib/adapters'
 import { fallbackTo } from '../lib/images'
 import { ROUTES } from '../router/routes'
 import type { Product, Store } from '../types'
+import { storeCategoryIcon, storeCategoryLabel } from '../lib/storeCategory'
 
 interface StoreScreenProps {
   /** Id (uuid) da loja — a URL passou de slug para id na integração com a API. */
@@ -156,7 +157,20 @@ export default function StoreScreen({
             className="h-36 w-full bg-surface-sunken object-cover md:h-48"
           />
           <div className="p-4">
-            <h1 className="font-display text-xl font-bold text-ink">{store.name}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="font-display text-xl font-bold text-ink">{store.name}</h1>
+              {store.storeCategory ? (
+                (() => {
+                  const CategoryIcon = storeCategoryIcon(store.storeCategory)
+                  return (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-surface-sunken px-2 py-1 text-micro font-semibold text-ink-muted">
+                      <CategoryIcon className="h-3 w-3" aria-hidden="true" />
+                      {storeCategoryLabel(store.storeCategory)}
+                    </span>
+                  )
+                })()
+              ) : null}
+            </div>
             {store.neighborhood ? (
               <p className="mt-2 inline-flex items-center gap-1 text-sm text-ink-muted">
                 <MapPin className="h-4 w-4" aria-hidden="true" />

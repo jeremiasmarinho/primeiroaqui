@@ -23,6 +23,17 @@ enum OrderStatus {
   CANCELED
 }
 
+enum StoreCategory {
+  MERCADO
+  PADARIA
+  FARMACIA
+  PETSHOP
+  HORTIFRUTI
+  RESTAURANTE
+  SERVICOS
+  OUTROS
+}
+
 model User {
   id           String    @id @default(uuid())
   authUserId   String    @unique
@@ -49,6 +60,7 @@ model Store {
   name        String
   slug        String    @unique
   description String?
+  category    StoreCategory @default(OUTROS)
   latitude    Float
   longitude   Float
   isActive    Boolean   @default(true)

@@ -1,69 +1,85 @@
-import { MapPin, Star } from 'lucide-react'
-import { stores } from '../data/catalog'
-import { fallbackTo } from '../lib/images'
-import type { Store } from '../types'
+import { useEffect, useState } from 'react'
+import { Link } from 'wouter'
 
-interface StoreRailProps {
-  onSelect?: (store: Store) => void
-}
+import { api, type ApiPublicStore } from '../lib/api'
+import { storeCategoryIcon, storeCategoryLabel } from '../lib/storeCategory'
+import { ROUTES } from '../router/routes'
 
 /**
- * Trilho de lojas do bairro. Enquanto não houver rota de loja (WU-44/46), o
- * clique filtra o catálogo pela categoria da loja — comportamento real, não
- * botão decorativo.
+ * Trilho "Lojas da cidade" sobre GET /api/stores (listagem pública). Falha
+ * de rede não quebra a home: o rail simplesmente não renderiza nesse caso.
  */
-export default function StoreRail({ onSelect }: StoreRailProps) {
+export default function StoreRail() {
+  const [stores, setStores] = useState<ApiPublicStore[] | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .listStores()
+      .then(({ stores: fetched }) => {
+        if (!cancelled) setStores(fetched)
+      })
+      .catch(() => {
+        if (!cancelled) setStores([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  if (stores === null) {
+    return (
+      <section aria-labelledby="lojas-da-cidade" className="pt-4">
+        <div className="flex items-center justify-between gap-2 px-3 pb-2">
+          <h2 id="lojas-da-cidade" className="font-display text-base font-bold text-ink">
+            Lojas da cidade
+          </h2>
+        </div>
+        <ul aria-hidden="true" className="rail no-scrollbar px-3">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <li key={index} className="w-40 shrink-0">
+              <div className="animate-pulse rounded-card bg-surface p-3 shadow-card">
+                <div className="h-4 w-3/4 rounded bg-surface-sunken" />
+                <div className="mt-2 h-3 w-1/2 rounded bg-surface-sunken" />
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+    )
+  }
+
+  if (stores.length === 0) return null
+
   return (
-    <section aria-labelledby="lojas-do-bairro" className="pt-4">
+    <section aria-labelledby="lojas-da-cidade" className="pt-4">
       <div className="flex items-center justify-between gap-2 px-3 pb-2">
-        <h2 id="lojas-do-bairro" className="font-display text-base font-bold text-ink">
-          Lojas do bairro
+        <h2 id="lojas-da-cidade" className="font-display text-base font-bold text-ink">
+          Lojas da cidade
         </h2>
         <span className="text-sm font-semibold text-ink-muted">{stores.length} lojas</span>
       </div>
 
       <ul className="rail no-scrollbar px-3">
-        {stores.map((store) => (
-          <li key={store.id} className="w-[15rem]">
-            <button
-              type="button"
-              onClick={() => onSelect?.(store)}
-              aria-label={`Ver produtos de ${store.name}, ${store.neighborhood}`}
-              className="w-full overflow-hidden rounded-card bg-surface text-left shadow-card
-                         transition-shadow duration-200 hover:shadow-raised"
-            >
-              <img
-                src={store.cover}
-                alt=""
-                width={640}
-                height={360}
-                loading="lazy"
-                decoding="async"
-                onError={fallbackTo(store.name)}
-                className="h-24 w-full bg-surface-sunken object-cover"
-              />
-              <div className="p-3">
+        {stores.map((store) => {
+          const CategoryIcon = storeCategoryIcon(store.category)
+          return (
+            <li key={store.id} className="w-40 shrink-0">
+              <Link
+                href={ROUTES.store(store.id)}
+                aria-label={`Ver loja ${store.name}`}
+                className="block h-full overflow-hidden rounded-card bg-surface p-3 text-left shadow-card
+                           transition-shadow duration-200 hover:shadow-raised"
+              >
                 <p className="truncate font-display font-bold text-ink">{store.name}</p>
                 <p className="mt-1 flex items-center gap-1 text-micro text-ink-muted">
-                  <MapPin className="h-3 w-3" aria-hidden="true" />
-                  {store.neighborhood}
+                  <CategoryIcon className="h-3 w-3" aria-hidden="true" />
+                  {storeCategoryLabel(store.category)}
                 </p>
-                <p className="mt-1 flex items-center gap-1 text-micro text-ink-muted">
-                  {store.rating > 0 && (
-                    <>
-                      <Star className="h-3 w-3 fill-brand-deep text-brand-deep" aria-hidden="true" />
-                      <span className="tabular">{store.rating.toFixed(1)}</span>
-                      <span aria-hidden="true">·</span>
-                    </>
-                  )}
-                  <span className="text-ink-faint">
-                    {store.deliveries.toLocaleString('pt-BR')} entregas
-                  </span>
-                </p>
-              </div>
-            </button>
-          </li>
-        ))}
+              </Link>
+            </li>
+          )
+        })}
       </ul>
     </section>
   )

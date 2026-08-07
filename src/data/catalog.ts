@@ -140,7 +140,7 @@ export const categories: Category[] = ['Tudo', 'Supermercado', 'Farmácia', 'Cas
 export const banners = [
   {
     id: 'b1',
-    eyebrow: 'Semana do bairro',
+    eyebrow: 'Semana da cidade',
     title: 'Cupons relâmpago',
     subtitle: 'Novos cupons liberados às 09h, 12h e 15h',
     cta: 'Resgatar cupom',
@@ -150,7 +150,7 @@ export const banners = [
     id: 'b2',
     eyebrow: 'Primeiro Aqui+',
     title: 'Frete grátis o mês inteiro',
-    subtitle: 'Assine e receba sem custo em todo o bairro',
+    subtitle: 'Assine e receba sem custo em toda a cidade',
     cta: 'Conhecer o plano',
     tone: 'ink',
   },

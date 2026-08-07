@@ -64,7 +64,7 @@ const SEARCH_TERMS: Record<string, string[]> = {
   'Arroz Branco Tipo 1 5kg': ['white rice bag'],
   'Feijão Carioca 1kg': ['pinto beans bag', 'pinto beans', 'beans'],
   'Óleo de Soja 900ml': ['soybean cooking oil bottle', 'cooking oil bottle', 'vegetable oil bottle'],
-  'Açúcar Refinado 1kg': ['white sugar bag'],
+  'Açúcar Refinado 1kg': ['white sugar bag', 'sugar bowl', 'refined sugar', 'sugar cubes'],
   'Café Torrado e Moído 500g': ['ground coffee bag'],
   'Leite Integral 1L': ['milk carton', 'milk bottle', 'glass of milk'],
   'Papel Higiênico 12 Rolos': ['toilet paper rolls'],
@@ -104,7 +104,7 @@ const SEARCH_TERMS: Record<string, string[]> = {
   'Shampoo Pet Neutro 500ml': ['dog shampoo bottle', 'dog bath tub washing pet', 'pet grooming shampoo'],
   'Coleira Ajustável Nylon': ['nylon dog collar', 'dog collar product', 'dog collar'],
   'Brinquedo Mordedor para Cães': ['dog chew toy rubber', 'dog toy ball', 'dog chew toy'],
-  'Caixa de Areia Sanitária': ['cat litter box plastic', 'litter tray cat', 'cat litter box'],
+  'Caixa de Areia Sanitária': ['cat litter box plastic', 'litter tray cat', 'cat litter box', 'cat sandbox', 'kitty litter pan'],
   'Petisco Bifinho Cães 500g': ['dog jerky treat', 'dog snack food', 'dog jerky treats'],
   'Tapete Higiênico Pacote com 30': ['pee pads package', 'puppy pads', 'pee pads'],
 
@@ -271,19 +271,21 @@ const EXTRA_VALIDATORS: Record<string, (title: string) => boolean> = {
 }
 
 /**
- * Escolhe o melhor resultado: precisa (a) ter dimensoes >= MIN_DIMENSION,
- * (b) ter title/tags relevantes ao termo buscado (evita matches "cegos" tipo
- * um robo de LEGO para "carrot" so porque e laranja), (c) nao ser arte/
- * ilustracao/gravura/foto p&b antiga (queremos foto de produto), e (d)
- * passar no validador extra do produto (contra o TITLE), se houver. Entre os
- * candidatos validos, prefere o de maior area (mais provavel ser foto de
- * produto real, nao thumbnail minusculo).
+ * Filtra e ordena os candidatos validos de uma busca: precisa (a) ter
+ * dimensoes >= MIN_DIMENSION, (b) ter title/tags relevantes ao termo
+ * buscado (evita matches "cegos" tipo um robo de LEGO para "carrot" so
+ * porque e laranja), (c) nao ser arte/ilustracao/gravura/foto p&b antiga
+ * (queremos foto de produto), e (d) passar no validador extra do produto
+ * (contra o TITLE), se houver. Retorna TODOS os candidatos validos, do maior
+ * para o menor por area — nao so o melhor — para permitir fallback de
+ * download: se o 1o candidato falhar ao baixar (404/429/timeout
+ * persistente), tenta o proximo antes de desistir do termo inteiro.
  */
-function pickResult(
+function pickCandidates(
   results: OpenverseResult[],
   term: string,
   extraValidator?: (title: string) => boolean,
-): OpenverseResult | undefined {
+): OpenverseResult[] {
   const keywords = relevanceKeywords(term)
   const candidates = results.filter((r) => {
     if (!r.url) return false
@@ -295,38 +297,46 @@ function pickResult(
     if (extraValidator && !extraValidator((r.title ?? '').toLowerCase())) return false
     return true
   })
-  if (candidates.length === 0) return undefined
-  return candidates.reduce((best, current) => {
-    const bestArea = (best.width ?? 0) * (best.height ?? 0)
-    const currentArea = (current.width ?? 0) * (current.height ?? 0)
-    return currentArea > bestArea ? current : best
-  })
+  return candidates.sort((a, b) => (b.width ?? 0) * (b.height ?? 0) - (a.width ?? 0) * (a.height ?? 0))
 }
 
 /**
  * Busca um termo com escalonamento: tenta per_page=5 primeiro; se nenhum
  * candidato relevante e de dimensao adequada aparecer, tenta de novo com
- * per_page=10 antes de desistir do termo.
+ * per_page=10 antes de desistir do termo. Retorna a lista completa de
+ * candidatos validos (nao so o melhor) para permitir fallback de download.
  */
 async function searchOpenverseWithFallback(
   term: string,
   extraValidator?: (title: string) => boolean,
-): Promise<OpenverseResult | undefined> {
+): Promise<OpenverseResult[]> {
   const firstBatch = await searchOpenverse(term, 5)
   await sleep(OPENVERSE_DELAY_MS)
-  const picked = pickResult(firstBatch, term, extraValidator)
-  if (picked) return picked
+  const firstCandidates = pickCandidates(firstBatch, term, extraValidator)
+  if (firstCandidates.length > 0) return firstCandidates
 
   console.log(`  [relevancia] Nenhum match relevante em 5 resultados para "${term}" — tentando per_page=10`)
   const secondBatch = await searchOpenverse(term, 10)
   await sleep(OPENVERSE_DELAY_MS)
-  return pickResult(secondBatch, term, extraValidator)
+  return pickCandidates(secondBatch, term, extraValidator)
+}
+
+/** Erro de download classificado — permite decidir se vale tentar o proximo candidato ou desistir do termo. */
+class DownloadError extends Error {
+  constructor(message: string, readonly status?: number) {
+    super(message)
+  }
 }
 
 async function downloadImage(url: string): Promise<{ buffer: Buffer; contentType: string }> {
-  const response = await fetch(url)
+  let response: Response
+  try {
+    response = await fetch(url, { signal: AbortSignal.timeout(20_000) })
+  } catch (error) {
+    throw new DownloadError(`Falha de rede/timeout baixando ${url}: ${error instanceof Error ? error.message : error}`)
+  }
   if (!response.ok) {
-    throw new Error(`Download falhou (${response.status}) para ${url}`)
+    throw new DownloadError(`Download falhou (${response.status}) para ${url}`, response.status)
   }
   const contentType = response.headers.get('content-type') ?? 'image/jpeg'
   const arrayBuffer = await response.arrayBuffer()
@@ -421,41 +431,38 @@ async function main() {
 
     const extraValidator = EXTRA_VALIDATORS[product.title]
 
-    try {
-      let chosen: OpenverseResult | undefined
-      let usedTerm = ''
-      for (const term of terms) {
-        console.log(`[busca] "${product.title}" -> "${term}"`)
-        chosen = await searchOpenverseWithFallback(term, extraValidator)
-        if (chosen) {
-          usedTerm = term
-          break
-        }
-        console.warn(`  [sem-match] "${term}" nao trouxe candidato relevante/valido — tentando proximo termo, se houver.`)
+    /**
+     * Baixa + processa + sobe UM candidato ja aprovado (relevancia/anti-
+     * ilustracao). Retorna a url publica em caso de sucesso, ou motivo da
+     * falha para o caller decidir se tenta o proximo candidato.
+     */
+    async function tryCandidate(
+      candidate: OpenverseResult,
+    ): Promise<{ ok: true; url: string } | { ok: false; retryable: boolean; reason: string }> {
+      let downloaded: Buffer
+      let contentType: string
+      try {
+        const result = await downloadImage(candidate.url)
+        downloaded = result.buffer
+        contentType = result.contentType
+      } catch (error) {
+        const status = error instanceof DownloadError ? error.status : undefined
+        // 404/429/timeout de rede sao tipicamente do CANDIDATO especifico
+        // (link morto, host com rate limit) — vale tentar o proximo
+        // candidato da mesma busca antes de desistir do termo.
+        const reason = error instanceof Error ? error.message : String(error)
+        return { ok: false, retryable: true, reason: `download falhou (status ${status ?? 'n/d'}): ${reason}` }
       }
 
-      if (!chosen) {
-        noResult += 1
-        console.warn(`[sem-resultado] Nenhuma imagem adequada para "${product.title}" (termos tentados: ${terms.join(', ')})`)
-        continue
-      }
-
-      console.log(
-        `  termo usado: "${usedTerm}" | titulo openverse: ${chosen.title ?? 'n/d'} | origem: ${chosen.foreign_landing_url ?? chosen.url} | creator: ${chosen.creator ?? 'desconhecido'} | license_url: ${chosen.license_url ?? 'n/d'}`,
-      )
-
-      const { buffer: downloaded, contentType } = await downloadImage(chosen.url)
       let normalizedType = SUPPORTED_UPLOAD_TYPES[contentType.split(';')[0]?.trim() ?? '']
       if (!normalizedType) {
-        errors += 1
-        console.warn(`[erro] Formato nao suportado (${contentType}) para "${product.title}" — pulando.`)
-        continue
+        return { ok: false, retryable: true, reason: `formato nao suportado (${contentType})` }
       }
 
       // Bucket product-photos tem limite de 5MB (mesmo limite de
       // validateProductPhoto). Alguns originais do Openverse (Wikimedia,
       // Flickr em alta resolucao) excedem isso — reduz e reencoda como jpeg
-      // em vez de descartar o produto.
+      // em vez de descartar o candidato.
       let buffer = downloaded
       if (buffer.byteLength > MAX_UPLOAD_BYTES) {
         try {
@@ -463,9 +470,7 @@ async function main() {
           normalizedType = 'image/jpeg'
           console.log(`  [resize] Original de ${downloaded.byteLength} bytes excedia limite — reduzido para ${buffer.byteLength} bytes.`)
         } catch {
-          errors += 1
-          console.warn(`[erro] Imagem grande demais e sharp falhou ao reduzir para "${product.title}" — pulando.`)
-          continue
+          return { ok: false, retryable: true, reason: 'imagem grande demais e sharp falhou ao reduzir' }
         }
       }
 
@@ -473,9 +478,7 @@ async function main() {
       try {
         thumbBuffer = await sharp(buffer).resize({ width: THUMB_WIDTH, withoutEnlargement: true }).toBuffer()
       } catch {
-        errors += 1
-        console.warn(`[erro] Imagem invalida (sharp falhou) para "${product.title}" — pulando.`)
-        continue
+        return { ok: false, retryable: true, reason: 'imagem invalida (sharp falhou no thumb)' }
       }
 
       const path = buildStoragePath(product.id, normalizedType)
@@ -483,16 +486,15 @@ async function main() {
 
       const { error: uploadError } = await bucket.upload(path, buffer, { contentType: normalizedType })
       if (uploadError) {
-        errors += 1
-        console.warn(`[erro] Falha ao enviar foto de "${product.title}": ${uploadError.message}`)
-        continue
+        // Falha de upload (rede/storage) nao e culpa do candidato escolhido
+        // — nao adianta trocar de imagem, entao nao e retryable (propaga
+        // como erro do produto, nao tenta o proximo candidato).
+        return { ok: false, retryable: false, reason: `falha ao enviar foto: ${uploadError.message}` }
       }
       const { error: thumbUploadError } = await bucket.upload(thumbPath, thumbBuffer, { contentType: normalizedType })
       if (thumbUploadError) {
         await bucket.remove([path])
-        errors += 1
-        console.warn(`[erro] Falha ao enviar thumb de "${product.title}": ${thumbUploadError.message}`)
-        continue
+        return { ok: false, retryable: false, reason: `falha ao enviar thumb: ${thumbUploadError.message}` }
       }
 
       const { data: publicUrlData } = bucket.getPublicUrl(path)
@@ -522,11 +524,57 @@ async function main() {
         })
       }
 
-      replaced += 1
-      attachedUrls.push({ title: product.title, url: publicUrlData.publicUrl })
-      console.log(
-        `[ok] Foto ${existing ? 'substituida' : 'anexada'} em "${product.title}" -> ${publicUrlData.publicUrl}`,
-      )
+      return { ok: true, url: publicUrlData.publicUrl }
+    }
+
+    try {
+      let succeeded = false
+      let fatalError = false
+
+      termLoop: for (const term of terms) {
+        console.log(`[busca] "${product.title}" -> "${term}"`)
+        const candidates = await searchOpenverseWithFallback(term, extraValidator)
+        if (candidates.length === 0) {
+          console.warn(`  [sem-match] "${term}" nao trouxe candidato relevante/valido — tentando proximo termo, se houver.`)
+          continue
+        }
+
+        for (let i = 0; i < candidates.length; i++) {
+          const candidate = candidates[i]
+          if (!candidate) continue
+          console.log(
+            `  candidato ${i + 1}/${candidates.length} | titulo openverse: ${candidate.title ?? 'n/d'} | origem: ${candidate.foreign_landing_url ?? candidate.url} | creator: ${candidate.creator ?? 'desconhecido'} | license_url: ${candidate.license_url ?? 'n/d'}`,
+          )
+
+          const result = await tryCandidate(candidate)
+          if (result.ok) {
+            replaced += 1
+            attachedUrls.push({ title: product.title, url: result.url })
+            console.log(
+              `[ok] Foto ${existing ? 'substituida' : 'anexada'} em "${product.title}" (termo: "${term}") -> ${result.url}`,
+            )
+            succeeded = true
+            break termLoop
+          }
+
+          console.warn(`  [candidato-falhou] ${result.reason}${result.retryable ? ' — tentando proximo candidato' : ''}`)
+          if (!result.retryable) {
+            errors += 1
+            fatalError = true
+            break termLoop
+          }
+          // retryable: cai pro proximo candidato do mesmo termo; se esgotar
+          // a lista, o for externo passa pro proximo termo.
+        }
+      }
+
+      if (!succeeded) {
+        if (!fatalError) {
+          noResult += 1
+          console.warn(`[sem-resultado] Nenhuma imagem adequada para "${product.title}" (termos tentados: ${terms.join(', ')})`)
+        }
+        continue
+      }
     } catch (error) {
       errors += 1
       console.error(`[erro] Falha inesperada em "${product.title}":`, error)

@@ -61,9 +61,19 @@ export interface ApiStore {
   description: string | null
   latitude: number
   longitude: number
+  category: string
   isActive: boolean
   createdAt: string
   updatedAt: string
+}
+
+/** Loja de GET /stores — listagem pública (rail "Lojas da cidade"). */
+export interface ApiPublicStore {
+  id: string
+  name: string
+  slug: string
+  description: string | null
+  category: string
 }
 
 /** Item de GET /me/favorites — projeção reduzida do produto, com a 1ª foto. */
@@ -146,6 +156,7 @@ export interface ApiAdminStore {
   id: string
   name: string
   slug: string
+  category: string
   ownerName: string
   productCount: number
   orderCount: number
@@ -366,6 +377,14 @@ export const api = {
 
   getStore: (id: string) => request<{ store: ApiStore }>(`/stores/${id}`),
 
+  /** GET /stores (público) — lojas ativas ordenadas por nome, para a rail "Lojas da cidade". */
+  listStores: (params?: { category?: string }) => {
+    const query = new URLSearchParams()
+    if (params?.category) query.set('category', params.category)
+    const suffix = query.size > 0 ? `?${query.toString()}` : ''
+    return request<{ stores: ApiPublicStore[] }>(`/stores${suffix}`)
+  },
+
   addFavorite: (productId: string) =>
     request<{ ok: true }>(`/favorites/${productId}`, { method: 'POST' }),
 
@@ -404,6 +423,7 @@ export const api = {
     description?: string
     latitude: number
     longitude: number
+    category?: string
   }) => request<{ store: ApiStore }>('/stores', { method: 'POST', body: input }),
 
   listStoreOrders: () => request<{ orders: ApiStoreOrder[] }>('/me/store-orders'),

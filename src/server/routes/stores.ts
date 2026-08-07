@@ -24,12 +24,24 @@ const slugSchema = z
   .string()
   .regex(/^[a-z0-9-]+$/, 'Slug deve conter apenas letras minusculas, numeros e hifen')
 
+const storeCategorySchema = z.enum([
+  'MERCADO',
+  'PADARIA',
+  'FARMACIA',
+  'PETSHOP',
+  'HORTIFRUTI',
+  'RESTAURANTE',
+  'SERVICOS',
+  'OUTROS',
+])
+
 const createStoreSchema = z.object({
   name: z.string().trim().min(1, 'Nome nao pode ser vazio'),
   slug: slugSchema,
   description: z.string().optional(),
   latitude: z.number(),
   longitude: z.number(),
+  category: storeCategorySchema.optional(),
 })
 
 const updateStoreSchema = z
@@ -39,6 +51,7 @@ const updateStoreSchema = z
     description: z.string().optional(),
     latitude: z.number(),
     longitude: z.number(),
+    category: storeCategorySchema,
   })
   .partial()
   .refine((data) => Object.keys(data).length > 0, {
@@ -53,6 +66,7 @@ function toPublicStore(store: {
   description: string | null
   latitude: number
   longitude: number
+  category: string
   isActive: boolean
   createdAt: Date
   updatedAt: Date
@@ -64,6 +78,7 @@ function toPublicStore(store: {
     description: store.description,
     latitude: store.latitude,
     longitude: store.longitude,
+    category: store.category,
     isActive: store.isActive,
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,
@@ -81,7 +96,7 @@ storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
   }
 
   const authedUser = c.get('authedUser')
-  const { name, slug, description, latitude, longitude } = parsed.data
+  const { name, slug, description, latitude, longitude, category } = parsed.data
 
   const existing = await prisma.store.findUnique({ where: { slug } })
   if (existing) {
@@ -97,6 +112,7 @@ storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
         description,
         latitude,
         longitude,
+        ...(category !== undefined ? { category } : {}),
       },
     })
     return c.json({ store: toPublicStore(store) }, 201)
@@ -105,6 +121,36 @@ storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
     // `slug`) cai aqui como 409 generico.
     return c.json({ error: 'Slug ja esta em uso' }, 409)
   }
+})
+
+const listStoresQuerySchema = z.object({
+  category: storeCategorySchema.optional(),
+})
+
+/** Listagem publica de lojas ativas — usada na rail "Lojas da cidade" da home. */
+storeRoutes.get('/stores', async (c) => {
+  const parsed = listStoresQuerySchema.safeParse(c.req.query())
+  if (!parsed.success) {
+    return c.json({ error: 'Parametros invalidos', details: parsed.error.flatten() }, 400)
+  }
+  const { category } = parsed.data
+
+  const stores = await prisma.store.findMany({
+    where: {
+      isActive: true,
+      ...(category !== undefined ? { category } : {}),
+    },
+    orderBy: { name: 'asc' },
+  })
+  return c.json({
+    stores: stores.map((store) => ({
+      id: store.id,
+      name: store.name,
+      slug: store.slug,
+      description: store.description,
+      category: store.category,
+    })),
+  })
 })
 
 storeRoutes.get('/stores/:id', async (c) => {
@@ -140,7 +186,7 @@ storeRoutes.patch('/stores/:id', requireUser, requireStoreOwner, async (c) => {
     return c.json({ error: 'Voce nao tem permissao para editar esta loja' }, 403)
   }
 
-  const { name, slug, description, latitude, longitude } = parsed.data
+  const { name, slug, description, latitude, longitude, category } = parsed.data
 
   if (slug && slug !== store.slug) {
     const existing = await prisma.store.findUnique({ where: { slug } })
@@ -152,7 +198,7 @@ storeRoutes.patch('/stores/:id', requireUser, requireStoreOwner, async (c) => {
   try {
     const updated = await prisma.store.update({
       where: { id },
-      data: { name, slug, description, latitude, longitude },
+      data: { name, slug, description, latitude, longitude, category },
     })
     return c.json({ store: toPublicStore(updated) })
   } catch {

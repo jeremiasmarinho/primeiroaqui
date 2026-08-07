@@ -109,6 +109,8 @@ export interface Store {
   slug: string
   name: string
   category: Exclude<Category, 'Tudo'>
+  /** Categoria real da loja (`StoreCategory` do backend, ex.: "MERCADO") — ver src/lib/storeCategory.ts. */
+  storeCategory?: string
   rating: number
   deliveries: number
   neighborhood: string

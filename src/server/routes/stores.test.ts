@@ -53,12 +53,36 @@ describe('rotas de loja', () => {
         }),
       })
       expect(res.status).toBe(201)
-      const body = (await res.json()) as { store: { id: string; slug: string; ownerId?: string } }
+      const body = (await res.json()) as { store: { id: string; slug: string; ownerId?: string; category: string } }
       expect(body.store.slug).toBe(slug)
+      expect(body.store.category).toBe('OUTROS')
       createdStoreIds.push(body.store.id)
 
       const dbStore = await prisma.store.findUnique({ where: { id: body.store.id } })
       expect(dbStore?.ownerId).toBe(fixture.user.id)
+    }, 20_000)
+
+    it('cria loja com category explicito', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+      const slug = uniqueSlug('categoria')
+
+      const res = await app.request('/stores', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          name: 'Padaria Teste',
+          slug,
+          latitude: -23.55,
+          longitude: -46.63,
+          category: 'PADARIA',
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { store: { id: string; category: string } }
+      expect(body.store.category).toBe('PADARIA')
+      createdStoreIds.push(body.store.id)
     }, 20_000)
 
     it('BUYER tentando criar loja recebe 403', async () => {
@@ -137,8 +161,9 @@ describe('rotas de loja', () => {
 
       const res = await app.request(`/stores/${store.id}`)
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { store: { id: string } }
+      const body = (await res.json()) as { store: { id: string; category: string } }
       expect(body.store.id).toBe(store.id)
+      expect(body.store.category).toBe('OUTROS')
     }, 20_000)
 
     it('loja inexistente retorna 404', async () => {
@@ -171,6 +196,31 @@ describe('rotas de loja', () => {
       expect(res.status).toBe(200)
       const body = (await res.json()) as { store: { name: string } }
       expect(body.store.name).toBe('Nome Novo')
+    }, 20_000)
+
+    it('dono atualiza category da loja (200)', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+      const store = await prisma.store.create({
+        data: {
+          ownerId: fixture.user.id,
+          name: 'Loja Categoria',
+          slug: uniqueSlug('categoria-patch'),
+          latitude: -23.55,
+          longitude: -46.63,
+        },
+      })
+      createdStoreIds.push(store.id)
+
+      const res = await app.request(`/stores/${store.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+        body: JSON.stringify({ category: 'FARMACIA' }),
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { store: { category: string } }
+      expect(body.store.category).toBe('FARMACIA')
     }, 20_000)
 
     it('outro STORE_OWNER (dono de loja diferente) recebe 403', async () => {

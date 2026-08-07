@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ApiAdminStore } from '../../lib/api'
+import { storeCategoryLabel } from '../../lib/storeCategory'
 
 interface AdminStoresTabProps {
   stores: ApiAdminStore[]
@@ -57,6 +58,7 @@ export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabPr
         <thead>
           <tr className="border-b border-line text-xs font-semibold uppercase tracking-[0.15em] text-ink-muted">
             <th scope="col" className="px-4 py-3">Loja</th>
+            <th scope="col" className="px-4 py-3">Categoria</th>
             <th scope="col" className="px-4 py-3">Dono</th>
             <th scope="col" className="px-4 py-3 text-right">Produtos</th>
             <th scope="col" className="px-4 py-3 text-right">Pedidos</th>
@@ -68,6 +70,7 @@ export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabPr
           {stores.map((store) => (
             <tr key={store.id} className="border-b border-line last:border-b-0">
               <td className="px-4 py-3 font-semibold text-ink">{store.name}</td>
+              <td className="px-4 py-3 text-ink">{storeCategoryLabel(store.category)}</td>
               <td className="px-4 py-3 text-ink">{store.ownerName}</td>
               <td className="tabular px-4 py-3 text-right text-ink">
                 {numberBR.format(store.productCount)}

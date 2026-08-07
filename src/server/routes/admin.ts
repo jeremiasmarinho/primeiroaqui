@@ -127,6 +127,7 @@ adminRoutes.get('/admin/stores', requireUser, requireAdmin, async (c) => {
       id: store.id,
       name: store.name,
       slug: store.slug,
+      category: store.category,
       ownerName: store.owner.name,
       productCount: store._count.products,
       orderCount: store._count.orders,

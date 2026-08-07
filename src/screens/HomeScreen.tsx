@@ -1,6 +1,7 @@
 import { PackageSearch } from 'lucide-react'
 import TopBar from '../components/TopBar'
 import ProductCard from '../components/ProductCard'
+import StoreRail from '../components/StoreRail'
 import { Link } from 'wouter'
 import BottomNav from '../components/BottomNav'
 import { ROUTES } from '../router/routes'
@@ -84,6 +85,9 @@ export default function HomeScreen({
   moreHref,
   isAuthenticated,
 }: HomeScreenProps) {
+  // "Navegando" = sem busca nem filtro de categoria ativos — mesmo critério
+  // usado para o grid de catálogo (título "Ofertas da cidade" vs categoria).
+  const isBrowsing = category === 'Tudo' && searchQuery.trim() === ''
   const isFavorite = (product: Product): boolean => favorites.some((item) => item.id === product.id)
   const initials = (userName || 'Primeiro Aqui')
     .split(' ')
@@ -119,10 +123,12 @@ export default function HomeScreen({
             frete grátis por assinatura, produto "express") e os CTAs não levavam
             a lugar nenhum — religar quando essas features existirem de verdade. */}
 
+        {isBrowsing ? <StoreRail /> : null}
+
         <section aria-labelledby="catalogo">
           <SectionHeader
             id="catalogo"
-            title={category === 'Tudo' ? 'Ofertas do bairro' : category}
+            title={category === 'Tudo' ? 'Ofertas da cidade' : category}
             hint={`${products.length} itens`}
           />
 
