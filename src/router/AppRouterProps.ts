@@ -34,6 +34,8 @@ export interface AppRouterProps {
   onAuthSubmit: (event: React.FormEvent<HTMLFormElement>) => void
   authPending: boolean
   onQuickLogin: (role: Role) => void
+  /** Botão "Continuar com Google": busca a URL de authorize e navega o browser para lá. */
+  onGoogleLogin: () => void
   onLogout: () => void
   onRequireLogin: (path: string) => void
   loginContextMessage: string
@@ -51,6 +53,14 @@ export interface AppRouterProps {
   onForgotPasswordSubmit: (event: React.FormEvent<HTMLFormElement>) => void
   /** Navega de volta ao login com aviso de sucesso após `/redefinir-senha`. */
   onPasswordResetSuccess: () => void
+
+  // callback OAuth (/entrar/callback)
+  onOAuthComplete: (tokens: {
+    accessToken: string
+    refreshToken: string
+    expiresAt?: number
+  }) => Promise<{ ok: true } | { ok: false; message: string }>
+  onOAuthError: (message: string) => void
 
   // vitrine — catálogo real (GET /api/products)
   products: Product[]

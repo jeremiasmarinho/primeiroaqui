@@ -213,6 +213,48 @@ export function useSessionState(
     setResetSuccessMessage('Senha redefinida com sucesso. Entre com sua nova senha.')
   }
 
+  /**
+   * Início do login social: busca no servidor a URL de authorize do Supabase
+   * (o front não tem SUPABASE_URL) e navega o browser inteiro para lá — não é
+   * uma chamada de API comum, é uma troca de página real.
+   */
+  const handleGoogleLogin = async (): Promise<void> => {
+    setAuthError('')
+    try {
+      const { url } = await api.oauthUrl('google', pendingReturnTo ?? '/')
+      window.location.href = url
+    } catch {
+      setAuthError('Não foi possível iniciar o login com Google. Tente novamente.')
+    }
+  }
+
+  /**
+   * Conclui o login social a partir dos tokens lidos do fragmento de
+   * `/entrar/callback` (ver OAuthCallbackScreen). Mesmo caminho de
+   * persistência de sessão do login por senha.
+   */
+  const handleOAuthComplete = async (tokens: {
+    accessToken: string
+    refreshToken: string
+    expiresAt?: number
+  }): Promise<{ ok: true } | { ok: false; message: string }> => {
+    try {
+      const { session, user } = await api.oauthComplete(tokens)
+      storeSession(session)
+      setAuthUser(toViewUser(user))
+      setUserRole(user.role)
+      return { ok: true }
+    } catch (error) {
+      return {
+        ok: false,
+        message:
+          error instanceof ApiError
+            ? error.message
+            : 'Não foi possível concluir o login com Google. Tente novamente.',
+      }
+    }
+  }
+
   return {
     authUser,
     setAuthUser,
@@ -223,6 +265,7 @@ export function useSessionState(
     authForm,
     setAuthForm,
     authError,
+    setAuthError,
     authPending,
     isDevMode,
     pendingReturnTo,
@@ -232,6 +275,8 @@ export function useSessionState(
     clearPendingLogin,
     handleAuthSubmit,
     handleQuickLogin,
+    handleGoogleLogin,
+    handleOAuthComplete,
     forgotPasswordOpen,
     forgotEmail,
     setForgotEmail,

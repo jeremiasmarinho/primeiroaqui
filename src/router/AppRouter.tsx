@@ -8,6 +8,7 @@ import CategoriesScreen from '../screens/CategoriesScreen'
 import FavoritesScreen from '../screens/FavoritesScreen'
 import HomeScreen from '../screens/HomeScreen'
 import LoginScreen from '../screens/LoginScreen'
+import OAuthCallbackScreen from '../screens/OAuthCallbackScreen'
 import OrdersScreen from '../screens/OrdersScreen'
 import ProductScreen from '../screens/ProductScreen'
 import ProfileScreen from '../screens/ProfileScreen'
@@ -119,6 +120,10 @@ export default function AppRouter(props: AppRouterProps) {
 
   return (
     <Switch>
+      <Route path={ROUTE_PATTERNS.oauthCallback}>
+        <OAuthCallbackScreen onComplete={props.onOAuthComplete} onError={props.onOAuthError} />
+      </Route>
+
       <Route path={ROUTE_PATTERNS.login}>
         <LoginScreen
           authMode={props.authMode}
@@ -129,6 +134,7 @@ export default function AppRouter(props: AppRouterProps) {
           onSubmit={props.onAuthSubmit}
           authPending={props.authPending}
           onQuickLogin={props.onQuickLogin}
+          onGoogleLogin={props.onGoogleLogin}
           isDevMode={props.isDevMode}
           contextMessage={props.loginContextMessage}
           forgotPasswordOpen={props.forgotPasswordOpen}

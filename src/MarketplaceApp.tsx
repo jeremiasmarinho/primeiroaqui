@@ -25,6 +25,7 @@ export default function MarketplaceApp() {
         onAuthSubmit={state.onAuthSubmit}
         authPending={state.authPending}
         onQuickLogin={state.onQuickLogin}
+        onGoogleLogin={state.onGoogleLogin}
         onLogout={state.onLogout}
         onRequireLogin={state.onRequireLogin}
         loginContextMessage={state.loginContextMessage}
@@ -38,6 +39,8 @@ export default function MarketplaceApp() {
         onCloseForgotPassword={state.onCloseForgotPassword}
         onForgotPasswordSubmit={state.onForgotPasswordSubmit}
         onPasswordResetSuccess={state.onPasswordResetSuccess}
+        onOAuthComplete={state.onOAuthComplete}
+        onOAuthError={state.onOAuthError}
         products={state.products}
         productsLoading={state.productsLoading}
         productsError={state.productsError}

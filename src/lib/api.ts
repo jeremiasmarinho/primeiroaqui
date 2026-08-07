@@ -372,6 +372,19 @@ export const api = {
   resetPassword: (input: { accessToken: string; refreshToken: string; password: string }) =>
     request<{ ok: true }>('/auth/reset-password', { method: 'POST', body: input }),
 
+  /** Monta no servidor a URL de `/auth/v1/authorize` do Supabase — o front nunca tem SUPABASE_URL. */
+  oauthUrl: (provider: 'google', redirect: string) =>
+    request<{ url: string }>(
+      `/auth/oauth-url?provider=${provider}&redirect=${encodeURIComponent(redirect)}`,
+    ),
+
+  /** Conclui o login social com os tokens lidos do fragmento de `/entrar/callback`. */
+  oauthComplete: (input: { accessToken: string; refreshToken: string; expiresAt?: number }) =>
+    request<{ session: ApiSession; user: ApiUser }>('/auth/oauth-complete', {
+      method: 'POST',
+      body: input,
+    }),
+
   me: () => request<{ user: ApiUser }>('/me'),
 
   listProducts: (params: ListProductsParams = {}) => {

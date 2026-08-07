@@ -303,6 +303,41 @@ export const handlers = [
     return HttpResponse.json({ ok: true })
   }),
 
+  http.get('/api/auth/oauth-url', ({ request }) => {
+    const url = new URL(request.url)
+    const provider = url.searchParams.get('provider')
+    const redirect = url.searchParams.get('redirect') ?? '/'
+    if (provider !== 'google') {
+      return HttpResponse.json({ error: 'Provedor OAuth invalido' }, { status: 400 })
+    }
+    const redirectTo = `https://app.test/entrar/callback?redirect=${encodeURIComponent(redirect)}`
+    return HttpResponse.json({
+      url: `https://proj.supabase.co/auth/v1/authorize?provider=google&redirect_to=${encodeURIComponent(redirectTo)}`,
+    })
+  }),
+
+  http.post('/api/auth/oauth-complete', async ({ request }) => {
+    const body = (await request.json()) as {
+      accessToken?: string
+      refreshToken?: string
+      expiresAt?: number
+    }
+    if (!body?.accessToken || !body?.refreshToken) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    if (body.accessToken === 'token-invalido') {
+      return HttpResponse.json({ error: 'Sessao OAuth invalida ou expirada' }, { status: 401 })
+    }
+    return HttpResponse.json({
+      session: {
+        accessToken: body.accessToken,
+        refreshToken: body.refreshToken,
+        expiresAt: body.expiresAt ?? 9999999999,
+      },
+      user: { ...db.user, name: 'Usuario Google', avatarUrl: 'https://example.com/avatar-google.jpg' },
+    })
+  }),
+
   http.post('/api/auth/refresh', async ({ request }) => {
     const body = (await request.json()) as { refreshToken?: string }
     if (!body?.refreshToken || body.refreshToken === 'refresh-invalido') {

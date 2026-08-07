@@ -13,14 +13,18 @@ const resetPasswordForEmail = vi.fn()
 const setSession = vi.fn()
 const updateUser = vi.fn()
 const refreshSession = vi.fn()
+const getUser = vi.fn()
+const userFindUnique = vi.fn()
+const userUpdate = vi.fn()
 
 vi.mock('../lib/supabaseClient', () => ({
   supabasePublic: { auth: { signUp, resetPasswordForEmail, setSession, updateUser, refreshSession } },
-  supabaseAdmin: { auth: { admin: {} } },
+  supabaseAdmin: { auth: { admin: {}, getUser } },
+  supabaseUrl: 'https://proj.supabase.co',
 }))
 
 vi.mock('../lib/prismaClient', () => ({
-  prisma: { user: { create: userCreate } },
+  prisma: { user: { create: userCreate, findUnique: userFindUnique, update: userUpdate } },
 }))
 
 describe('POST /auth/signup (logica isolada, sem rede)', () => {
@@ -32,6 +36,9 @@ describe('POST /auth/signup (logica isolada, sem rede)', () => {
     setSession.mockReset()
     updateUser.mockReset()
     refreshSession.mockReset()
+    getUser.mockReset()
+    userFindUnique.mockReset()
+    userUpdate.mockReset()
   })
 
   it('ignora role vindo do body e cria sempre com BUYER', async () => {
@@ -326,5 +333,232 @@ describe('POST /auth/refresh', () => {
     })
     expect(res.status).toBe(400)
     expect(refreshSession).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /auth/oauth-url', () => {
+  it('provider valido e redirect relativo: devolve URL de authorize com redirect_to codificado', async () => {
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-url?provider=google&redirect=%2Ffavoritos', {
+      headers: { origin: 'https://app.exemplo.com' },
+    })
+
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { url: string }
+    expect(body.url.startsWith('https://proj.supabase.co/auth/v1/authorize?provider=google&redirect_to=')).toBe(
+      true,
+    )
+    const redirectTo = decodeURIComponent(body.url.split('redirect_to=')[1] ?? '')
+    expect(redirectTo).toBe('https://app.exemplo.com/entrar/callback?redirect=%2Ffavoritos')
+  })
+
+  it('sem redirect: usa "/" como padrao', async () => {
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-url?provider=google', {
+      headers: { origin: 'https://app.exemplo.com' },
+    })
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { url: string }
+    const redirectTo = decodeURIComponent(body.url.split('redirect_to=')[1] ?? '')
+    expect(redirectTo).toBe('https://app.exemplo.com/entrar/callback?redirect=%2F')
+  })
+
+  it('provider fora da allowlist: 400', async () => {
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-url?provider=facebook')
+    expect(res.status).toBe(400)
+  })
+
+  it('sem provider: 400', async () => {
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-url')
+    expect(res.status).toBe(400)
+  })
+
+  it('redirect absoluto (open redirect): 400', async () => {
+    const { app } = await import('../app')
+    const res = await app.request(
+      '/auth/oauth-url?provider=google&redirect=' + encodeURIComponent('https://evil.example.com'),
+    )
+    expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /auth/oauth-complete', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    getUser.mockReset()
+    userFindUnique.mockReset()
+    userCreate.mockReset()
+    userUpdate.mockReset()
+  })
+
+  it('token valido, usuario novo: cria com role BUYER, nome/avatar do user_metadata', async () => {
+    getUser.mockResolvedValue({
+      data: {
+        user: {
+          id: 'auth-google-1',
+          email: 'nova@gmail.com',
+          user_metadata: { full_name: 'Nova Usuaria', avatar_url: 'https://lh3.googleusercontent.com/a' },
+        },
+      },
+      error: null,
+    })
+    userFindUnique.mockResolvedValue(null)
+    userCreate.mockResolvedValue({
+      id: 'user-9',
+      authUserId: 'auth-google-1',
+      email: 'nova@gmail.com',
+      name: 'Nova Usuaria',
+      role: 'BUYER',
+      avatarUrl: 'https://lh3.googleusercontent.com/a',
+    })
+
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ accessToken: 'access-1', refreshToken: 'refresh-1', expiresAt: 1234 }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(userCreate).toHaveBeenCalledWith({
+      data: {
+        authUserId: 'auth-google-1',
+        email: 'nova@gmail.com',
+        name: 'Nova Usuaria',
+        avatarUrl: 'https://lh3.googleusercontent.com/a',
+        role: 'BUYER',
+      },
+    })
+    const body = (await res.json()) as { session: { accessToken: string; expiresAt: number }; user: { role: string } }
+    expect(body.session).toEqual({ accessToken: 'access-1', refreshToken: 'refresh-1', expiresAt: 1234 })
+    expect(body.user.role).toBe('BUYER')
+  })
+
+  it('usuario existente com nome/avatar ja preenchidos: nao sobrescreve, nao chama update', async () => {
+    getUser.mockResolvedValue({
+      data: {
+        user: { id: 'auth-2', email: 'ja@gmail.com', user_metadata: { full_name: 'Nome Novo Do Google' } },
+      },
+      error: null,
+    })
+    userFindUnique.mockResolvedValue({
+      id: 'user-2',
+      authUserId: 'auth-2',
+      email: 'ja@gmail.com',
+      name: 'Nome Ja Existente',
+      role: 'STORE_OWNER',
+      avatarUrl: 'https://existing.example.com/a.jpg',
+    })
+
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ accessToken: 'access-2', refreshToken: 'refresh-2' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(userUpdate).not.toHaveBeenCalled()
+    expect(userCreate).not.toHaveBeenCalled()
+    const body = (await res.json()) as { user: { name: string; role: string } }
+    expect(body.user.name).toBe('Nome Ja Existente')
+    expect(body.user.role).toBe('STORE_OWNER')
+  })
+
+  it('usuario existente sem avatar: preenche avatarUrl vazio a partir do metadata', async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: 'auth-3', email: 'sem-avatar@gmail.com', user_metadata: { picture: 'https://x/a.jpg' } } },
+      error: null,
+    })
+    userFindUnique.mockResolvedValue({
+      id: 'user-3',
+      authUserId: 'auth-3',
+      email: 'sem-avatar@gmail.com',
+      name: 'Ja Tem Nome',
+      role: 'BUYER',
+      avatarUrl: null,
+    })
+    userUpdate.mockResolvedValue({
+      id: 'user-3',
+      authUserId: 'auth-3',
+      email: 'sem-avatar@gmail.com',
+      name: 'Ja Tem Nome',
+      role: 'BUYER',
+      avatarUrl: 'https://x/a.jpg',
+    })
+
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ accessToken: 'access-3', refreshToken: 'refresh-3' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(userUpdate).toHaveBeenCalledWith({ where: { id: 'user-3' }, data: { avatarUrl: 'https://x/a.jpg' } })
+  })
+
+  it('token invalido/expirado: 401, nunca toca no Prisma', async () => {
+    getUser.mockResolvedValue({ data: { user: null }, error: { message: 'invalid token' } })
+
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ accessToken: 'bad', refreshToken: 'bad' }),
+    })
+
+    expect(res.status).toBe(401)
+    expect(userFindUnique).not.toHaveBeenCalled()
+  })
+
+  it('ignora role vindo do body (anti-escalacao): sempre BUYER na criacao', async () => {
+    getUser.mockResolvedValue({
+      data: { user: { id: 'auth-4', email: 'x@gmail.com', user_metadata: {} } },
+      error: null,
+    })
+    userFindUnique.mockResolvedValue(null)
+    userCreate.mockResolvedValue({
+      id: 'user-4',
+      authUserId: 'auth-4',
+      email: 'x@gmail.com',
+      name: 'x@gmail.com',
+      role: 'BUYER',
+      avatarUrl: null,
+    })
+
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ accessToken: 'access-4', refreshToken: 'refresh-4', role: 'ADMIN' }),
+    })
+
+    expect(res.status).toBe(200)
+    expect(userCreate).toHaveBeenCalledWith({
+      data: { authUserId: 'auth-4', email: 'x@gmail.com', name: 'x@gmail.com', avatarUrl: null, role: 'BUYER' },
+    })
+  })
+
+  it('sem accessToken/refreshToken: 400 antes de tocar no Supabase', async () => {
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    })
+    expect(res.status).toBe(400)
+    expect(getUser).not.toHaveBeenCalled()
+  })
+
+  it('sem body: 400 (nunca 500)', async () => {
+    const { app } = await import('../app')
+    const res = await app.request('/auth/oauth-complete', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    })
+    expect(res.status).toBe(400)
   })
 })

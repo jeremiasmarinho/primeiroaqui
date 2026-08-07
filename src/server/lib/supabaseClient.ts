@@ -15,3 +15,10 @@ export const supabasePublic: SupabaseClient = createClient(url, anonKey)
 
 /** Cliente com service role — ignora RLS. Uso exclusivo: rotas server-side administrativas (nunca expor ao frontend). */
 export const supabaseAdmin: SupabaseClient = createClient(url, serviceRoleKey)
+
+/**
+ * URL base do projeto Supabase — usada para montar a URL de `/auth/v1/authorize`
+ * no endpoint `GET /auth/oauth-url`. O frontend nunca recebe essa env
+ * diretamente (ver rota): só a URL final, ja pronta.
+ */
+export const supabaseUrl: string = url

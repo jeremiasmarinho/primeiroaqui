@@ -305,6 +305,21 @@ export function useMarketplaceState() {
     resolvePendingLoginAndNavigate()
   }
 
+  const onGoogleLogin = () => {
+    void session.handleGoogleLogin()
+  }
+
+  const onOAuthComplete = async (tokens: { accessToken: string; refreshToken: string; expiresAt?: number }) => {
+    const result = await session.handleOAuthComplete(tokens)
+    if (result.ok) resolvePendingLoginAndNavigate()
+    return result
+  }
+
+  const onOAuthError = (message: string) => {
+    session.setAuthError(message)
+    navigate(ROUTES.login)
+  }
+
   // ------------------------------------------------------------------
   // Onboarding de lojista
   // ------------------------------------------------------------------
@@ -494,6 +509,7 @@ export function useMarketplaceState() {
     authPending: session.authPending,
     onAuthSubmit,
     onQuickLogin,
+    onGoogleLogin,
     onRequireLogin: session.recordReturnTo,
     loginContextMessage: session.resetSuccessMessage || pendingIntentMessage(session.pendingIntent),
     onLogout: handleLogout,
@@ -511,6 +527,8 @@ export function useMarketplaceState() {
       void session.handleForgotPasswordSubmit(event)
     },
     onPasswordResetSuccess: session.notePasswordResetSuccess,
+    onOAuthComplete,
+    onOAuthError,
 
     // vitrine / busca — catálogo real
     products: remoteCatalog.products,
