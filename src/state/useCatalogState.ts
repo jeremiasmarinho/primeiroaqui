@@ -40,8 +40,13 @@ export function useCatalogState() {
     )
   }
 
-  const addNotification = (title: string, message: string, type: Notification['type'] = 'info') => {
-    setNotifications((prev) => [{ id: prev.length + 1, title, message, type }, ...prev].slice(0, 4))
+  const addNotification = (
+    title: string,
+    message: string,
+    type: Notification['type'] = 'info',
+    href?: string,
+  ) => {
+    setNotifications((prev) => [{ id: prev.length + 1, title, message, type, href }, ...prev].slice(0, 4))
     setUnreadCount((prev) => prev + 1)
   }
 

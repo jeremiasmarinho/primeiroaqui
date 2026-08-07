@@ -168,6 +168,8 @@ export interface Notification {
   title: string
   message: string
   type: 'info' | 'success' | 'warning'
+  /** Destino ao clicar (rota interna). Sem href, o item não é clicável. */
+  href?: string
 }
 
 export interface ThreadMessage {

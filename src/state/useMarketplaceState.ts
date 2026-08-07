@@ -327,6 +327,7 @@ export function useMarketplaceState() {
           ? err.message
           : 'Não foi possível iniciar seu cadastro de lojista. Tente novamente.',
         'warning',
+        ROUTES.profile,
       )
     }
   }
@@ -372,6 +373,7 @@ export function useMarketplaceState() {
         'Loja criada',
         `${created.store.name} já está no Primeiro Aqui. Publique seus produtos!`,
         'success',
+        ROUTES.myStore,
       )
       navigate(ROUTES.myStore)
     } catch (err) {
@@ -446,6 +448,7 @@ export function useMarketplaceState() {
           ? `Seus ${orders.length} pedidos foram confirmados (um por loja).`
           : 'Pedido confirmado! Acompanhe em Meus pedidos.',
         'success',
+        ROUTES.orders,
       )
       cartCheckout.setCheckoutStep('cart')
       cartCheckout.setDeliveryForm(EMPTY_DELIVERY)

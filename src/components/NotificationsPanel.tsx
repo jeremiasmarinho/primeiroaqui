@@ -1,4 +1,5 @@
-import { BellOff, CheckCircle2, Info, TriangleAlert } from 'lucide-react'
+import { BellOff, CheckCircle2, ChevronRight, Info, TriangleAlert } from 'lucide-react'
+import { Link } from 'wouter'
 import type { Notification } from '../types'
 
 const icons: Record<Notification['type'], typeof Info> = {
@@ -47,13 +48,30 @@ export default function NotificationsPanel({ notifications, onClose }: Notificat
         <ul className="max-h-80 divide-y divide-line overflow-y-auto">
           {notifications.map((notification) => {
             const Icon = icons[notification.type]
-            return (
-              <li key={notification.id} className="flex gap-3 px-4 py-3">
+            const body = (
+              <>
                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${tones[notification.type]}`} aria-hidden="true" />
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-bold text-ink">{notification.title}</p>
                   <p className="mt-0.5 text-sm text-ink-muted">{notification.message}</p>
                 </div>
+              </>
+            )
+            return (
+              <li key={notification.id}>
+                {notification.href ? (
+                  // Notificação com destino é link de verdade: navega e fecha o painel.
+                  <Link
+                    href={notification.href}
+                    onClick={onClose}
+                    className="flex gap-3 px-4 py-3 transition-colors duration-150 hover:bg-surface-sunken"
+                  >
+                    {body}
+                    <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" aria-hidden="true" />
+                  </Link>
+                ) : (
+                  <div className="flex gap-3 px-4 py-3">{body}</div>
+                )}
               </li>
             )
           })}
