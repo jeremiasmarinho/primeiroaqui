@@ -19,6 +19,7 @@ interface AdminOrdersTabProps {
   orders: ApiAdminOrder[]
   hasMore: boolean
   isLoadingMore: boolean
+  pendingOrderIds: Set<string>
   onLoadMore: () => void
   onChangeStatus: (orderId: string, status: ApiOrderStatus) => void
 }
@@ -32,6 +33,7 @@ export default function AdminOrdersTab({
   orders,
   hasMore,
   isLoadingMore,
+  pendingOrderIds,
   onLoadMore,
   onChangeStatus,
 }: AdminOrdersTabProps) {
@@ -63,6 +65,7 @@ export default function AdminOrdersTab({
           <tbody>
             {orders.map((order) => {
               const next = nextOrderStatus(order.status)
+              const isPending = pendingOrderIds.has(order.id)
               const itemsSummary = `${order.items.length} item(s) • ${order.items.reduce((sum, item) => sum + item.quantity, 0)} un.`
               return (
                 <tr key={order.id} className="border-b border-line last:border-b-0">
@@ -82,17 +85,19 @@ export default function AdminOrdersTab({
                       {next ? (
                         <button
                           onClick={() => onChangeStatus(order.id, next)}
-                          className="btn-primary min-h-[36px] rounded-[12px] px-3 py-1 text-xs font-semibold"
+                          disabled={isPending}
+                          className="btn-primary motion-safe:active:scale-95 min-h-[36px] rounded-[12px] px-3 py-1 text-xs font-semibold transition-transform disabled:opacity-60"
                         >
-                          {ADVANCE_LABELS[next] ?? orderStatusLabel(next)}
+                          {isPending ? 'Atualizando…' : (ADVANCE_LABELS[next] ?? orderStatusLabel(next))}
                         </button>
                       ) : null}
                       {canCancelOrder(order.status) ? (
                         <button
                           onClick={() => onChangeStatus(order.id, 'CANCELED')}
-                          className="min-h-[36px] rounded-[12px] border border-line px-3 py-1 text-xs font-semibold text-ink-muted"
+                          disabled={isPending}
+                          className="motion-safe:active:scale-95 min-h-[36px] rounded-[12px] border border-line px-3 py-1 text-xs font-semibold text-ink-muted transition-transform disabled:opacity-60"
                         >
-                          Cancelar
+                          {isPending ? 'Atualizando…' : 'Cancelar'}
                         </button>
                       ) : null}
                       {!next && !canCancelOrder(order.status) ? (
@@ -111,7 +116,7 @@ export default function AdminOrdersTab({
           <button
             onClick={onLoadMore}
             disabled={isLoadingMore}
-            className="min-h-[44px] rounded-[16px] border border-line px-6 py-2 text-sm font-semibold text-ink disabled:opacity-60"
+            className="motion-safe:active:scale-95 min-h-[44px] rounded-[16px] border border-line px-6 py-2 text-sm font-semibold text-ink transition-transform disabled:opacity-60"
           >
             {isLoadingMore ? 'Carregando…' : 'Carregar mais pedidos'}
           </button>

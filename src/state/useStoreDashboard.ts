@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { api, ApiError, type ApiProduct, type ApiStore, type ApiStoreCustomer, type ApiStoreOrder } from '../lib/api'
 import type { ApiOrderStatus } from '../lib/orderStatus'
+import { pushToast } from './useToasts'
 
 /**
  * Estado do painel do lojista (/minha-loja): loja, pedidos recebidos e
@@ -21,6 +22,8 @@ export function useStoreDashboard(enabled: boolean) {
   const [loadError, setLoadError] = useState('')
   const [actionError, setActionError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(new Set())
+  const [pendingProductIds, setPendingProductIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!enabled) return
@@ -68,11 +71,17 @@ export function useStoreDashboard(enabled: boolean) {
 
   /** Avança/cancela um pedido; a lista reflete a resposta do servidor. */
   const changeOrderStatus = useCallback(async (orderId: string, status: ApiOrderStatus) => {
+    if (pendingOrderIds.has(orderId)) return
     setActionError('')
+    setPendingOrderIds((prev) => new Set(prev).add(orderId))
     try {
       const { order } = await api.updateOrderStatus(orderId, status)
       setOrders((prev) =>
         prev.map((item) => (item.id === orderId ? { ...item, status: order.status, updatedAt: order.updatedAt } : item)),
+      )
+      pushToast(
+        status === 'CANCELED' ? 'Pedido cancelado' : 'Status do pedido atualizado',
+        status === 'CANCELED' ? 'info' : 'success',
       )
     } catch (err) {
       setActionError(
@@ -80,8 +89,14 @@ export function useStoreDashboard(enabled: boolean) {
           ? err.message
           : 'Não foi possível atualizar o pedido. Tente novamente.',
       )
+    } finally {
+      setPendingOrderIds((prev) => {
+        const next = new Set(prev)
+        next.delete(orderId)
+        return next
+      })
     }
-  }, [])
+  }, [pendingOrderIds])
 
   const createProduct = useCallback(
     async (input: { title: string; category: string; priceCents: number; stock: number; description?: string }) => {
@@ -90,6 +105,7 @@ export function useStoreDashboard(enabled: boolean) {
       try {
         const { product } = await api.createProduct(store.id, input)
         setProducts((prev) => [product, ...prev])
+        pushToast('Produto publicado', 'success')
         return true
       } catch (err) {
         setActionError(
@@ -108,10 +124,20 @@ export function useStoreDashboard(enabled: boolean) {
       productId: string,
       patch: Partial<{ title: string; category: string; priceCents: number; stock: number; isActive: boolean }>,
     ) => {
+      if (pendingProductIds.has(productId)) return false
       setActionError('')
+      setPendingProductIds((prev) => new Set(prev).add(productId))
       try {
         const { product } = await api.updateProduct(productId, patch)
         setProducts((prev) => prev.map((item) => (item.id === productId ? product : item)))
+        pushToast(
+          typeof patch.isActive === 'boolean'
+            ? product.isActive
+              ? 'Produto ativado'
+              : 'Produto desativado'
+            : 'Produto atualizado',
+          'success',
+        )
         return true
       } catch (err) {
         setActionError(
@@ -120,15 +146,22 @@ export function useStoreDashboard(enabled: boolean) {
             : 'Não foi possível salvar o produto. Tente novamente.',
         )
         return false
+      } finally {
+        setPendingProductIds((prev) => {
+          const next = new Set(prev)
+          next.delete(productId)
+          return next
+        })
       }
     },
-    [],
+    [pendingProductIds],
   )
 
   const uploadPhoto = useCallback(async (productId: string, file: File) => {
     setActionError('')
     try {
       await api.uploadProductPhoto(productId, file)
+      pushToast('Foto enviada', 'success')
       return true
     } catch (err) {
       setActionError(
@@ -146,6 +179,7 @@ export function useStoreDashboard(enabled: boolean) {
     try {
       const { store: updated } = await api.uploadStoreLogo(store.id, file)
       setStore(updated)
+      pushToast('Logo atualizada', 'success')
       return true
     } catch (err) {
       setActionError(
@@ -163,6 +197,7 @@ export function useStoreDashboard(enabled: boolean) {
     try {
       const { store: updated } = await api.removeStoreLogo(store.id)
       setStore(updated)
+      pushToast('Logo removida', 'success')
       return true
     } catch (err) {
       setActionError(
@@ -203,6 +238,8 @@ export function useStoreDashboard(enabled: boolean) {
     isLoading,
     loadError,
     actionError,
+    pendingOrderIds,
+    pendingProductIds,
     retry,
     changeOrderStatus,
     createProduct,

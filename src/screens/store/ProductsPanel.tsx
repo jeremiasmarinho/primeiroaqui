@@ -12,6 +12,7 @@ export interface ProductFormValues {
 
 interface ProductsPanelProps {
   products: ApiProduct[]
+  pendingProductIds: Set<string>
   onCreate: (values: ProductFormValues) => Promise<boolean>
   onUpdate: (productId: string, patch: Partial<ProductFormValues & { isActive: boolean }>) => Promise<boolean>
   onUploadPhoto: (productId: string, file: File) => Promise<boolean>
@@ -40,12 +41,13 @@ const parseDraft = (draft: DraftState): { ok: true; values: ProductFormValues } 
 const inputClass = 'w-full rounded-[16px] border border-line px-3 py-3 outline-none'
 
 /** Cadastro e gestão dos produtos da loja: publicar, editar, ativar/desativar e foto. */
-export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPhoto }: ProductsPanelProps) {
+export default function ProductsPanel({ products, pendingProductIds, onCreate, onUpdate, onUploadPhoto }: ProductsPanelProps) {
   const [draft, setDraft] = useState<DraftState>(EMPTY_DRAFT)
   const [formError, setFormError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<DraftState>(EMPTY_DRAFT)
-  const [photoNotice, setPhotoNotice] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
+  const [uploadingId, setUploadingId] = useState<string | null>(null)
 
   const handleCreate = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -55,7 +57,12 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
       return
     }
     setFormError('')
-    if (await onCreate(parsed.values)) setDraft(EMPTY_DRAFT)
+    setIsCreating(true)
+    try {
+      if (await onCreate(parsed.values)) setDraft(EMPTY_DRAFT)
+    } finally {
+      setIsCreating(false)
+    }
   }
 
   const startEdit = (product: ApiProduct) => {
@@ -81,8 +88,12 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
 
   const handlePhoto = async (productId: string, file: File | undefined) => {
     if (!file) return
-    setPhotoNotice('')
-    if (await onUploadPhoto(productId, file)) setPhotoNotice('Foto enviada com sucesso.')
+    setUploadingId(productId)
+    try {
+      await onUploadPhoto(productId, file)
+    } finally {
+      setUploadingId(null)
+    }
   }
 
   return (
@@ -124,12 +135,14 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
         {formError && editingId === null ? (
           <p role="alert" className="mt-2 text-sm font-semibold text-error">{formError}</p>
         ) : null}
-        <button type="submit" className="btn-primary mt-3 min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold">
-          Publicar produto
+        <button
+          type="submit"
+          disabled={isCreating}
+          className="btn-primary motion-safe:active:scale-95 mt-3 min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold transition-transform disabled:opacity-60"
+        >
+          {isCreating ? 'Publicando…' : 'Publicar produto'}
         </button>
       </form>
-
-      {photoNotice ? <p role="status" className="text-sm font-semibold text-success">{photoNotice}</p> : null}
 
       {products.length === 0 ? (
         <div className="rounded-card border border-line p-6 text-center">
@@ -140,7 +153,10 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
         </div>
       ) : (
         <ul className="space-y-3">
-          {products.map((product) => (
+          {products.map((product) => {
+            const isPending = pendingProductIds.has(product.id)
+            const isUploading = uploadingId === product.id
+            return (
             <li key={product.id} className="rounded-card border border-line p-4">
               {editingId === product.id ? (
                 <div className="space-y-3">
@@ -152,10 +168,14 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
                   </div>
                   {formError ? <p role="alert" className="text-sm font-semibold text-error">{formError}</p> : null}
                   <div className="flex gap-2">
-                    <button onClick={() => void handleEditSave(product.id)} className="btn-primary min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold">
-                      Salvar alterações
+                    <button
+                      onClick={() => void handleEditSave(product.id)}
+                      disabled={isPending}
+                      className="btn-primary motion-safe:active:scale-95 min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold transition-transform disabled:opacity-60"
+                    >
+                      {isPending ? 'Salvando…' : 'Salvar alterações'}
                     </button>
-                    <button onClick={() => setEditingId(null)} className="min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted">
+                    <button onClick={() => setEditingId(null)} disabled={isPending} className="motion-safe:active:scale-95 min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition-transform disabled:opacity-60">
                       Descartar
                     </button>
                   </div>
@@ -178,21 +198,27 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
                     </span>
                   </div>
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button onClick={() => startEdit(product)} className="min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted">
+                    <button onClick={() => startEdit(product)} disabled={isPending} className="motion-safe:active:scale-95 min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition-transform disabled:opacity-60">
                       Editar
                     </button>
                     <button
                       onClick={() => void onUpdate(product.id, { isActive: !product.isActive })}
-                      className="min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted"
+                      disabled={isPending}
+                      className="motion-safe:active:scale-95 min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition-transform disabled:opacity-60"
                     >
-                      {product.isActive ? 'Desativar' : 'Ativar'}
+                      {isPending ? 'Salvando…' : product.isActive ? 'Desativar' : 'Ativar'}
                     </button>
-                    <label className="min-h-[44px] cursor-pointer rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted">
-                      Enviar foto
+                    <label
+                      className={`min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted ${
+                        isUploading ? 'opacity-60' : 'motion-safe:active:scale-95 cursor-pointer transition-transform'
+                      }`}
+                    >
+                      {isUploading ? 'Enviando…' : 'Enviar foto'}
                       <input
                         type="file"
                         accept="image/*"
                         className="sr-only"
+                        disabled={isUploading}
                         aria-label={`Enviar foto de ${product.title}`}
                         onChange={(event) => void handlePhoto(product.id, event.target.files?.[0])}
                       />
@@ -201,7 +227,8 @@ export default function ProductsPanel({ products, onCreate, onUpdate, onUploadPh
                 </>
               )}
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </div>

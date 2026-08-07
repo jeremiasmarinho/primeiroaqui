@@ -17,11 +17,12 @@ const ADVANCE_LABELS: Partial<Record<ApiOrderStatus, string>> = {
 
 interface OrdersPanelProps {
   orders: ApiStoreOrder[]
+  pendingOrderIds: Set<string>
   onChangeStatus: (orderId: string, status: ApiOrderStatus) => void
 }
 
 /** Lista de pedidos recebidos, com a ação válida seguinte e cancelamento quando permitido. */
-export default function OrdersPanel({ orders, onChangeStatus }: OrdersPanelProps) {
+export default function OrdersPanel({ orders, pendingOrderIds, onChangeStatus }: OrdersPanelProps) {
   if (orders.length === 0) {
     return (
       <div className="rounded-card border border-line p-6 text-center">
@@ -37,6 +38,7 @@ export default function OrdersPanel({ orders, onChangeStatus }: OrdersPanelProps
     <ul className="space-y-3">
       {orders.map((order) => {
         const next = nextOrderStatus(order.status)
+        const isPending = pendingOrderIds.has(order.id)
         return (
           <li key={order.id} className="rounded-card border border-line p-4">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -55,17 +57,19 @@ export default function OrdersPanel({ orders, onChangeStatus }: OrdersPanelProps
               {next ? (
                 <button
                   onClick={() => onChangeStatus(order.id, next)}
-                  className="btn-primary min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold"
+                  disabled={isPending}
+                  className="btn-primary motion-safe:active:scale-95 min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold transition-transform disabled:opacity-60"
                 >
-                  {ADVANCE_LABELS[next] ?? `Avançar para ${orderStatusLabel(next)}`}
+                  {isPending ? 'Atualizando…' : (ADVANCE_LABELS[next] ?? `Avançar para ${orderStatusLabel(next)}`)}
                 </button>
               ) : null}
               {canCancelOrder(order.status) ? (
                 <button
                   onClick={() => onChangeStatus(order.id, 'CANCELED')}
-                  className="min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted"
+                  disabled={isPending}
+                  className="motion-safe:active:scale-95 min-h-[44px] rounded-[16px] border border-line px-4 py-2 text-sm font-semibold text-ink-muted transition-transform disabled:opacity-60"
                 >
-                  Cancelar pedido
+                  {isPending ? 'Atualizando…' : 'Cancelar pedido'}
                 </button>
               ) : null}
             </div>

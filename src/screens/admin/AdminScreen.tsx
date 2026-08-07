@@ -110,12 +110,17 @@ export default function AdminScreen({ userRole, adminTab, onTabChange, onBack }:
                   orders={dashboard.orders}
                   hasMore={dashboard.hasMoreOrders}
                   isLoadingMore={dashboard.isLoadingMore}
+                  pendingOrderIds={dashboard.pendingOrderIds}
                   onLoadMore={() => void dashboard.loadMoreOrders()}
                   onChangeStatus={(id, status) => void dashboard.changeOrderStatus(id, status)}
                 />
               ) : null}
               {tab === 'stores' ? (
-                <AdminStoresTab stores={dashboard.stores} onSetActive={(id, active) => void dashboard.setStoreActive(id, active)} />
+                <AdminStoresTab
+                  stores={dashboard.stores}
+                  pendingStoreIds={dashboard.pendingStoreIds}
+                  onSetActive={(id, active) => void dashboard.setStoreActive(id, active)}
+                />
               ) : null}
             </>
           )}

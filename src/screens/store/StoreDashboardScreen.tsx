@@ -144,11 +144,11 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Minha loja</p>
               <h1 className="font-display text-2xl font-black text-ink">{dashboard.store.name}</h1>
               <div className="mt-1 flex items-center gap-3 text-xs font-semibold">
-                <button type="button" onClick={handleLogoPick} disabled={logoPending} className="text-primary disabled:opacity-50">
-                  Trocar logo
+                <button type="button" onClick={handleLogoPick} disabled={logoPending} className="motion-safe:active:scale-95 text-primary transition-transform disabled:opacity-50">
+                  {logoPending ? 'Enviando…' : 'Trocar logo'}
                 </button>
                 {dashboard.store.logoUrl && (
-                  <button type="button" onClick={() => void handleRemoveLogo()} disabled={logoPending} className="text-error disabled:opacity-50">
+                  <button type="button" onClick={() => void handleRemoveLogo()} disabled={logoPending} className="motion-safe:active:scale-95 text-error transition-transform disabled:opacity-50">
                     Remover logo
                   </button>
                 )}
@@ -219,10 +219,15 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
 
         <div className="mt-4">
           {tab === 'orders' ? (
-            <OrdersPanel orders={dashboard.orders} onChangeStatus={(id, status) => void dashboard.changeOrderStatus(id, status)} />
+            <OrdersPanel
+              orders={dashboard.orders}
+              pendingOrderIds={dashboard.pendingOrderIds}
+              onChangeStatus={(id, status) => void dashboard.changeOrderStatus(id, status)}
+            />
           ) : tab === 'products' ? (
             <ProductsPanel
               products={dashboard.products}
+              pendingProductIds={dashboard.pendingProductIds}
               onCreate={dashboard.createProduct}
               onUpdate={dashboard.updateProduct}
               onUploadPhoto={dashboard.uploadPhoto}

@@ -4,6 +4,7 @@ import { storeCategoryLabel } from '../../lib/storeCategory'
 
 interface AdminStoresTabProps {
   stores: ApiAdminStore[]
+  pendingStoreIds: Set<string>
   onSetActive: (storeId: string, isActive: boolean) => void
 }
 
@@ -17,7 +18,7 @@ const CONFIRM_WINDOW_MS = 4000
  * travar automação/testes: o botão vira "Confirmar desativação?" por alguns
  * segundos antes de voltar ao estado normal se não for clicado de novo.
  */
-export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabProps) {
+export default function AdminStoresTab({ stores, pendingStoreIds, onSetActive }: AdminStoresTabProps) {
   const [pendingStoreId, setPendingStoreId] = useState<string | null>(null)
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -90,7 +91,8 @@ export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabPr
               <td className="px-4 py-3">
                 <button
                   onClick={() => handleToggle(store)}
-                  className={`min-h-[36px] rounded-[12px] px-3 py-1 text-xs font-semibold ${
+                  disabled={pendingStoreIds.has(store.id)}
+                  className={`motion-safe:active:scale-95 min-h-[36px] rounded-[12px] px-3 py-1 text-xs font-semibold transition-transform disabled:opacity-60 ${
                     store.isActive
                       ? pendingStoreId === store.id
                         ? 'border border-error bg-error text-white'
@@ -98,11 +100,13 @@ export default function AdminStoresTab({ stores, onSetActive }: AdminStoresTabPr
                       : 'btn-primary'
                   }`}
                 >
-                  {store.isActive
-                    ? pendingStoreId === store.id
-                      ? 'Confirmar desativação?'
-                      : `Desativar ${store.name}`
-                    : `Reativar ${store.name}`}
+                  {pendingStoreIds.has(store.id)
+                    ? 'Salvando…'
+                    : store.isActive
+                      ? pendingStoreId === store.id
+                        ? 'Confirmar desativação?'
+                        : `Desativar ${store.name}`
+                      : `Reativar ${store.name}`}
                 </button>
               </td>
             </tr>
