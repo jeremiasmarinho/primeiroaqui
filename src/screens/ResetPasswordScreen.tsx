@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Eye, EyeOff, KeyRound } from 'lucide-react'
+import { Eye, EyeOff } from 'lucide-react'
 import { useResetPasswordState } from '../state/useResetPasswordState'
 
 interface ResetPasswordScreenProps {
@@ -21,12 +21,10 @@ export default function ResetPasswordScreen({ onSuccess }: ResetPasswordScreenPr
     <div className="flex min-h-screen flex-col items-center justify-center bg-brand p-6">
       <div className="w-full max-w-md rounded-[32px] bg-surface p-6 shadow-2xl">
         <div className="flex items-center gap-4 rounded-[28px] bg-surface-page p-4">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full bg-navy text-white">
-            <KeyRound className="h-7 w-7" />
-          </div>
+          <img src="/brand/pin.png" alt="" aria-hidden="true" width={244} height={321} className="h-14 w-auto" />
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink">Primeiro Aqui</p>
-            <p className="text-xs text-ink-muted">Redefinir senha</p>
+            <img src="/brand/wordmark.png" alt="Primeiro Aqui" width={830} height={182} className="h-6 w-auto" />
+            <p className="mt-1 text-xs text-ink-muted">Redefinir senha</p>
           </div>
         </div>
 

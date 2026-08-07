@@ -219,6 +219,15 @@ export default function TopBar({
             )}
           </Link>
 
+          <img
+            src="/brand/pin.png"
+            alt=""
+            aria-hidden="true"
+            width={244}
+            height={321}
+            className="hidden h-8 w-auto shrink-0 md:block"
+          />
+
           <div ref={containerRef} onBlur={handleBlur} className="relative flex-1">
             <form
               role="search"
