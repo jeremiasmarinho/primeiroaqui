@@ -136,9 +136,9 @@ describe('cadastro de endereco', () => {
     expect(result.created.cep).toBe('12345-678')
   })
 
-  it('o rascunho vazio nao tem campo preenchido', () => {
+  it('o rascunho novo abre com rotulo Casa (caso comum) e demais campos vazios', () => {
     expect(EMPTY_ADDRESS).toEqual({
-      label: '',
+      label: 'Casa',
       street: '',
       number: '',
       complement: '',
