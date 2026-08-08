@@ -60,11 +60,25 @@ export async function createAddressViaUI(
   } = {},
 ) {
   await page.goto('/enderecos')
-  await page.getByLabel('Nome do endereço').fill(label)
-  await page.getByLabel('Rua e número').fill(street)
+  // Form novo (ago/2026): CEP primeiro (dispara autofill ViaCEP), depois
+  // Rua/Bairro/Cidade/UF (sobrescrevemos o autofill para dados determinísticos),
+  // Número, e "Nome do endereço" virou SELECT (Casa/Trabalho/.../Outro).
+  await page.getByLabel('CEP').fill(cep)
+  // aguarda o lookup do CEP assentar (spinner some / campos habilitam)
+  await page.waitForTimeout(1500)
+  await page.getByLabel('Rua', { exact: true }).fill(street)
+  await page.getByLabel('Bairro').fill('Centro')
   await page.getByLabel('Cidade').fill(city)
   await page.getByLabel('Estado (UF)').fill(state)
-  await page.getByLabel('CEP').fill(cep)
+  await page.getByLabel('Número', { exact: true }).fill('12')
+  const labelSelect = page.getByLabel('Nome do endereço', { exact: true })
+  const predefined = ['Casa', 'Trabalho', 'Casa de parente']
+  if (predefined.includes(label)) {
+    await labelSelect.selectOption({ label })
+  } else {
+    await labelSelect.selectOption({ label: 'Outro' })
+    await page.getByLabel('Nome do endereço (outro)').fill(label)
+  }
   await page.getByRole('button', { name: /salvar endereço/i }).click()
   await expect(page.getByRole('list', { name: /endereços salvos/i }).getByText(label, { exact: true })).toBeVisible({ timeout: 10000 })
 }

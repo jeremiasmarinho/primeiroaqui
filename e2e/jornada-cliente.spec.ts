@@ -56,7 +56,10 @@ test('cliente cria conta, compra com cartão e vê o pedido pago', async ({ page
   // Pagar.me sandbox não consegue entregar webhook pra localhost, então o
   // chip fica em "Aguardando pagamento" mesmo com o cartão aprovado — este
   // teste valida o que a UI garante de fato: o pedido aparece na lista.
-  const orderCard = page.locator('li', { hasText: orderId! })
+  // Cards agora exibem "Pedido #XXXXXXXX" (8 primeiros chars do id, maiúsculos)
+  // em vez do UUID cru — ver src/lib/orderDisplay.ts.
+  const orderCode = `Pedido #${orderId!.slice(0, 8).toUpperCase()}`
+  const orderCard = page.locator('li', { hasText: orderCode })
   await expect(orderCard).toBeVisible({ timeout: 10000 })
   // Pin current (documented) behavior: paymentStatus só vira PAID via
   // webhook do Pagar.me (ver src/server/lib/paymentService.ts), que não

@@ -42,7 +42,8 @@ export interface AddressDraft {
 }
 
 export const EMPTY_ADDRESS: AddressDraft = {
-  label: '',
+  // 'Casa' é o caso comum — o select abre nele em vez de 'Outro' com campo extra.
+  label: 'Casa',
   street: '',
   number: '',
   complement: '',
