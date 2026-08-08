@@ -32,6 +32,10 @@ import type { Order, Product, Role } from '../types'
  * vêm da API real (`src/lib/api.ts`). O painel admin e o rastreio seguem
  * mock — outra fase cuida deles.
  */
+/** Mensagem pt-BR do backend quando houver (erro de rede/status 0 cai no fallback local). */
+const apiErrorMessage = (err: unknown, fallback: string): string =>
+  err instanceof ApiError && err.status > 0 ? err.message : fallback
+
 export function useMarketplaceState() {
   const [location, navigate] = useLocation()
 
@@ -90,11 +94,7 @@ export function useMarketplaceState() {
       })
       .catch((err: unknown) => {
         if (cancelled) return
-        setOrdersError(
-          err instanceof ApiError && err.status > 0
-            ? err.message
-            : 'Não foi possível carregar seus pedidos.',
-        )
+        setOrdersError(apiErrorMessage(err, 'Não foi possível carregar seus pedidos.'))
       })
       .finally(() => {
         if (!cancelled) setOrdersLoading(false)
@@ -134,13 +134,37 @@ export function useMarketplaceState() {
   // ------------------------------------------------------------------
   // Favoritos reais (GET /api/me/favorites): hidrata a fatia local.
   // ------------------------------------------------------------------
+  /**
+   * Produto favoritado OTIMISTICAMENTE pela intenção pendente, ainda não
+   * confirmado pelo servidor — a hidratação abaixo (`.then`) consulta este
+   * ref para não apagá-lo se ela resolver DEPOIS do toggle otimista.
+   *
+   * Por que não simplesmente `await` a hidratação antes de favoritar (versão
+   * anterior desta correção): no exato momento do login, o efeito de
+   * hidratação e o de "continuação pós-reload" disparam JUNTOS (os dois
+   * reagem a `hasSession` virando true), e cada round-trip extra encadeado
+   * (esperar a hidratação, depois buscar o produto por id) empurra o
+   * favorito otimista mais pra frente no tempo — numa suíte e2e que navega
+   * de novo logo em seguida (retry de asserção com `page.goto`), a
+   * navegação cancela o fetch em voo ANTES da resolução terminar, perdendo o
+   * favorito (bug real, e2e/jornada-visitante.spec.ts). Mesclar com o ref é
+   * mais rápido (sem await extra) e igualmente à prova da corrida.
+   */
+  const optimisticFavoriteRef = useRef<Product | null>(null)
   useEffect(() => {
     if (!hasSession || !loadStoredSession()) return
     let cancelled = false
     api
       .listFavorites()
       .then(({ products }) => {
-        if (!cancelled) catalog.setFavorites(products.map(favoriteToViewProduct))
+        if (cancelled) return
+        const serverFavorites = products.map(favoriteToViewProduct)
+        const pending = optimisticFavoriteRef.current
+        catalog.setFavorites(
+          pending && !serverFavorites.some((item) => item.id === pending.id)
+            ? [...serverFavorites, pending]
+            : serverFavorites,
+        )
       })
       .catch(() => {
         // Silencioso: favoritos são conveniência; a lista local segue como cache.
@@ -249,6 +273,13 @@ export function useMarketplaceState() {
     cartCheckout.setCheckoutStep('delivery')
   }
 
+  const notifyFavoriteError = (err: unknown) =>
+    catalog.addNotification(
+      'Favoritos',
+      apiErrorMessage(err, 'Não foi possível atualizar seus favoritos.'),
+      'warning',
+    )
+
   /**
    * Otimista: a UI muda na hora e a API confirma atrás. Se a chamada falhar,
    * reverte e avisa — coração que "desmarca sozinho" sem explicação é bug.
@@ -261,14 +292,39 @@ export function useMarketplaceState() {
     const call = wasFavorite ? api.removeFavorite(product.id) : api.addFavorite(product.id)
     call.catch((err: unknown) => {
       catalog.toggleFavorite(product)
-      catalog.addNotification(
-        'Favoritos',
-        err instanceof ApiError && err.status > 0
-          ? err.message
-          : 'Não foi possível atualizar seus favoritos.',
-        'warning',
-      )
+      notifyFavoriteError(err)
     })
+  }
+
+  /**
+   * IDEMPOTENTE — "garante favoritado", nunca desfavorita. Usada só pela
+   * resolução da intenção pendente (`resolveFavoriteIntent`).
+   *
+   * `toggleFavoriteWithApi` inverte o estado atual, o que é certo para um
+   * clique explícito no coração — mas errado aqui: a intenção pendente pode
+   * ser resolvida mais de uma vez ao longo de um mesmo login (ex.: reload de
+   * verdade — resolvida uma vez antes do reload, outra depois), e a
+   * hidratação de /me/favorites que roda em paralelo pode já ter marcado o
+   * produto como favorito nesse meio-tempo. Com um toggle, essa segunda
+   * resolução DESFAVORITARIA o produto (bug real, pego pelo teste "sobrevive
+   * a um reload de verdade"). "Garantir favoritado" é seguro chamar quantas
+   * vezes for preciso.
+   */
+  const ensureFavorited = (product: Product) => {
+    optimisticFavoriteRef.current = product
+    catalog.setFavorites((prev) => (prev.some((item) => item.id === product.id) ? prev : [...prev, product]))
+    pushToast('Favorito salvo', 'success')
+    api
+      .addFavorite(product.id)
+      .catch((err: unknown) => {
+        catalog.setFavorites((prev) => prev.filter((item) => item.id !== product.id))
+        notifyFavoriteError(err)
+      })
+      // Servidor já confirmou (ou recusou) — a partir daqui a próxima
+      // hidratação pode confiar 100% na resposta dele, sem merge.
+      .finally(() => {
+        if (optimisticFavoriteRef.current === product) optimisticFavoriteRef.current = null
+      })
   }
 
   const guardedToggleFavorite = (product: Product) => {
@@ -298,12 +354,51 @@ export function useMarketplaceState() {
     cartCheckout.handleBuyNow(product)
   }
 
+  /**
+   * Resolve a intenção de favoritar: tenta achar o produto no catálogo já
+   * carregado (rápido, sem round-trip) e, se não achar, busca DIRETO por id
+   * (GET /products/:id) em vez de esperar/depender do catálogo paginado.
+   *
+   * Bug real corrigido aqui (e2e/jornada-visitante.spec.ts): a versão
+   * anterior só esperava `remoteCatalog.products.length > 0` antes de tentar
+   * `products.find(...)` — mas GET /products é uma janela de até 50 itens
+   * (ver useRemoteCatalog.ts), então um catálogo "carregado" (length > 0)
+   * não garante que o produto favoritado esteja nela. Quando não estava, o
+   * `.find` falhava, a intenção era descartada e o `pendingLoginResolvedRef`
+   * (efeito abaixo) já marcava tudo como "resolvido" — o favorito virava
+   * no-op silencioso PERMANENTE, sem qualquer novo POST /favorites. Buscar
+   * o produto direto por id elimina essa dependência de janela/paginação:
+   * funciona não importa quantos produtos existam ou em que ordem cheguem.
+   *
+   * Usa `ensureFavorited` (idempotente e otimista — marca
+   * `optimisticFavoriteRef` para sobreviver a uma hidratação
+   * concorrente de /me/favorites, ver a declaração do ref), não
+   * `toggleFavoriteWithApi`: essa resolução pode rodar mais de uma vez ao
+   * longo de um mesmo login (ex.: reload de verdade — resolvida uma vez
+   * antes do reload, outra depois) e um toggle desfavoritaria na segunda
+   * vez. De propósito SEM nenhum await antes do `cached`/fetch: cada round
+   * trip a mais é uma chance a mais de uma navegação (ex.: retry de teste
+   * e2e com `page.goto`) cancelar o fetch em voo antes do favorito
+   * persistir — ver e2e/jornada-visitante.spec.ts.
+   */
+  const resolveFavoriteIntent = async (productId: string): Promise<void> => {
+    const cached = remoteCatalog.products.find((item) => item.id === productId)
+    // Sem cache: busca por id (produto pode ter saído do catálogo/sido
+    // removido — degrada em silêncio, `null` = nada para favoritar).
+    const product =
+      cached ??
+      (await api
+        .getProduct(productId)
+        .then((res) => toViewProduct(res.product))
+        .catch(() => null))
+    if (product) ensureFavorited(product)
+  }
+
   /** Roda depois de login/cadastro bem-sucedido: resolve a intenção pendente e volta para onde a pessoa estava. */
-  const resolvePendingLoginAndNavigate = () => {
+  const resolvePendingLoginAndNavigate = async (): Promise<void> => {
     const intent = session.pendingIntent
     if (intent?.type === 'favorite') {
-      const product = remoteCatalog.products.find((item) => item.id === intent.productId)
-      if (product) toggleFavoriteWithApi(product)
+      await resolveFavoriteIntent(intent.productId)
     } else if (intent?.type === 'resume-checkout') {
       handleCartContinue()
       cartCheckout.setIsCartOpen(true)
@@ -313,30 +408,35 @@ export function useMarketplaceState() {
   }
 
   /**
-   * Continuação pós-reload do login por senha/Google: `session` já
-   * rehidratou `pendingReturnTo`/`pendingIntent` do sessionStorage (ver
-   * useEffect de mount em useSessionState). Aqui só falta aplicar a
-   * intenção (favoritar/retomar checkout) — o mesmo trabalho que, sem
-   * reload, `resolvePendingLoginAndNavigate` fazia na hora. Um favorito
-   * depende do catálogo remoto estar carregado; roda uma única vez (ref)
-   * para não reaplicar em cada render.
+   * Única trava, usada só pelo efeito abaixo (nenhum outro ponto de entrada
+   * chama `resolvePendingLoginAndNavigate` diretamente — ver por quê no
+   * comentário do efeito).
    */
   const pendingLoginResolvedRef = useRef(false)
+
+  /**
+   * Resolve a intenção pendente (favoritar/retomar checkout) depois de
+   * QUALQUER login — senha/Google (pós-reload) OU o atalho rápido de
+   * desenvolvimento. SEMPRE via este efeito, nunca chamando
+   * `resolvePendingLoginAndNavigate` direto de dentro do handler de clique:
+   * um ponto de entrada único, guardado por `pendingLoginResolvedRef`, evita
+   * que o handler de clique E este efeito (ambos reagindo ao mesmo login)
+   * disparem a resolução duas vezes para a mesma intenção — a segunda vez
+   * desfavoritaria o produto se usasse um toggle simples (por isso
+   * `ensureFavorited`, acima, é idempotente por design).
+   */
   useEffect(() => {
     if (pendingLoginResolvedRef.current) return
     if (!hasSession) return
     if (!session.pendingIntent && !session.pendingReturnTo) return
-    if (session.pendingIntent?.type === 'favorite' && remoteCatalog.products.length === 0) return
-
     pendingLoginResolvedRef.current = true
-    resolvePendingLoginAndNavigate()
-  }, [hasSession, session.pendingIntent, session.pendingReturnTo, remoteCatalog.products])
+    void resolvePendingLoginAndNavigate()
+  }, [hasSession, session.pendingIntent, session.pendingReturnTo])
 
   /**
    * `session.handleAuthSubmit` já faz o `hardNavigate` sozinho no sucesso
    * (senha ou signup+login) — nenhum trabalho de navegação sobra pra cá; a
-   * intenção pendente é resolvida depois do reload, ver o efeito de
-   * rehidratação logo abaixo.
+   * intenção pendente é resolvida depois do reload, ver o efeito acima.
    */
   const onAuthSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     void session.handleAuthSubmit(event)
@@ -344,36 +444,17 @@ export function useMarketplaceState() {
 
   /**
    * Login rápido de desenvolvimento: NÃO recarrega a página (diferente do
-   * login por senha/Google, que faz hardNavigate). Isso significa que, se a
-   * intenção pendente for favoritar um produto, o catálogo remoto pode
-   * ainda não ter chegado neste exato instante — resolver a intenção aqui
-   * na hora faria `remoteCatalog.products.find(...)` não achar nada e o
-   * favorito virar no-op silencioso (bug real: e2e/jornada-visitante.spec.ts).
-   * Nesse caso específico, NÃO resolve aqui: deixa a intenção pendente no
-   * estado e o efeito guardado por `pendingLoginResolvedRef` (abaixo) —
-   * que já espera o catálogo carregar — assume a resolução assim que
-   * `remoteCatalog.products` deixar de estar vazio. Para qualquer outra
-   * intenção (ou nenhuma), resolve e navega na hora, como sempre.
-   */
-  /**
-   * Login rápido de desenvolvimento: NÃO recarrega a página (diferente do
-   * login por senha/Google, que faz hardNavigate). Isso significa que, se a
-   * intenção pendente for favoritar um produto, o catálogo remoto pode
-   * ainda não ter chegado neste exato instante — resolver a intenção aqui
-   * na hora faria `remoteCatalog.products.find(...)` não achar nada e o
-   * favorito virar no-op silencioso (bug real: e2e/jornada-visitante.spec.ts).
-   * Nesse caso específico, NÃO resolve aqui: deixa a intenção pendente no
-   * estado e o efeito guardado por `pendingLoginResolvedRef` (abaixo) —
-   * que já espera o catálogo carregar — assume a resolução assim que
-   * `remoteCatalog.products` deixar de estar vazio. Para qualquer outra
-   * intenção (ou nenhuma), resolve e navega na hora, como sempre.
+   * login por senha/Google, que faz hardNavigate). Sem intenção pendente,
+   * navega na hora — não há nada para o efeito acima resolver, então não
+   * há motivo para esperar por ele. COM intenção pendente, deixa o efeito
+   * cuidar (ver o comentário longo na declaração dele): só ele garante a
+   * ordem correta em relação à hidratação de favoritos.
    */
   const onQuickLogin = (role: Role) => {
     session.handleQuickLogin(role)
-    if (session.pendingIntent?.type === 'favorite' && remoteCatalog.products.length === 0) {
-      return
+    if (!session.pendingIntent && !session.pendingReturnTo) {
+      navigate(ROUTES.home)
     }
-    resolvePendingLoginAndNavigate()
   }
 
   const onGoogleLogin = () => {
@@ -408,9 +489,7 @@ export function useMarketplaceState() {
     } catch (err) {
       catalog.addNotification(
         'Cadastro de lojista',
-        err instanceof ApiError && err.status > 0
-          ? err.message
-          : 'Não foi possível iniciar seu cadastro de lojista. Tente novamente.',
+        apiErrorMessage(err, 'Não foi possível iniciar seu cadastro de lojista. Tente novamente.'),
         'warning',
         ROUTES.profile,
       )
@@ -464,9 +543,7 @@ export function useMarketplaceState() {
     } catch (err) {
       catalog.addNotification(
         'Cadastro do negócio',
-        err instanceof ApiError && err.status > 0
-          ? err.message
-          : 'Não foi possível criar sua loja. Tente novamente.',
+        apiErrorMessage(err, 'Não foi possível criar sua loja. Tente novamente.'),
         'warning',
       )
     }
@@ -587,9 +664,7 @@ export function useMarketplaceState() {
         return
       }
       cartCheckout.setCheckoutError(
-        err instanceof ApiError && err.status > 0
-          ? err.message
-          : 'Não foi possível finalizar a compra. Verifique sua conexão e tente novamente.',
+        apiErrorMessage(err, 'Não foi possível finalizar a compra. Verifique sua conexão e tente novamente.'),
       )
     } finally {
       setIsConfirmingOrder(false)

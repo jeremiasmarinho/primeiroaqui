@@ -28,7 +28,6 @@ export default function CustomerFields({
         label="CPF"
         value={customerForm.cpf}
         placeholder="000.000.000-00"
-        inputMode="numeric"
         autoComplete="off"
         disabled={disabled}
         error={fieldErrors.cpf}
@@ -39,7 +38,6 @@ export default function CustomerFields({
         label="Telefone (com DDD)"
         value={customerForm.phone}
         placeholder="(00) 00000-0000"
-        inputMode="numeric"
         autoComplete="tel"
         disabled={disabled}
         error={fieldErrors.phone}

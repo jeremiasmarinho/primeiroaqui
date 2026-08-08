@@ -28,7 +28,6 @@ export default function CardPaymentForm({
         label="Número do cartão"
         value={cardForm.number}
         placeholder="0000 0000 0000 0000"
-        inputMode="numeric"
         autoComplete="cc-number"
         disabled={disabled}
         error={fieldErrors.number}
@@ -38,6 +37,7 @@ export default function CardPaymentForm({
         id="card-holder"
         label="Nome impresso no cartão"
         value={cardForm.holderName}
+        inputMode={undefined}
         autoComplete="cc-name"
         disabled={disabled}
         error={fieldErrors.holderName}
@@ -50,7 +50,6 @@ export default function CardPaymentForm({
           label="Validade"
           value={cardForm.expiry}
           placeholder="MM/AA"
-          inputMode="numeric"
           autoComplete="cc-exp"
           disabled={disabled}
           error={fieldErrors.expiry}
@@ -61,7 +60,6 @@ export default function CardPaymentForm({
           label="CVV"
           value={cardForm.cvv}
           placeholder="000"
-          inputMode="numeric"
           autoComplete="cc-csc"
           disabled={disabled}
           error={fieldErrors.cvv}

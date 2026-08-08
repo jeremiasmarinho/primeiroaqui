@@ -14,6 +14,10 @@ import {
 } from '../lib/paymentValidation'
 import { STORAGE_KEYS } from './session'
 
+/** Mensagem pt-BR do backend quando houver (erro de rede/status 0 cai no fallback local). */
+const apiErrorMessage = (err: unknown, fallback: string): string =>
+  err instanceof ApiError && err.status > 0 ? err.message : fallback
+
 export interface CardFormState {
   number: string
   holderName: string
@@ -108,11 +112,7 @@ export function usePaymentCheckoutState() {
         // porta da etapa de pagamento — mais seguro degradar para o fluxo
         // pré-Fase 2 do que arriscar uma etapa sem publicKey confiável.
         setPaymentsEnabled(false)
-        setConfigError(
-          err instanceof ApiError && err.status > 0
-            ? err.message
-            : 'Não foi possível carregar a configuração de pagamento.',
-        )
+        setConfigError(apiErrorMessage(err, 'Não foi possível carregar a configuração de pagamento.'))
       })
     return () => {
       cancelled = true
@@ -193,25 +193,14 @@ export function usePaymentCheckoutState() {
    * recusa com 400). Compartilhada pelos dois validadores abaixo.
    */
   const validateCustomerFields = (errors: Record<string, string>): void => {
-    if (!isValidCpf(customerForm.cpf)) errors.cpf = 'CPF inválido.'
+    if (!isValidCpf(customerForm.cpf)) errors.cpf = 'CPF inválido'
     if (!isValidPhone(customerForm.phone)) errors.phone = 'Telefone inválido (inclua o DDD).'
   }
 
-  const validateCardForm = (): boolean => {
+  /** Roda `fill`, publica os erros e devolve se passou — usada pelos dois validadores abaixo. */
+  const runValidation = (fill: (errors: Record<string, string>) => void): boolean => {
     const errors: Record<string, string> = {}
-    if (!isValidCardNumber(cardForm.number)) errors.number = 'Número de cartão inválido.'
-    if (!cardForm.holderName.trim()) errors.holderName = 'Informe o nome impresso no cartão.'
-    if (!isValidCardExpiry(cardForm.expiry)) errors.expiry = 'Validade inválida ou vencida.'
-    if (!isValidCvv(cardForm.cvv)) errors.cvv = 'CVV inválido.'
-    validateCustomerFields(errors)
-    setFieldErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  /** Validação do Pix puro: só CPF/telefone (sem campos de cartão). */
-  const validatePixCustomerForm = (): boolean => {
-    const errors: Record<string, string> = {}
-    validateCustomerFields(errors)
+    fill(errors)
     setFieldErrors(errors)
     return Object.keys(errors).length === 0
   }
@@ -219,7 +208,14 @@ export function usePaymentCheckoutState() {
   /** Tokeniza no navegador (número nunca vai ao nosso servidor) e paga o pedido atual. */
   const payWithCard = async (buyerName: string, buyerEmail: string): Promise<'success' | 'error' | 'invalid'> => {
     if (!currentOrder || !publicKey) return 'invalid'
-    if (!validateCardForm()) return 'invalid'
+    const cardFormValid = runValidation((errors) => {
+      if (!isValidCardNumber(cardForm.number)) errors.number = 'Número de cartão inválido.'
+      if (!cardForm.holderName.trim()) errors.holderName = 'Informe o nome no cartão.'
+      if (!isValidCardExpiry(cardForm.expiry)) errors.expiry = 'Validade inválida ou vencida.'
+      if (!isValidCvv(cardForm.cvv)) errors.cvv = 'CVV inválido'
+      validateCustomerFields(errors)
+    })
+    if (!cardFormValid) return 'invalid'
 
     setErrorMessage('')
     setStatus('tokenizing')
@@ -243,13 +239,11 @@ export function usePaymentCheckoutState() {
       return 'success'
     } catch (err) {
       setStatus('error')
-      if (err instanceof CardTokenizeError) {
-        setErrorMessage(err.message)
-      } else if (err instanceof ApiError && err.status > 0) {
-        setErrorMessage(err.message)
-      } else {
-        setErrorMessage('Não foi possível processar o pagamento. Tente novamente.')
-      }
+      setErrorMessage(
+        err instanceof CardTokenizeError
+          ? err.message
+          : apiErrorMessage(err, 'Não foi possível processar o pagamento. Tente novamente.'),
+      )
       return 'error'
     }
   }
@@ -257,7 +251,7 @@ export function usePaymentCheckoutState() {
   /** Pix: sem tokenização — chama /pay direto. action_forbidden (Pix gateado) vem como 409 do servidor. */
   const payWithPix = async (buyerName: string, buyerEmail: string): Promise<'success' | 'error' | 'invalid'> => {
     if (!currentOrder) return 'error'
-    if (!validatePixCustomerForm()) return 'invalid'
+    if (!runValidation(validateCustomerFields)) return 'invalid'
 
     setErrorMessage('')
     setPixPaymentStatus(null)
@@ -273,11 +267,7 @@ export function usePaymentCheckoutState() {
       return 'success'
     } catch (err) {
       setStatus('error')
-      setErrorMessage(
-        err instanceof ApiError && err.status > 0
-          ? err.message
-          : 'Não foi possível gerar o Pix. Tente novamente.',
-      )
+      setErrorMessage(apiErrorMessage(err, 'Não foi possível gerar o Pix. Tente novamente.'))
       return 'error'
     }
   }

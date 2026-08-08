@@ -35,13 +35,19 @@ describe('visitante — favoritar', () => {
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
 
     expect(window.location.pathname).toBe('/')
+    // Resolução da intenção pendente agora é assíncrona (pode esperar a
+    // hidratação de /me/favorites e/ou um GET /products/:id — ver
+    // resolveFavoriteIntent em useMarketplaceState.ts), então o favorito não
+    // fica pronto na mesma tick síncrona do clique.
     // Nota: `title` (ex. "Ventilador de Mesa Premium...") pode ter card duplicado
     // na home (rail "Entrega turbo" + grade de catálogo, quando o produto é
     // `express`) — comportamento pré-existente, fora do escopo da Task 4.
     // Por isso usamos getAllByRole (>=1) em vez de getByRole (exatamente 1).
-    expect(
-      screen.getAllByRole('button', { name: new RegExp(`^remover ${title} dos favoritos$`, 'i') }).length,
-    ).toBeGreaterThanOrEqual(1)
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('button', { name: new RegExp(`^remover ${title} dos favoritos$`, 'i') }).length,
+      ).toBeGreaterThanOrEqual(1),
+    )
   })
 
   /**
@@ -49,8 +55,13 @@ describe('visitante — favoritar', () => {
    * desenvolvimento (`onQuickLogin`) NÃO recarrega a página — diferente do
    * login por senha/Google — então resolvia a intenção de favorito na hora,
    * mesmo que o catálogo remoto (`remoteCatalog.products`) ainda não tivesse
-   * chegado. `products.find(...)` não achava o produto, e o favorito virava
-   * no-op silencioso (nenhum POST /favorites disparava).
+   * chegado (ou não contivesse o produto, já que GET /products é uma janela
+   * de até 50 itens — ver useRemoteCatalog.ts). `products.find(...)` não
+   * achava o produto, e o favorito virava no-op silencioso — pior ainda: o
+   * `pendingLoginResolvedRef` já marcava a intenção como "resolvida",
+   * perdendo-a PERMANENTEMENTE. Corrigido buscando o produto direto por id
+   * (GET /products/:id) quando não está no catálogo já carregado — ver
+   * `resolveFavoriteIntent` em useMarketplaceState.ts.
    *
    * Reproduzido de forma DETERMINÍSTICA (sem depender de timing/delay de
    * verdade, que pode "acidentalmente" passar se o catálogo resolver rápido
@@ -137,11 +148,18 @@ describe('login por senha real — navegação dura (hardNavigate)', () => {
     first.unmount()
     render(<MarketplaceApp />)
 
-    await waitFor(() =>
-      expect(
-        screen.getAllByRole('button', { name: new RegExp(`^remover ${title} dos favoritos$`, 'i') })
-          .length,
-      ).toBeGreaterThanOrEqual(1),
+    // Cadeia mais longa de round-trips nesse caminho (GET /me → hidratação
+    // de /favoritos + resolução da intenção, possivelmente com fallback
+    // GET /products/:id se o catálogo do remount ainda não chegou) — ver
+    // resolveFavoriteIntent em useMarketplaceState.ts. Timeout maior que o
+    // default para não flaquear à toa.
+    await waitFor(
+      () =>
+        expect(
+          screen.getAllByRole('button', { name: new RegExp(`^remover ${title} dos favoritos$`, 'i') })
+            .length,
+        ).toBeGreaterThanOrEqual(1),
+      { timeout: 3000 },
     )
     // Consumido — um F5 manual subsequente não reaplica nada.
     expect(sessionStorage.getItem('primeiroaqui_pending_login')).toBeNull()

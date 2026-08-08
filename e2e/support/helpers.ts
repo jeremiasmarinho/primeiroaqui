@@ -14,9 +14,21 @@ export const uniqueProductTitle = (prefix = 'Produto'): string => `${prefix} E2E
  * Supabase DEV não exige confirmação de e-mail: o cadastro já loga.
  * Após o login/cadastro há um HARD RELOAD (hardNavigate) — esperamos a
  * navegação principal (nav inferior) reaparecer, não só a URL mudar.
+ *
+ * Só navega para /entrar se a página AINDA não estiver lá: um `page.goto`
+ * incondicional recarregaria a página mesmo quando o teste já chegou em
+ * /entrar por um redirecionamento client-side (ex.: clicar em favoritar sem
+ * sessão — ver jornada-visitante.spec.ts), e esse reload apagaria o estado
+ * em memória que motivou a ida a /entrar (a intenção pendente de favoritar,
+ * guardada só em React state até o próprio login persistir no
+ * sessionStorage — ver `redirectToLogin`/`savePendingLogin` no app). Pular o
+ * goto quando redundante preserva esse estado sem mudar o comportamento
+ * para quem já chama este helper a partir de uma página fresca.
  */
 export async function signupViaUI(page: Page, { name, email, password = 'senha12345' }: { name: string; email: string; password?: string }) {
-  await page.goto('/entrar')
+  if (new URL(page.url()).pathname !== '/entrar') {
+    await page.goto('/entrar')
+  }
   await page.getByRole('button', { name: /^criar conta$/i }).first().click()
   await page.getByLabel('Seu nome').fill(name)
   await page.getByLabel('E-mail').fill(email)

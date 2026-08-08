@@ -5,6 +5,7 @@ interface PaymentTextFieldProps {
   label: string
   value: string
   placeholder?: string
+  /** Default 'numeric' — só o nome no cartão (texto livre) passa `undefined` explicitamente. */
   inputMode?: 'numeric'
   autoComplete?: string
   disabled: boolean
@@ -18,7 +19,7 @@ export default function PaymentTextField({
   label,
   value,
   placeholder,
-  inputMode,
+  inputMode = 'numeric',
   autoComplete,
   disabled,
   error,
