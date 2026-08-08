@@ -1,0 +1,19 @@
+# Monitor de uptime: checa a producao a cada ~15 min. Se /api/health nao
+# responder 200, o job falha e o GitHub notifica por e-mail o dono do repo.
+# Externo a VPS de proposito: se o servidor cair, o alerta ainda dispara.
+name: Uptime
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checar producao
+        run: |
+          code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 https://primeiroaqui.koraforce.com.br/api/health || echo 000)
+          echo "health: HTTP $code"
+          [ "$code" = "200" ] || exit 1
