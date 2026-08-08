@@ -12,7 +12,7 @@ vi.mock('./prismaClient', () => ({
   },
 }))
 
-import { pagarmeRequest } from './pagarmeClient'
+import { pagarmeRequest, PagarmeApiError } from './pagarmeClient'
 import { prisma } from './prismaClient'
 import {
   buildRecipientPayload,
@@ -21,7 +21,7 @@ import {
   createRecipientForStore,
   createPaymentOrder,
   handleWebhook,
-  PaymentValidationError,
+  MarketplaceNotEnabledError,
   type OrderWithItemsAndStore,
 } from './paymentService'
 
@@ -160,6 +160,65 @@ describe('createRecipientForStore', () => {
       data: { pagarmeRecipientId: 'rp_123', recipientStatus: 'pending' },
     })
   })
+
+  it('mapeia o 412 "not allowed to create a recipient" para MarketplaceNotEnabledError (gate de afiliacao confirmado em sandbox 2026-08-07)', async () => {
+    pagarmeRequestMock.mockRejectedValue(
+      new PagarmeApiError('Pagar.me respondeu 412 em /recipients', 412, {
+        message: 'This company is not allowed to create a recipient',
+      }),
+    )
+
+    const store = { id: 'store_1' } as never
+    await expect(
+      createRecipientForStore(store, {
+        personType: 'individual',
+        document: '11122233344',
+        name: 'Joao',
+        email: 'joao@example.com',
+        birthdate: '1990-01-01',
+        monthlyIncome: 300000,
+        professionalOccupation: 'Comerciante',
+        bankAccount: {
+          holder_name: 'Joao',
+          holder_type: 'individual',
+          holder_document: '11122233344',
+          bank: '001',
+          branch_number: '1234',
+          account_number: '56789',
+          account_check_digit: '0',
+          type: 'checking',
+        },
+      }),
+    ).rejects.toBeInstanceOf(MarketplaceNotEnabledError)
+    expect(prisma.store.update).not.toHaveBeenCalled()
+  })
+
+  it('outros erros da API (ex.: 422 de validacao) passam adiante sem virar MarketplaceNotEnabledError', async () => {
+    pagarmeRequestMock.mockRejectedValue(new PagarmeApiError('Pagar.me respondeu 422 em /recipients', 422, { message: 'invalid' }))
+
+    const store = { id: 'store_1' } as never
+    await expect(
+      createRecipientForStore(store, {
+        personType: 'individual',
+        document: '11122233344',
+        name: 'Joao',
+        email: 'joao@example.com',
+        birthdate: '1990-01-01',
+        monthlyIncome: 300000,
+        professionalOccupation: 'Comerciante',
+        bankAccount: {
+          holder_name: 'Joao',
+          holder_type: 'individual',
+          holder_document: '11122233344',
+          bank: '001',
+          branch_number: '1234',
+          account_number: '56789',
+          account_check_digit: '0',
+          type: 'checking',
+        },
+      }),
+    ).rejects.not.toBeInstanceOf(MarketplaceNotEnabledError)
+  })
 })
 
 describe('createPaymentOrder', () => {
@@ -183,15 +242,36 @@ describe('createPaymentOrder', () => {
 
   const customer = { name: 'Maria', email: 'maria@example.com', document: '11122233344', documentType: 'CPF' as const }
 
-  it('rejeita se a loja nao tiver pagarmeRecipientId', async () => {
-    const orderSemRecipient = { ...baseOrder, store: { id: 'store_1', pagarmeRecipientId: null } } as unknown as OrderWithItemsAndStore
-    await expect(createPaymentOrder(orderSemRecipient, { method: 'pix', customer })).rejects.toBeInstanceOf(
-      PaymentValidationError,
-    )
-    expect(pagarmeRequestMock).not.toHaveBeenCalled()
+  it('sem PAGARME_PLATFORM_RECIPIENT_ID: cria a order SEM split (100% conta master), mas ainda calcula/persiste platformFeeCents/storeAmountCents', async () => {
+    delete process.env.PAGARME_PLATFORM_RECIPIENT_ID
+    pagarmeRequestMock.mockResolvedValue({ id: 'ord_sem_split', status: 'pending', charges: [] })
+    vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+    await createPaymentOrder(baseOrder, { method: 'pix', customer })
+
+    const [, init] = pagarmeRequestMock.mock.calls[0]!
+    const body = init!.body as { payments: Array<{ payment_method: string; split?: unknown }> }
+    expect(body.payments[0]!.split).toBeUndefined()
+
+    expect(prisma.order.update).toHaveBeenCalledWith({
+      where: { id: 'order_1' },
+      data: { pagarmeOrderId: 'ord_sem_split', paymentStatus: 'PENDING', platformFeeCents: 500, storeAmountCents: 9500 },
+    })
   })
 
-  it('Pix: monta payload com split e persiste pagarmeOrderId/paymentStatus=PENDING', async () => {
+  it('sem Store.pagarmeRecipientId (mesmo com PAGARME_PLATFORM_RECIPIENT_ID setado): cria a order SEM split', async () => {
+    pagarmeRequestMock.mockResolvedValue({ id: 'ord_sem_split_2', status: 'pending', charges: [] })
+    vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+    const orderSemRecipient = { ...baseOrder, store: { id: 'store_1', pagarmeRecipientId: null } } as unknown as OrderWithItemsAndStore
+    await createPaymentOrder(orderSemRecipient, { method: 'pix', customer })
+
+    const [, init] = pagarmeRequestMock.mock.calls[0]!
+    const body = init!.body as { payments: Array<{ payment_method: string; split?: unknown }> }
+    expect(body.payments[0]!.split).toBeUndefined()
+  })
+
+  it('Pix: com loja e plataforma configuradas, monta payload com split e persiste pagarmeOrderId/paymentStatus=PENDING', async () => {
     pagarmeRequestMock.mockResolvedValue({ id: 'ord_pagarme_1', status: 'pending', charges: [] })
     vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
 
@@ -218,6 +298,62 @@ describe('createPaymentOrder', () => {
     const [, init] = pagarmeRequestMock.mock.calls[0]!
     const body = init!.body as { payments: Array<{ payment_method: string; credit_card: { card_token: string } }> }
     expect(body.payments[0]!.credit_card.card_token).toBe('card_token_abc')
+  })
+
+  it('cada item leva `code` (productId) — confirmado obrigatorio pelo sandbox real', async () => {
+    pagarmeRequestMock.mockResolvedValue({ id: 'ord_pagarme_3', status: 'pending', charges: [] })
+    vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+    await createPaymentOrder(baseOrder, { method: 'pix', customer })
+
+    const [, init] = pagarmeRequestMock.mock.calls[0]!
+    const body = init!.body as { items: Array<{ code: string }> }
+    expect(body.items[0]!.code).toBe('p1')
+  })
+
+  it('customer.phones.mobile_phone e propagado quando o customer informa phone', async () => {
+    pagarmeRequestMock.mockResolvedValue({ id: 'ord_pagarme_4', status: 'pending', charges: [] })
+    vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+    await createPaymentOrder(baseOrder, {
+      method: 'pix',
+      customer: { ...customer, phone: { countryCode: '55', areaCode: '11', number: '999999999' } },
+    })
+
+    const [, init] = pagarmeRequestMock.mock.calls[0]!
+    const body = init!.body as { customer: { phones?: { mobile_phone?: { area_code: string } } } }
+    expect(body.customer.phones?.mobile_phone?.area_code).toBe('11')
+  })
+
+  it('cartao: billing_address vai em credit_card.card.billing_address quando informado (confirmado pelo sandbox real)', async () => {
+    pagarmeRequestMock.mockResolvedValue({ id: 'ord_pagarme_5', status: 'paid', charges: [] })
+    vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+    await createPaymentOrder(baseOrder, {
+      method: 'credit_card',
+      customer,
+      cardToken: 'card_token_abc',
+      billingAddress: { line1: 'Rua Teste, 123', zipCode: '01000000', city: 'Sao Paulo', state: 'SP', country: 'BR' },
+    })
+
+    const [, init] = pagarmeRequestMock.mock.calls[0]!
+    const body = init!.body as {
+      payments: Array<{ credit_card: { card?: { billing_address?: { line_1: string; city: string } } } }>
+    }
+    expect(body.payments[0]!.credit_card.card?.billing_address).toEqual(
+      expect.objectContaining({ line_1: 'Rua Teste, 123', city: 'Sao Paulo' }),
+    )
+  })
+
+  it('cartao: sem billingAddress, credit_card.card fica ausente (nao manda objeto vazio)', async () => {
+    pagarmeRequestMock.mockResolvedValue({ id: 'ord_pagarme_6', status: 'pending', charges: [] })
+    vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+    await createPaymentOrder(baseOrder, { method: 'credit_card', customer, cardToken: 'card_token_abc' })
+
+    const [, init] = pagarmeRequestMock.mock.calls[0]!
+    const body = init!.body as { payments: Array<{ credit_card: { card?: unknown } }> }
+    expect(body.payments[0]!.credit_card.card).toBeUndefined()
   })
 })
 

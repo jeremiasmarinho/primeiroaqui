@@ -3,6 +3,8 @@ import {
   pagarmeRequest,
   getPlatformRecipientId,
   getPlatformFeePercent,
+  hasPlatformRecipientId,
+  PagarmeApiError,
   type PagarmeBankAccount,
   type PagarmeCreateRecipientPayload,
   type PagarmeRecipientResponse,
@@ -13,6 +15,39 @@ import {
 import type { Order, Store } from '@prisma/client'
 
 export class PaymentValidationError extends Error {}
+
+/**
+ * Erro de dominio para quando a conta do Pagar.me nao tem a funcao
+ * marketplace/split habilitada. Confirmado em sandbox real (2026-08-07):
+ * POST /recipients responde 412 com mensagem "This company is not allowed
+ * to create a recipient" — a Pagar.me exige liberacao manual (gate de
+ * afiliacao) antes de qualquer conta poder criar recipients/usar split.
+ * Ate essa liberacao chegar, `createRecipientForStore` nao pode ser usada
+ * de verdade; `createPaymentOrder` degrada para 100% na conta master (ver
+ * comentario em `buildSplitRules`/`createPaymentOrder`).
+ */
+export class MarketplaceNotEnabledError extends Error {
+  code = 'MARKETPLACE_NOT_ENABLED' as const
+
+  constructor(cause: PagarmeApiError) {
+    super('Conta Pagar.me sem a funcao marketplace/split habilitada (aguardando liberacao do suporte)')
+    this.name = 'MarketplaceNotEnabledError'
+    this.cause = cause
+  }
+}
+
+/**
+ * Reconhece o 412 "action not allowed" do Pagar.me para criacao de
+ * recipient e o traduz num erro de dominio claro. Qualquer outro erro da
+ * API passa adiante sem alteracao.
+ */
+const isMarketplaceNotEnabledError = (err: unknown): err is PagarmeApiError => {
+  if (!(err instanceof PagarmeApiError)) return false
+  if (err.status !== 412) return false
+  const body = err.body as { message?: string; type?: string } | undefined
+  const message = body?.message ?? ''
+  return /not allowed to create a recipient/i.test(message) || body?.type === 'action_forbidden'
+}
 
 // -------------------- Recipients (loja) --------------------
 
@@ -77,10 +112,19 @@ export const buildRecipientPayload = (input: StoreRecipientInput): PagarmeCreate
  */
 export const createRecipientForStore = async (store: Store, input: StoreRecipientInput): Promise<Store> => {
   const payload = buildRecipientPayload(input)
-  const response = await pagarmeRequest<PagarmeRecipientResponse>('/recipients', {
-    method: 'POST',
-    body: payload,
-  })
+
+  let response: PagarmeRecipientResponse
+  try {
+    response = await pagarmeRequest<PagarmeRecipientResponse>('/recipients', {
+      method: 'POST',
+      body: payload,
+    })
+  } catch (err) {
+    if (isMarketplaceNotEnabledError(err)) {
+      throw new MarketplaceNotEnabledError(err)
+    }
+    throw err
+  }
 
   return prisma.store.update({
     where: { id: store.id },
@@ -104,13 +148,14 @@ export const createRecipientForStore = async (store: Store, input: StoreRecipien
  *
  * ATENCAO: assumimos que a API do Pagar.me aceita `liable: true` num
  * recipient e `charge_processing_fee: true` em OUTRO recipient da mesma
- * split rule (plataforma liable, loja paga a taxa). Isso NAO foi validado
- * contra o sandbox real ainda (sem chave configurada nesta fase) — o
- * smoke-test condicional em payments.smoke.test.ts tenta criar uma order Pix
- * real com este payload. Se o Pagar.me rejeitar essa combinacao quando as
- * chaves de sandbox forem adicionadas, ESTA FUNCAO precisa ser revisada
- * antes de qualquer uso real (o codigo nao deve ser considerado validado
- * ate o smoke-test passar).
+ * split rule (plataforma liable, loja paga a taxa). Isso ainda NAO foi
+ * validado contra o sandbox real com split de verdade — a conta de teste
+ * atual nao tem a funcao marketplace/split habilitada (ver
+ * MarketplaceNotEnabledError acima; 412 "not allowed to create a
+ * recipient" ao tentar POST /recipients). Enquanto essa liberacao nao
+ * chega, esta funcao so e exercitada pelo smoke-test de nivel (b) em
+ * paymentService.smoke.test.ts, que so roda com
+ * PAGARME_PLATFORM_RECIPIENT_ID + um recipient de loja de teste validos.
  */
 export const buildSplitRules = (storeRecipientId: string): PagarmeSplitRule[] => {
   const platformFeePercent = getPlatformFeePercent()
@@ -152,38 +197,78 @@ export type OrderWithItemsAndStore = Order & {
   items: Array<{ productId: string; quantity: number; unitPriceCents: number }>
 }
 
+/**
+ * `phone` confirmado obrigatorio na pratica pelo sandbox real (2026-08-07)
+ * — ver comentario em `PagarmeCustomer.phones` em pagarmeClient.ts. Opcional
+ * no tipo porque a Fase 2 (checkout) ainda vai construir a coleta desse
+ * dado; sem ele o pagamento e tentado mesmo assim e falha do lado do
+ * Pagar.me com uma mensagem clara, em vez de bloquear aqui.
+ */
 export type PaymentCustomerInput = {
   name: string
   email: string
   document: string
   documentType: 'CPF' | 'CNPJ'
+  phone?: { countryCode: string; areaCode: string; number: string }
+}
+
+/**
+ * Endereco de cobranca do cartao — ver PagarmeBillingAddress em
+ * pagarmeClient.ts (confirmado obrigatorio na pratica pelo sandbox real).
+ */
+export type BillingAddressInput = {
+  line1: string
+  line2?: string
+  zipCode: string
+  city: string
+  state: string
+  country: string
 }
 
 export type CreatePaymentOrderOptions =
   | { method: 'pix'; customer: PaymentCustomerInput }
-  | { method: 'credit_card'; customer: PaymentCustomerInput; cardToken: string; installments?: number }
+  | {
+      method: 'credit_card'
+      customer: PaymentCustomerInput
+      cardToken: string
+      installments?: number
+      billingAddress?: BillingAddressInput
+    }
 
 const PIX_EXPIRES_IN_SECONDS = 30 * 60
 
 /**
  * Monta e cria a order de pagamento no Pagar.me (Pix ou cartao tokenizado),
- * com o split loja/plataforma acima, e persiste pagarmeOrderId +
- * paymentStatus=PENDING + platformFeeCents/storeAmountCents na Order local.
+ * e persiste pagarmeOrderId + paymentStatus=PENDING +
+ * platformFeeCents/storeAmountCents na Order local.
+ *
+ * SPLIT CONDICIONAL (2026-08-07): a conta Pagar.me do usuario ainda nao tem
+ * a funcao marketplace/split liberada (gate de afiliacao — ver
+ * MarketplaceNotEnabledError). Enquanto isso, se PAGARME_PLATFORM_RECIPIENT_ID
+ * estiver ausente OU a loja nao tiver pagarmeRecipientId, a order e criada
+ * SEM o campo `split` — 100% cai na conta master, que e a unica coisa que a
+ * conta atual consegue fazer. platformFeeCents/storeAmountCents continuam
+ * sendo calculados e persistidos nos dois casos: e o registro de auditoria
+ * de quanto o split VAI mandar pra cada lado assim que a liberacao chegar e
+ * o split for ligado de verdade — nao e dinheiro efetivamente separado
+ * ainda quando o split esta desligado.
  *
  * NUNCA aceita numero de cartao cru — `cardToken` deve vir ja tokenizado
  * pelo front via POST https://api.pagar.me/core/v5/tokens?appId=pk_... (a
  * public key do Pagar.me, tokenizacao client-side). Isso e enforced na rota
  * (src/server/routes/payments.ts), nao aqui.
+ *
+ * CAMINHO DE CARTAO VALIDADO EM SANDBOX REAL (2026-08-07): order/charge
+ * `status: "paid"` com token + `billingAddress` + `customer.phone`
+ * preenchidos — ver src/server/lib/paymentService.smoke.test.ts. Pix e
+ * split seguem gateados na conta (liberacao pendente do suporte Pagar.me).
  */
 export const createPaymentOrder = async (
   order: OrderWithItemsAndStore,
   options: CreatePaymentOrderOptions,
 ): Promise<{ order: Order; pagarmeOrder: PagarmeOrderResponse }> => {
-  if (!order.store.pagarmeRecipientId) {
-    throw new PaymentValidationError('Loja sem recipient Pagar.me configurado (pagarmeRecipientId ausente)')
-  }
-
-  const split = buildSplitRules(order.store.pagarmeRecipientId)
+  const splitEnabled = Boolean(order.store.pagarmeRecipientId) && hasPlatformRecipientId()
+  const split = splitEnabled ? buildSplitRules(order.store.pagarmeRecipientId!) : undefined
   const { platformFeeCents, storeAmountCents } = calculateSplitCents(order.totalCents)
 
   const customer = {
@@ -192,12 +277,26 @@ export const createPaymentOrder = async (
     document: options.customer.document,
     document_type: options.customer.documentType,
     type: (options.customer.documentType === 'CNPJ' ? 'company' : 'individual') as 'individual' | 'company',
+    ...(options.customer.phone
+      ? {
+          phones: {
+            mobile_phone: {
+              country_code: options.customer.phone.countryCode,
+              area_code: options.customer.phone.areaCode,
+              number: options.customer.phone.number,
+            },
+          },
+        }
+      : {}),
   }
 
+  // `code` obrigatorio (ver PagarmeOrderItem) — usamos o productId, unico
+  // dentro do pedido, em vez de um indice sequencial sem significado.
   const items = order.items.map((item, index) => ({
     amount: item.unitPriceCents,
     description: `Item ${index + 1}`,
     quantity: item.quantity,
+    code: item.productId,
   }))
 
   const payload: PagarmeCreateOrderPayload =
@@ -205,7 +304,7 @@ export const createPaymentOrder = async (
       ? {
           items,
           customer,
-          payments: [{ payment_method: 'pix', pix: { expires_in: PIX_EXPIRES_IN_SECONDS }, split }],
+          payments: [{ payment_method: 'pix', pix: { expires_in: PIX_EXPIRES_IN_SECONDS }, ...(split ? { split } : {}) }],
         }
       : {
           items,
@@ -213,8 +312,25 @@ export const createPaymentOrder = async (
           payments: [
             {
               payment_method: 'credit_card',
-              credit_card: { card_token: options.cardToken, installments: options.installments ?? 1 },
-              split,
+              credit_card: {
+                card_token: options.cardToken,
+                installments: options.installments ?? 1,
+                ...(options.billingAddress
+                  ? {
+                      card: {
+                        billing_address: {
+                          line_1: options.billingAddress.line1,
+                          line_2: options.billingAddress.line2,
+                          zip_code: options.billingAddress.zipCode,
+                          city: options.billingAddress.city,
+                          state: options.billingAddress.state,
+                          country: options.billingAddress.country,
+                        },
+                      },
+                    }
+                  : {}),
+              },
+              ...(split ? { split } : {}),
             },
           ],
         }

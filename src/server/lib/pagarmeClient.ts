@@ -43,6 +43,9 @@ export const getPlatformRecipientId = (): string => {
   return id
 }
 
+/** Checagem NAO-lancante de `getPlatformRecipientId` — usada para decidir se o split entra ou nao no payload da order. */
+export const hasPlatformRecipientId = (): boolean => Boolean(process.env.PAGARME_PLATFORM_RECIPIENT_ID)
+
 /**
  * Percentual da plataforma no split, LIQUIDO — decisao de negocio
  * (2026-08-07): a plataforma fica com 5% livre de taxas de processamento
@@ -157,10 +160,23 @@ export type PagarmeRecipientResponse = {
   kyc_details?: { status: string }
 }
 
+/**
+ * `code` e obrigatorio — confirmado em sandbox real (2026-08-07): sem ele o
+ * charge falha com "The item Code is required." Usamos o productId como
+ * code (identificador natural e unico do item dentro do pedido).
+ */
 export type PagarmeOrderItem = {
   amount: number
   description: string
   quantity: number
+  code: string
+}
+
+/** Telefone no formato exigido pelo Pagar.me (DDI/DDD/numero separados). */
+export type PagarmePhone = {
+  country_code: string
+  area_code: string
+  number: string
 }
 
 export type PagarmeCustomer = {
@@ -169,18 +185,49 @@ export type PagarmeCustomer = {
   document: string
   document_type?: 'CPF' | 'CNPJ'
   type: 'individual' | 'company'
+  /**
+   * Obrigatorio na pratica — confirmado em sandbox real (2026-08-07): sem
+   * `phones.mobile_phone`, tanto Pix ("At least one customer phone is
+   * required") quanto cartao (antifraude) rejeitam o pagamento.
+   */
+  phones?: { mobile_phone?: PagarmePhone }
+}
+
+/**
+ * Endereco de cobranca do cartao. Confirmado em sandbox real (2026-08-07):
+ * sem ele o charge de cartao falha na validacao do adquirente
+ * ("billing | \"value\" is required"). Vai em
+ * `credit_card.card.billing_address` (NAO direto em `credit_card` — testado
+ * e corrigido: a doc mostra esse campo dentro do objeto `card` de numero
+ * cru, mas o mesmo aninhamento vale quando so `card_token` e enviado, com
+ * `card` contendo so `billing_address`).
+ */
+export type PagarmeBillingAddress = {
+  line_1: string
+  line_2?: string
+  zip_code: string
+  city: string
+  state: string
+  country: string
 }
 
 export type PagarmePixPayment = {
   payment_method: 'pix'
   pix: { expires_in: number }
-  split: PagarmeSplitRule[]
+  /** Ausente = 100% pra conta master. Ver split condicional em paymentService.ts. */
+  split?: PagarmeSplitRule[]
 }
 
 export type PagarmeCreditCardPayment = {
   payment_method: 'credit_card'
-  credit_card: { card_token: string; installments?: number }
-  split: PagarmeSplitRule[]
+  credit_card: {
+    card_token: string
+    installments?: number
+    /** `billing_address` some com card_token — ver PagarmeBillingAddress acima para o porque. */
+    card?: { billing_address: PagarmeBillingAddress }
+  }
+  /** Ausente = 100% pra conta master. Ver split condicional em paymentService.ts. */
+  split?: PagarmeSplitRule[]
 }
 
 export type PagarmeCreateOrderPayload = {

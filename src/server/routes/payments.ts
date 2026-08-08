@@ -16,11 +16,41 @@ async function parseJsonBody(c: Context<AuthEnv>): Promise<unknown> {
   }
 }
 
+/**
+ * `phone` — confirmado obrigatorio na pratica em sandbox real (2026-08-07):
+ * Pix e cartao (antifraude) rejeitam sem `customer.phones.mobile_phone`.
+ * Opcional no schema porque o front (Fase 2) ainda vai coletar isso no
+ * checkout; sem ele o Pagar.me recusa com mensagem propria, que a rota
+ * repassa (502) em vez de fingir sucesso.
+ */
 const customerSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   document: z.string().min(1),
   documentType: z.enum(['CPF', 'CNPJ']),
+  phone: z
+    .object({
+      countryCode: z.string().min(1),
+      areaCode: z.string().min(1),
+      number: z.string().min(1),
+    })
+    .optional(),
+})
+
+/**
+ * Endereco de cobranca do cartao — confirmado obrigatorio na pratica em
+ * sandbox real (2026-08-07): sem ele o charge falha na validacao do
+ * adquirente. Opcional no schema porque a rota deriva um default do
+ * endereco de ENTREGA do pedido quando ausente (comportamento padrao de
+ * e-commerce: cobranca = entrega, com override opcional do comprador).
+ */
+const billingAddressSchema = z.object({
+  line1: z.string().min(1),
+  line2: z.string().optional(),
+  zipCode: z.string().min(1),
+  city: z.string().min(1),
+  state: z.string().min(1),
+  country: z.string().min(1),
 })
 
 /**
@@ -40,6 +70,7 @@ const payBodySchema = z.discriminatedUnion('method', [
     customer: customerSchema,
     cardToken: z.string().min(1),
     installments: z.number().int().positive().optional(),
+    billingAddress: billingAddressSchema.optional(),
   }),
 ])
 
@@ -68,7 +99,7 @@ paymentRoutes.post('/orders/:id/pay', requireUser, async (c) => {
   const authedUser = c.get('authedUser')
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { store: true, items: true },
+    include: { store: true, items: true, address: true },
   })
   if (!order || order.buyerId !== authedUser.id) {
     return c.json({ error: 'Pedido nao encontrado' }, 404)
@@ -88,6 +119,16 @@ paymentRoutes.post('/orders/:id/pay', requireUser, async (c) => {
             customer,
             cardToken: parsed.data.cardToken,
             installments: parsed.data.installments,
+            // Default: cobranca = endereco de ENTREGA do pedido (padrao de
+            // e-commerce). O comprador pode sobrescrever mandando
+            // `billingAddress` explicito no body.
+            billingAddress: parsed.data.billingAddress ?? {
+              line1: order.address.street,
+              zipCode: order.address.zipCode,
+              city: order.address.city,
+              state: order.address.state,
+              country: 'BR',
+            },
           })
 
     const charge = pagarmeOrder.charges?.[0]
