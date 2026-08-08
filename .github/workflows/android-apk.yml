@@ -1,0 +1,48 @@
+# Compila o APK de debug do app WebView (Capacitor) no runner do GitHub —
+# esta maquina de dev nao tem Android SDK; o runner ubuntu-latest tem.
+# Dispara manualmente (workflow_dispatch) ou quando algo em android/ muda.
+# O APK sai como artifact do run: Actions -> Android APK -> run -> Artifacts.
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['android/**', 'capacitor.config.ts', '.github/workflows/android-apk.yml']
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      # O app usa server.url remoto (producao), mas o Capacitor exige um
+      # webDir valido no sync; build do front cumpre o requisito.
+      - name: Build do front + sync Capacitor
+        run: |
+          npm run build
+          npx cap sync android
+
+      - name: Compilar APK de debug
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Publicar APK como artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: primeiro-aqui-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
