@@ -56,13 +56,24 @@ const checkNodeEnvNotSet = () => {
 
 checkNodeEnvNotSet()
 
-// 330 kB — decisão registrada em ORQUESTRACAO-MVP-FASE2.md §10 (2026-08-01):
-// React+ReactDOM custam ~190 kB minificados; o app inteiro (12 telas, rotas,
-// estado) usa ~122 kB. Cortar abaixo disso exigiria trocar de framework —
-// fora do escopo do MVP. Baixar este limite sem justificativa é permitido;
-// SUBIR sem decisão humana registrada é violação do gate.
-const MAX_SIZE_KB = 330
-const MAX_SIZE_BYTES = MAX_SIZE_KB * 1024
+// DECISÃO HUMANA REGISTRADA (2026-08-07, aprovada pelo dono do projeto via
+// AskUserQuestion): a métrica principal passa a ser o bundle INICIAL (chunks
+// baixados para abrir o app: entry + CSS não contam, só .js sem lazy), limite
+// de 330 kB — o mesmo teto de 01/08, agora medindo o que o usuário paga na
+// primeira visita. Telas carregadas via React.lazy pagam o próprio peso sob
+// demanda e são cobertas por um teto de segurança TOTAL de 450 kB contra
+// crescimento descontrolado. Racional: entre 01 e 07/08 o app dobrou de
+// escopo (OAuth, toasts, dashboards, CRM) e a soma cega punia code-splitting.
+// Baixar limites é permitido; SUBIR qualquer um exige nova decisão humana.
+const MAX_INITIAL_KB = 330
+const MAX_TOTAL_KB = 450
+const MAX_INITIAL_BYTES = MAX_INITIAL_KB * 1024
+const MAX_TOTAL_BYTES = MAX_TOTAL_KB * 1024
+
+// Chunks lazy conhecidos (nome do arquivo gerado pelo Vite = nome da tela).
+// Qualquer chunk cujo nome NÃO case aqui conta como inicial — o padrão seguro:
+// um chunk novo desconhecido pesa no orçamento apertado até ser classificado.
+const LAZY_CHUNK_PATTERN = /^(AdminScreen|StoreDashboardScreen|ResetPasswordScreen|OAuthCallbackScreen)-/
 
 const main = () => {
   if (!fs.existsSync(assetsDir)) {
@@ -79,40 +90,41 @@ const main = () => {
     process.exit(1)
   }
 
-  // Soma TODOS os .js em dist/assets — entry chunk + chunks de code splitting
-  // (ex.: telas carregadas via React.lazy). Nenhum chunk fica de fora só por
-  // não ser o mais recente.
   let totalBytes = 0
+  let initialBytes = 0
   const fileSizes = []
 
   for (const file of jsFiles) {
     const filePath = path.join(assetsDir, file)
     const stat = fs.statSync(filePath)
+    const lazy = LAZY_CHUNK_PATTERN.test(file)
     totalBytes += stat.size
-    fileSizes.push({ name: file, size: stat.size })
+    if (!lazy) initialBytes += stat.size
+    fileSizes.push({ name: file, size: stat.size, lazy })
   }
 
   fileSizes.sort((a, b) => b.size - a.size)
 
-  const totalKB = (totalBytes / 1024).toFixed(2)
-  const maxKB = (MAX_SIZE_BYTES / 1024).toFixed(2)
+  const fmt = (bytes) => (bytes / 1024).toFixed(2)
 
   console.log('\n--- Bundle Size Report ---')
   console.log(`Chunks encontrados: ${fileSizes.length}`)
   console.log('\nArquivos (maior -> menor):')
 
-  for (const { name, size } of fileSizes) {
-    const kb = (size / 1024).toFixed(2)
-    console.log(`  ${name}: ${kb} KB`)
+  for (const { name, size, lazy } of fileSizes) {
+    console.log(`  ${name}: ${fmt(size)} KB${lazy ? ' (lazy)' : ''}`)
   }
 
-  console.log(`\nTotal JavaScript (soma de todos os chunks): ${totalKB} KB (limite: ${maxKB} KB)`)
+  console.log(`\nBundle inicial: ${fmt(initialBytes)} KB (limite: ${MAX_INITIAL_KB} KB)`)
+  console.log(`Total (inicial + lazy): ${fmt(totalBytes)} KB (teto de segurança: ${MAX_TOTAL_KB} KB)`)
 
-  if (totalBytes > MAX_SIZE_BYTES) {
-    console.error(`\n❌ FALHOU: JavaScript total (${totalKB} KB) excede o limite (${maxKB} KB).`)
-    console.error(
-      `Redução necessária: ${((totalBytes - MAX_SIZE_BYTES) / 1024).toFixed(2)} KB.`,
-    )
+  if (initialBytes > MAX_INITIAL_BYTES) {
+    console.error(`\n❌ FALHOU: bundle inicial (${fmt(initialBytes)} KB) excede o limite (${MAX_INITIAL_KB} KB).`)
+    console.error(`Redução necessária: ${fmt(initialBytes - MAX_INITIAL_BYTES)} KB.`)
+    process.exit(1)
+  }
+  if (totalBytes > MAX_TOTAL_BYTES) {
+    console.error(`\n❌ FALHOU: JavaScript total (${fmt(totalBytes)} KB) excede o teto de segurança (${MAX_TOTAL_KB} KB).`)
     process.exit(1)
   }
 

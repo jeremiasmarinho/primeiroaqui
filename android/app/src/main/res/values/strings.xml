@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Primeiro Aqui</string>
+    <string name="title_activity_main">Primeiro Aqui</string>
+    <string name="package_name">br.com.koraforce.primeiroaqui</string>
+    <string name="custom_url_scheme">br.com.koraforce.primeiroaqui</string>
+</resources>

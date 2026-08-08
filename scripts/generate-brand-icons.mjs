@@ -64,11 +64,42 @@ async function makeOnYellow(size, outName) {
   console.log(`gerado ${outName}`)
 }
 
+/**
+ * Ícones maskable para PWA: fundo amarelo edge-to-edge (sem cantos
+ * arredondados — quem arredonda é o SO) e o pin com ~20% de margem em
+ * cada lado (pin ocupa ~60% do canvas) para caber na "safe zone" circular
+ * que Android aplica ao recortar o ícone.
+ */
+async function makeMaskable(size, outName) {
+  const background = await sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: BRAND_YELLOW,
+    },
+  })
+    .png()
+    .toBuffer()
+
+  const pin = await sharp(pinPath)
+    .resize(Math.round(size * 0.6), Math.round(size * 0.6), { fit: 'contain' })
+    .toBuffer()
+
+  await sharp(background)
+    .composite([{ input: pin, gravity: 'center' }])
+    .png()
+    .toFile(path.join(publicDir, outName))
+  console.log(`gerado ${outName}`)
+}
+
 async function main() {
   await makeTransparent(32, 'favicon-32.png')
   await makeOnYellow(180, 'apple-touch-icon.png')
   await makeOnYellow(192, 'icon-192.png')
   await makeOnYellow(512, 'icon-512.png')
+  await makeMaskable(192, 'icon-192-maskable.png')
+  await makeMaskable(512, 'icon-512-maskable.png')
 }
 
 main().catch((error) => {

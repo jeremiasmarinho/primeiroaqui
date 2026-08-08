@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Marca Primeiro Aqui: amarelo #FFE600 (status bar / splash), navy #0B1F5C. -->
+    <color name="colorPrimary">#0B1F5C</color>
+    <color name="colorPrimaryDark">#FFE600</color>
+    <color name="colorAccent">#0B1F5C</color>
+    <color name="splash_background">#FFE600</color>
+</resources>

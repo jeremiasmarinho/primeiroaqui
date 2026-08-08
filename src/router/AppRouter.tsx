@@ -8,11 +8,11 @@ import CategoriesScreen from '../screens/CategoriesScreen'
 import FavoritesScreen from '../screens/FavoritesScreen'
 import HomeScreen from '../screens/HomeScreen'
 import LoginScreen from '../screens/LoginScreen'
-import OAuthCallbackScreen from '../screens/OAuthCallbackScreen'
+
 import OrdersScreen from '../screens/OrdersScreen'
 import ProductScreen from '../screens/ProductScreen'
 import ProfileScreen from '../screens/ProfileScreen'
-import ResetPasswordScreen from '../screens/ResetPasswordScreen'
+
 import StoreScreen from '../screens/StoreScreen'
 import type { AdminTab } from '../screens/admin/AdminScreen'
 
@@ -29,6 +29,9 @@ export type { AppRouterProps }
  * visitada.
  */
 const AdminScreen = lazy(() => import('../screens/admin/AdminScreen'))
+// Telas de fluxo raro (link de e-mail, retorno OAuth): fora do bundle inicial.
+const ResetPasswordScreen = lazy(() => import('../screens/ResetPasswordScreen'))
+const OAuthCallbackScreen = lazy(() => import('../screens/OAuthCallbackScreen'))
 
 /**
  * Mesmo racional do AdminScreen: o painel do lojista não deve pesar no bundle

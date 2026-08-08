@@ -36,3 +36,15 @@ dist-*/
 *.fuse_hidden*
 .env.local
 .env
+
+# Android (Capacitor) — versionamos a pasta android/ em si, mas não os
+# artefatos de build local nem segredos de assinatura.
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/*.keystore
+android/app/*.jks
+android/captures/
+android/.idea/
+android/app/release/
