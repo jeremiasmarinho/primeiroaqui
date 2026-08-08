@@ -33,6 +33,8 @@ export interface AddressDraft {
   street: string
   number: string
   complement: string
+  /** Bairro/setor — ViaCEP preenche (`bairro`), editável para o entregador achar o endereço. */
+  neighborhood: string
   city: string
   /** UF — exigido pelo POST /api/addresses (zod `state` min 1). */
   state: string
@@ -44,6 +46,7 @@ export const EMPTY_ADDRESS: AddressDraft = {
   street: '',
   number: '',
   complement: '',
+  neighborhood: '',
   city: '',
   state: '',
   cep: '',
@@ -105,6 +108,7 @@ export type DraftValidation =
       street: string
       number: string
       complement: string
+      neighborhood: string
       city: string
       state: string
       cep: string
@@ -125,6 +129,7 @@ export const validateAddressDraft = (draft: AddressDraft): DraftValidation => {
   const street = draft.street.trim()
   const number = draft.number.trim()
   const complement = draft.complement.trim()
+  const neighborhood = draft.neighborhood.trim()
   const city = draft.city.trim()
   const state = draft.state.trim()
 
@@ -135,7 +140,17 @@ export const validateAddressDraft = (draft: AddressDraft): DraftValidation => {
   if (!isValidCep(draft.cep)) return reject('cep-invalido')
   if (!number && !complement) return reject('complemento-obrigatorio')
 
-  return { ok: true, label, street, number, complement, city, state, cep: formatCep(draft.cep) }
+  return {
+    ok: true,
+    label,
+    street,
+    number,
+    complement,
+    neighborhood,
+    city,
+    state,
+    cep: formatCep(draft.cep),
+  }
 }
 
 export const createAddress = (
@@ -145,7 +160,7 @@ export const createAddress = (
 ): AddressResult => {
   const validated = validateAddressDraft(draft)
   if (!validated.ok) return validated
-  const { label, street, number, complement, city, cep } = validated
+  const { label, street, number, complement, neighborhood, city, state, cep } = validated
   const alreadySaved = list.some(
     (item) =>
       item.street.toLowerCase() === street.toLowerCase() &&
@@ -162,7 +177,9 @@ export const createAddress = (
     street,
     number: number || undefined,
     complement: complement || undefined,
+    neighborhood: neighborhood || undefined,
     city,
+    state,
     cep,
     isDefault: list.length === 0,
   }
@@ -195,15 +212,16 @@ export const addressToDeliveryPatch = (
 })
 
 /**
- * "Rua X, 123 - Apto 4" a partir dos campos separados. Endereços legados
- * (cadastrados antes do campo `number` existir) não têm número nem
- * complemento — exibem como estavam, sem quebrar.
+ * "Rua X, 123 - Apto 4, Bairro Y" a partir dos campos separados. Endereços
+ * legados (cadastrados antes de `number`/`neighborhood` existirem) não têm
+ * esses campos — exibem como estavam, sem quebrar.
  */
 export const formatAddress = (address: Address): string => {
   const parts = [address.street]
   if (address.number) parts.push(address.number)
   let line = parts.join(', ')
   if (address.complement) line += ` - ${address.complement}`
+  if (address.neighborhood) line += `, ${address.neighborhood}`
   return line
 }
 

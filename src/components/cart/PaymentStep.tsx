@@ -1,10 +1,22 @@
+import { useEffect, useState } from 'react'
 import { formatCurrency } from '../../lib/format'
-import type { ApiOrder, ApiPaymentStatus } from '../../lib/api'
+import { api, ApiError, type ApiGooglePayConfig, type ApiOrder, type ApiPaymentStatus } from '../../lib/api'
+import { GooglePayError, isGooglePayReady, requestGooglePayment } from '../../lib/googlePay'
+import { isValidCpf, isValidPhone, splitPhone } from '../../lib/paymentValidation'
 import type { CardFormState, CustomerFormState, PaymentStatus, PixData } from '../../state/usePaymentCheckoutState'
 import type { PaymentMethod } from '../../types'
 import CardPaymentForm from './CardPaymentForm'
 import CustomerFields from './CustomerFields'
 import PixPayment from './PixPayment'
+
+/** Nome mostrado na folha de pagamento do Google Pay. */
+const MERCHANT_NAME = 'Primeiro Aqui'
+
+type GooglePayStatus = 'idle' | 'paying' | 'success' | 'error'
+
+/** pt-BR do backend quando houver (mesmo padrão de usePaymentCheckoutState.ts). */
+const apiErrorMessage = (err: unknown, fallback: string): string =>
+  err instanceof ApiError && err.status > 0 ? err.message : fallback
 
 interface PaymentStepProps {
   order?: ApiOrder
@@ -68,6 +80,100 @@ export default function PaymentStep({
   const isBusy = status === 'tokenizing' || status === 'paying'
   const isLastPayment = paymentIndex + 1 >= totalPayments
 
+  /**
+   * Google Pay (2026-08-08): PaymentStep é presentational — não recebe a
+   * instância de usePaymentCheckoutState (essa etapa é montada por
+   * CartDrawer.tsx, fora do escopo desta feature). Por isso o componente
+   * busca sua própria config (GET /payments/config já inclui `googlePay`) e
+   * chama POST /orders/:id/pay diretamente para este método, mantendo o
+   * mesmo pós-pagamento do cartão (`onContinue`, já recebido por prop).
+   */
+  const [googlePayConfig, setGooglePayConfig] = useState<ApiGooglePayConfig | null>(null)
+  const [googlePayReady, setGooglePayReady] = useState(false)
+  const [googlePayStatus, setGooglePayStatus] = useState<GooglePayStatus>('idle')
+  const [googlePayError, setGooglePayError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .paymentsConfig()
+      .then((config) => {
+        if (!cancelled) setGooglePayConfig(config.googlePay)
+      })
+      .catch(() => {
+        // Falha ao buscar a config: o botão simplesmente não aparece — o
+        // formulário de cartão continua funcionando normalmente.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!googlePayConfig?.enabled) {
+      setGooglePayReady(false)
+      return
+    }
+    let cancelled = false
+    isGooglePayReady({
+      gatewayMerchantId: googlePayConfig.gatewayMerchantId,
+      environment: googlePayConfig.environment,
+    }).then((ready) => {
+      if (!cancelled) setGooglePayReady(ready)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [googlePayConfig])
+
+  const showGooglePayButton = isCard && status !== 'success' && Boolean(googlePayConfig?.enabled) && googlePayReady
+
+  const handleGooglePayClick = async () => {
+    if (!order || !googlePayConfig) return
+    if (!isValidCpf(customerForm.cpf) || !isValidPhone(customerForm.phone)) {
+      setGooglePayStatus('error')
+      setGooglePayError('Preencha CPF e telefone válidos para continuar com Google Pay.')
+      return
+    }
+
+    setGooglePayError('')
+    setGooglePayStatus('paying')
+    try {
+      const result = await requestGooglePayment({
+        gatewayMerchantId: googlePayConfig.gatewayMerchantId,
+        environment: googlePayConfig.environment,
+        totalCents: order.totalCents,
+        merchantName: MERCHANT_NAME,
+      })
+      if (!result.email || !result.billingName) {
+        throw new GooglePayError('Google Pay não informou nome/e-mail do comprador. Tente novamente.')
+      }
+
+      await api.payOrder(order.id, {
+        method: 'google_pay',
+        googlePayToken: result.token,
+        customer: {
+          name: result.billingName,
+          email: result.email,
+          document: customerForm.cpf.replace(/\D/g, ''),
+          documentType: 'CPF',
+          phone: isValidPhone(customerForm.phone) ? splitPhone(customerForm.phone) : undefined,
+        },
+      })
+      setGooglePayStatus('success')
+    } catch (err) {
+      setGooglePayStatus('error')
+      setGooglePayError(
+        err instanceof GooglePayError
+          ? err.message
+          : apiErrorMessage(err, 'Não foi possível processar o pagamento com Google Pay. Tente novamente.'),
+      )
+    }
+  }
+
+  const paymentSucceeded = status === 'success' || googlePayStatus === 'success'
+  const isGooglePayBusy = googlePayStatus === 'paying'
+
   return (
     <div className="flex-1 space-y-4 overflow-y-auto bg-gradient-to-b from-surface to-surface-page p-4">
       {totalPayments > 1 ? (
@@ -85,11 +191,12 @@ export default function PaymentStep({
 
       <ErrorBanner message={configError} />
 
-      {status === 'success' ? (
+      {paymentSucceeded ? (
         <div className="space-y-4">
-          {isCard ? (
+          {isCard || googlePayStatus === 'success' ? (
             <p role="status" className="rounded-[16px] bg-success/10 px-3 py-2 text-sm font-semibold text-success">
-              Pagamento aprovado! Pedido {order?.id} confirmado.
+              {googlePayStatus === 'success' ? 'Pagamento aprovado com Google Pay!' : 'Pagamento aprovado!'} Pedido{' '}
+              {order?.id} confirmado.
             </p>
           ) : (
             pixData && <PixPayment pixData={pixData} paymentStatus={pixPaymentStatus} />
@@ -105,14 +212,33 @@ export default function PaymentStep({
       ) : (
         <>
           {isCard ? (
-            <CardPaymentForm
-              cardForm={cardForm}
-              customerForm={customerForm}
-              fieldErrors={fieldErrors}
-              disabled={isBusy || !publicKey}
-              onCardFormChange={onCardFormChange}
-              onCustomerFormChange={onCustomerFormChange}
-            />
+            <>
+              {showGooglePayButton ? (
+                <div className="space-y-2">
+                  <ErrorBanner message={googlePayError} />
+                  <button
+                    type="button"
+                    onClick={() => void handleGooglePayClick()}
+                    disabled={isBusy || isGooglePayBusy}
+                    aria-busy={isGooglePayBusy}
+                    className="flex min-h-[48px] w-full items-center justify-center rounded-[20px] bg-black text-sm
+                               font-bold text-white motion-safe:active:scale-[0.98] disabled:cursor-not-allowed
+                               disabled:opacity-70"
+                  >
+                    {isGooglePayBusy ? 'Processando Google Pay…' : 'Pagar com Google Pay'}
+                  </button>
+                  <p className="text-center text-xs text-ink-muted">ou pague com cartão abaixo</p>
+                </div>
+              ) : null}
+              <CardPaymentForm
+                cardForm={cardForm}
+                customerForm={customerForm}
+                fieldErrors={fieldErrors}
+                disabled={isBusy || !publicKey || isGooglePayBusy}
+                onCardFormChange={onCardFormChange}
+                onCustomerFormChange={onCustomerFormChange}
+              />
+            </>
           ) : (
             <>
               <p className="text-sm text-ink-muted">
@@ -136,7 +262,7 @@ export default function PaymentStep({
           <button
             type="button"
             onClick={onSubmit}
-            disabled={isBusy || (isCard && !publicKey)}
+            disabled={isBusy || isGooglePayBusy || (isCard && !publicKey)}
             aria-busy={isBusy}
             className="btn-primary min-h-[48px] w-full rounded-[20px] motion-safe:active:scale-[0.98]
                        disabled:cursor-not-allowed disabled:opacity-70"
@@ -147,7 +273,7 @@ export default function PaymentStep({
           <button
             type="button"
             onClick={onClose}
-            disabled={isBusy}
+            disabled={isBusy || isGooglePayBusy}
             className="min-h-[44px] w-full rounded-[16px] border border-line text-sm font-bold text-ink-muted
                        transition-colors duration-150 hover:bg-surface-sunken disabled:cursor-not-allowed disabled:opacity-70"
           >

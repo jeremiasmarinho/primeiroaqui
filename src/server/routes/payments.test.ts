@@ -155,14 +155,18 @@ describe('rotas de pagamento (Pagar.me, sandbox)', () => {
   describe('GET /payments/config', () => {
     afterEach(() => {
       delete process.env.PAGARME_PUBLIC_KEY
+      delete process.env.PAGARME_ACCOUNT_ID
+      delete process.env.GOOGLE_PAY_GATEWAY_MERCHANT_ID
+      delete process.env.GOOGLE_PAY_ENV
     })
 
     it('com as duas chaves configuradas: enabled=true + public key para o front tokenizar', async () => {
       process.env.PAGARME_PUBLIC_KEY = 'pk_test_fixture'
       const res = await app.request('/payments/config')
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { enabled: boolean; publicKey?: string }
-      expect(body).toEqual({ enabled: true, publicKey: 'pk_test_fixture' })
+      const body = (await res.json()) as { enabled: boolean; publicKey?: string; googlePay: { enabled: boolean } }
+      expect(body.enabled).toBe(true)
+      expect(body.publicKey).toBe('pk_test_fixture')
     })
 
     it('feature flag: sem PAGARME_PUBLIC_KEY, responde 200 enabled=false (nunca 500/503)', async () => {
@@ -170,7 +174,7 @@ describe('rotas de pagamento (Pagar.me, sandbox)', () => {
       const res = await app.request('/payments/config')
       expect(res.status).toBe(200)
       const body = (await res.json()) as { enabled: boolean }
-      expect(body).toEqual({ enabled: false })
+      expect(body.enabled).toBe(false)
     })
 
     it('feature flag: sem PAGARME_SECRET_KEY (mesmo com public key), tambem enabled=false', async () => {
@@ -179,7 +183,28 @@ describe('rotas de pagamento (Pagar.me, sandbox)', () => {
       const res = await app.request('/payments/config')
       expect(res.status).toBe(200)
       const body = (await res.json()) as { enabled: boolean }
-      expect(body).toEqual({ enabled: false })
+      expect(body.enabled).toBe(false)
+    })
+
+    it('googlePay.enabled=false quando PAGARME_ACCOUNT_ID/GOOGLE_PAY_GATEWAY_MERCHANT_ID ausentes', async () => {
+      const res = await app.request('/payments/config')
+      const body = (await res.json()) as { googlePay: { enabled: boolean } }
+      expect(body.googlePay.enabled).toBe(false)
+    })
+
+    it('googlePay.enabled=true com PAGARME_ACCOUNT_ID, environment default TEST', async () => {
+      process.env.PAGARME_ACCOUNT_ID = 'acc_platform_fixture'
+      const res = await app.request('/payments/config')
+      const body = (await res.json()) as { googlePay: { enabled: boolean; gatewayMerchantId: string; environment: string } }
+      expect(body.googlePay).toEqual({ enabled: true, gatewayMerchantId: 'acc_platform_fixture', environment: 'TEST' })
+    })
+
+    it('googlePay usa GOOGLE_PAY_GATEWAY_MERCHANT_ID como fallback quando PAGARME_ACCOUNT_ID ausente', async () => {
+      process.env.GOOGLE_PAY_GATEWAY_MERCHANT_ID = 'merchant_fallback'
+      process.env.GOOGLE_PAY_ENV = 'PRODUCTION'
+      const res = await app.request('/payments/config')
+      const body = (await res.json()) as { googlePay: { enabled: boolean; gatewayMerchantId: string; environment: string } }
+      expect(body.googlePay).toEqual({ enabled: true, gatewayMerchantId: 'merchant_fallback', environment: 'PRODUCTION' })
     })
   })
 
@@ -319,6 +344,88 @@ describe('rotas de pagamento (Pagar.me, sandbox)', () => {
       })
 
       expect(res.status).toBe(200)
+    })
+  })
+
+  describe('POST /orders/:id/pay — google_pay', () => {
+    afterEach(() => {
+      delete process.env.PAGARME_ACCOUNT_ID
+    })
+
+    const validGooglePayToken = {
+      protocolVersion: 'ECv2',
+      signature: 'assinatura-fake',
+      signedMessage: '{"encryptedMessage":"..."}',
+    }
+
+    it('sem PAGARME_ACCOUNT_ID/GOOGLE_PAY_GATEWAY_MERCHANT_ID configurados: 409, sem chamar o Pagar.me', async () => {
+      const store = await createStoreFixture()
+      const product = await createProductFixture(store.id)
+      const address = await createAddressFixture(buyerFixture.user.id)
+      const order = await createOrderFixture(buyerFixture.user.id, store.id, address.id, product.id)
+
+      const fetchSpy = mockPagarmeFetch(new Response(JSON.stringify({}), { status: 200 }))
+
+      const res = await app.request(`/orders/${order.id}/pay`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify({ method: 'google_pay', customer: validCustomer, googlePayToken: validGooglePayToken }),
+      })
+
+      expect(res.status).toBe(409)
+      const pagarmeCalls = fetchSpy.mock.calls.filter(([input]) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url
+        return url.includes('api.pagar.me')
+      })
+      expect(pagarmeCalls).toHaveLength(0)
+    })
+
+    it('googlePayToken malformado (sem protocolVersion/signature/signedMessage) e rejeitado com 400', async () => {
+      process.env.PAGARME_ACCOUNT_ID = 'acc_platform_fixture'
+      const store = await createStoreFixture()
+      const product = await createProductFixture(store.id)
+      const address = await createAddressFixture(buyerFixture.user.id)
+      const order = await createOrderFixture(buyerFixture.user.id, store.id, address.id, product.id)
+
+      const fetchSpy = mockPagarmeFetch(new Response(JSON.stringify({}), { status: 200 }))
+
+      const res = await app.request(`/orders/${order.id}/pay`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify({ method: 'google_pay', customer: validCustomer, googlePayToken: { foo: 'bar' } }),
+      })
+
+      expect(res.status).toBe(400)
+      const pagarmeCalls = fetchSpy.mock.calls.filter(([input]) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url
+        return url.includes('api.pagar.me')
+      })
+      expect(pagarmeCalls).toHaveLength(0)
+    })
+
+    it('com PAGARME_ACCOUNT_ID e token valido: cria a order no Pagar.me e persiste pagarmeOrderId', async () => {
+      process.env.PAGARME_ACCOUNT_ID = 'acc_platform_fixture'
+      const store = await createStoreFixture()
+      const product = await createProductFixture(store.id)
+      const address = await createAddressFixture(buyerFixture.user.id)
+      const order = await createOrderFixture(buyerFixture.user.id, store.id, address.id, product.id)
+
+      mockPagarmeFetch(
+        new Response(JSON.stringify({ id: 'ord_pagarme_gpay_1', status: 'paid', charges: [] }), { status: 200 }),
+      )
+
+      const res = await app.request(`/orders/${order.id}/pay`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify({ method: 'google_pay', customer: validCustomer, googlePayToken: validGooglePayToken }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { order: { paymentStatus: string } }
+      expect(body.order.paymentStatus).toBe('PENDING')
+
+      const updated = await prisma.order.findUnique({ where: { id: order.id } })
+      expect(updated?.pagarmeOrderId).toBe('ord_pagarme_gpay_1')
     })
   })
 

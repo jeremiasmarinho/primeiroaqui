@@ -289,6 +289,12 @@ export default function AppRouter(props: AppRouterProps) {
             isSubmitting={props.addressSubmitting}
             isCepLookupPending={props.cepLookupPending}
             isCepNotFound={props.cepNotFound}
+            editingAddressId={props.editingAddressId}
+            onEditAddress={props.onEditAddress}
+            onCancelEditAddress={props.onCancelEditAddress}
+            onSetDefaultAddress={props.onSetDefaultAddress}
+            onDeleteAddress={props.onDeleteAddress}
+            pendingAddressIds={props.pendingAddressIds}
           />
         </Suspense>
       </Route>

@@ -8,6 +8,23 @@ import { createPaymentOrder, handleWebhook, PaymentValidationError, type Pagarme
 export const paymentRoutes = new Hono<AuthEnv>()
 
 /**
+ * Google Pay (2026-08-08): o `gatewayMerchantId` mandado ao SDK do Google no
+ * front (e usado aqui como `merchant_identifier` no payload do Pagar.me) e o
+ * id da nossa conta no Pagar.me. `PAGARME_ACCOUNT_ID` e a env preferida;
+ * `GOOGLE_PAY_GATEWAY_MERCHANT_ID` e o fallback para quando o id da conta
+ * ainda nao foi mapeado numa env dedicada. Sem nenhuma das duas, a feature
+ * fica desligada (feature flag, mesmo padrao do pagamento geral) — o botao
+ * nem aparece no front.
+ */
+const getGooglePayGatewayMerchantId = (): string | null =>
+  process.env.PAGARME_ACCOUNT_ID || process.env.GOOGLE_PAY_GATEWAY_MERCHANT_ID || null
+
+/** Ambiente do SDK do Google Pay (TEST nao exige merchant aprovado nem chave real). Default TEST. */
+const getGooglePayEnvironment = (): string => process.env.GOOGLE_PAY_ENV || 'TEST'
+
+const isGooglePayEnabled = (): boolean => Boolean(getGooglePayGatewayMerchantId())
+
+/**
  * Config publica do Pagar.me para o front tokenizar cartao no navegador
  * (nunca expor a secret key). Sem `requireUser`: a public key nao e
  * segredo — e o mesmo dado que o Pagar.me espera ver em requests client-side.
@@ -24,10 +41,15 @@ export const paymentRoutes = new Hono<AuthEnv>()
  */
 paymentRoutes.get('/payments/config', (c) => {
   const hasKeys = Boolean(process.env.PAGARME_SECRET_KEY) && Boolean(process.env.PAGARME_PUBLIC_KEY)
-  if (!hasKeys) {
-    return c.json({ enabled: false as const })
+  const googlePay = {
+    enabled: isGooglePayEnabled(),
+    gatewayMerchantId: getGooglePayGatewayMerchantId() ?? '',
+    environment: getGooglePayEnvironment(),
   }
-  return c.json({ enabled: true as const, publicKey: getPagarmePublicKey() })
+  if (!hasKeys) {
+    return c.json({ enabled: false as const, googlePay })
+  }
+  return c.json({ enabled: true as const, publicKey: getPagarmePublicKey(), googlePay })
 })
 
 /** Mesmo padrao de `parseJsonBody` em `src/server/routes/orders.ts`. */
@@ -77,6 +99,23 @@ const billingAddressSchema = z.object({
 })
 
 /**
+ * Shape do token que o front devolve apos `google.payments.api.
+ * PaymentsClient.loadPaymentData` (JSON.parse de
+ * paymentMethodData.tokenizationData.token, ver src/lib/googlePay.ts).
+ * `protocolVersion`/`signature`/`signedMessage` sao os campos minimos que o
+ * Pagar.me precisa para decriptar o token; `intermediateSigningKey` e
+ * opcional (so aparece no formato ECv2 com signing key intermediaria) e
+ * passa direto, sem validar o conteudo interno — o servidor nunca decripta
+ * nada, so repassa para o Pagar.me.
+ */
+const googlePayTokenSchema = z.object({
+  protocolVersion: z.string().min(1),
+  signature: z.string().min(1),
+  signedMessage: z.string().min(1),
+  intermediateSigningKey: z.unknown().optional(),
+})
+
+/**
  * `cardToken` DEVE vir ja tokenizado pelo front (POST
  * https://api.pagar.me/core/v5/tokens?appId=pk_... com a public key). Este
  * schema rejeita explicitamente qualquer payload que pareca numero de
@@ -92,6 +131,13 @@ const payBodySchema = z.discriminatedUnion('method', [
     method: z.literal('credit_card'),
     customer: customerSchema,
     cardToken: z.string().min(1),
+    installments: z.number().int().positive().optional(),
+    billingAddress: billingAddressSchema.optional(),
+  }),
+  z.object({
+    method: z.literal('google_pay'),
+    customer: customerSchema,
+    googlePayToken: googlePayTokenSchema,
     installments: z.number().int().positive().optional(),
     billingAddress: billingAddressSchema.optional(),
   }),
@@ -132,30 +178,44 @@ paymentRoutes.post('/orders/:id/pay', requireUser, async (c) => {
     return c.json({ error: 'Loja ainda nao esta apta a receber pagamentos' }, 409)
   }
 
+  if (parsed.data.method === 'google_pay' && !isGooglePayEnabled()) {
+    return c.json({ error: 'Google Pay indisponivel no momento' }, 409)
+  }
+
+  // Default: cobranca = endereco de ENTREGA do pedido (padrao de
+  // e-commerce). O comprador pode sobrescrever mandando `billingAddress`
+  // explicito no body. Compartilhado por cartao e Google Pay.
+  const defaultBillingAddress = {
+    line1: order.address.number ? `${order.address.street}, ${order.address.number}` : order.address.street,
+    line2: order.address.complement ?? undefined,
+    zipCode: order.address.zipCode,
+    city: order.address.city,
+    state: order.address.state,
+    country: 'BR',
+  }
+
   try {
     const { customer } = parsed.data
     const { order: updatedOrder, pagarmeOrder } =
       parsed.data.method === 'pix'
         ? await createPaymentOrder(order, { method: 'pix', customer })
-        : await createPaymentOrder(order, {
-            method: 'credit_card',
-            customer,
-            cardToken: parsed.data.cardToken,
-            installments: parsed.data.installments,
-            // Default: cobranca = endereco de ENTREGA do pedido (padrao de
-            // e-commerce). O comprador pode sobrescrever mandando
-            // `billingAddress` explicito no body.
-            billingAddress: parsed.data.billingAddress ?? {
-              line1: order.address.number
-                ? `${order.address.street}, ${order.address.number}`
-                : order.address.street,
-              line2: order.address.complement ?? undefined,
-              zipCode: order.address.zipCode,
-              city: order.address.city,
-              state: order.address.state,
-              country: 'BR',
-            },
-          })
+        : parsed.data.method === 'credit_card'
+          ? await createPaymentOrder(order, {
+              method: 'credit_card',
+              customer,
+              cardToken: parsed.data.cardToken,
+              installments: parsed.data.installments,
+              billingAddress: parsed.data.billingAddress ?? defaultBillingAddress,
+            })
+          : await createPaymentOrder(order, {
+              method: 'google_pay',
+              customer,
+              googlePayToken: parsed.data.googlePayToken,
+              // Nao-nulo aqui: `isGooglePayEnabled()` ja confirmou acima.
+              gatewayMerchantId: getGooglePayGatewayMerchantId()!,
+              installments: parsed.data.installments,
+              billingAddress: parsed.data.billingAddress ?? defaultBillingAddress,
+            })
 
     const charge = pagarmeOrder.charges?.[0]
     return c.json({

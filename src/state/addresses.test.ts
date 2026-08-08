@@ -72,6 +72,7 @@ describe('cadastro de endereco', () => {
     street: 'Avenida Guanabara',
     number: '148',
     complement: '',
+    neighborhood: '',
     city: 'Centro',
     state: 'SP',
     cep: '12345-678',
@@ -141,6 +142,7 @@ describe('cadastro de endereco', () => {
       street: '',
       number: '',
       complement: '',
+      neighborhood: '',
       city: '',
       state: '',
       cep: '',
@@ -152,6 +154,7 @@ describe('numero e complemento', () => {
   const base = {
     label: 'Casa',
     street: 'Avenida Guanabara',
+    neighborhood: '',
     city: 'Centro',
     state: 'SP',
     cep: '12345-678',
@@ -249,5 +252,15 @@ describe('formatAddress', () => {
   it('endereco legado sem numero exibe como esta, sem quebrar', () => {
     const address = makeAddress({ street: 'Avenida Guanabara, 148', number: undefined, complement: undefined })
     expect(formatAddress(address)).toBe('Avenida Guanabara, 148')
+  })
+
+  it('inclui o bairro no final quando presente', () => {
+    const address = makeAddress({
+      street: 'Avenida Guanabara',
+      number: '148',
+      complement: 'Apto 4',
+      neighborhood: 'Centro',
+    })
+    expect(formatAddress(address)).toBe('Avenida Guanabara, 148 - Apto 4, Centro')
   })
 })

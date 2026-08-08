@@ -11,9 +11,9 @@ import { seedLoggedInStorage, waitForCatalog } from './authTestHelpers'
 import { server } from './mocks/server'
 
 /**
- * WU-48 → fase de integração — endereços agora vêm de POST/GET reais
- * (/api/addresses, /api/me/addresses via MSW). Remover e trocar o padrão
- * saíram da tela: o backend ainda não expõe essas rotas.
+ * WU-48 → fase de integração — endereços vêm de POST/GET/PATCH/DELETE reais
+ * (/api/addresses via MSW). Editar, definir padrão e excluir também são
+ * testados ponta a ponta abaixo.
  */
 const goTo = (path: string) => {
   window.history.pushState({}, '', path)
@@ -269,5 +269,99 @@ describe('enderecos ponta a ponta', () => {
     render(<MarketplaceApp />)
 
     expect(screen.getByLabelText('Senha')).toBeInTheDocument()
+  })
+
+  it('editar um endereco salva e atualiza a lista', async () => {
+    seedLoggedInStorage()
+    goTo(ROUTES.addresses)
+    render(<MarketplaceApp />)
+
+    await fillAddress(casa)
+    const list = await screen.findByRole('list', { name: /endereços salvos/i })
+
+    fireEvent.click(within(list).getByRole('button', { name: /editar/i }))
+    fireEvent.change(screen.getByLabelText('Rua'), { target: { value: 'Rua Nova' } })
+    fireEvent.click(screen.getByRole('button', { name: /salvar altera/i }))
+
+    expect(await within(list).findByText(/rua nova, 45/i)).toBeInTheDocument()
+  })
+
+  it('definir padrao troca o selo entre enderecos', async () => {
+    seedLoggedInStorage()
+    goTo(ROUTES.addresses)
+    render(<MarketplaceApp />)
+
+    await fillAddress(casa)
+    await screen.findByRole('list', { name: /endereços salvos/i })
+    await fillAddress({ ...casa, label: 'Trabalho', street: 'Rua Comercial', number: '10' })
+    await screen.findByText('Trabalho')
+
+    const list = screen.getByRole('list', { name: /endereços salvos/i })
+    const items = within(list).getAllByRole('listitem')
+    const trabalhoItem = items.find((item) => within(item).queryByText('Trabalho'))
+    expect(trabalhoItem).toBeTruthy()
+
+    fireEvent.click(within(trabalhoItem as HTMLElement).getByRole('button', { name: /tornar padrão/i }))
+
+    await within(trabalhoItem as HTMLElement).findByText(/^padrão$/i)
+    const casaItem = items.find((item) => within(item).queryByText('Casa'))
+    expect(within(casaItem as HTMLElement).queryByText(/^padrão$/i)).not.toBeInTheDocument()
+  })
+
+  it('cep valido preenche o bairro automaticamente (autofill ViaCEP)', async () => {
+    server.use(
+      http.get('https://viacep.com.br/ws/:cep/json/', () =>
+        HttpResponse.json({
+          logradouro: 'Avenida Paulista',
+          bairro: 'Bela Vista',
+          localidade: 'São Paulo',
+          uf: 'SP',
+        }),
+      ),
+    )
+    seedLoggedInStorage()
+    goTo(ROUTES.addresses)
+    render(<MarketplaceApp />)
+
+    fireEvent.change(await screen.findByLabelText('CEP'), { target: { value: '01310100' } })
+
+    expect(await screen.findByLabelText('Bairro')).toHaveValue('Bela Vista')
+  })
+
+  it('selecionar "Outro" no nome do endereco libera texto livre, salvo como label', async () => {
+    seedLoggedInStorage()
+    goTo(ROUTES.addresses)
+    render(<MarketplaceApp />)
+
+    fireEvent.change(await screen.findByLabelText('CEP'), { target: { value: '12345678' } })
+    fireEvent.change(screen.getByLabelText('Nome do endereço'), { target: { value: 'Outro' } })
+
+    const freeLabel = await screen.findByLabelText('Nome do endereço (outro)')
+    fireEvent.change(freeLabel, { target: { value: 'Sítio' } })
+    fireEvent.change(screen.getByLabelText('Rua'), { target: { value: 'Estrada Velha' } })
+    fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: 'Interior' } })
+    fireEvent.change(screen.getByLabelText('Estado (UF)'), { target: { value: 'SP' } })
+    fireEvent.change(screen.getByLabelText('Número'), { target: { value: '10' } })
+    fireEvent.click(screen.getByRole('button', { name: /salvar endereço/i }))
+
+    const list = await screen.findByRole('list', { name: /endereços salvos/i })
+    expect(within(list).getByText('Sítio')).toBeInTheDocument()
+  })
+
+  it('excluir com dois cliques remove o endereco da lista', async () => {
+    seedLoggedInStorage()
+    goTo(ROUTES.addresses)
+    render(<MarketplaceApp />)
+
+    await fillAddress(casa)
+    const list = await screen.findByRole('list', { name: /endereços salvos/i })
+
+    const deleteButton = within(list).getByRole('button', { name: /^excluir$/i })
+    fireEvent.click(deleteButton)
+    expect(screen.getByRole('button', { name: /confirmar exclusão/i })).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: /confirmar exclusão/i }))
+
+    expect(await screen.findByText(/nenhum endereço salvo/i)).toBeInTheDocument()
   })
 })

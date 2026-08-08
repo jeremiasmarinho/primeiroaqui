@@ -123,6 +123,8 @@ export interface ApiAddress {
   street: string
   number?: string | null
   complement?: string | null
+  /** Bairro/setor — crítico para a entrega; o ViaCEP já devolve em `bairro`. */
+  neighborhood?: string | null
   city: string
   state: string
   zipCode: string
@@ -159,12 +161,23 @@ export interface ApiOrder {
 }
 
 /**
+ * Config do Google Pay (2026-08-08), embutida em GET /payments/config.
+ * `enabled` e uma feature flag independente da do Pagar.me em si — reflete
+ * so a presenca de `PAGARME_ACCOUNT_ID`/`GOOGLE_PAY_GATEWAY_MERCHANT_ID` no
+ * servidor (ver src/server/routes/payments.ts). `environment` e o que vai
+ * pro SDK do Google (`TEST` nao exige merchant aprovado nem chave real).
+ */
+export type ApiGooglePayConfig = { enabled: boolean; gatewayMerchantId: string; environment: string }
+
+/**
  * Feature flag por ambiente (2026-08-07): producao nao tera as chaves do
  * Pagar.me ate o go-live de pagamento (dinheiro real) ser decidido. Quando
  * `enabled` e false, o front nem oferece a etapa de pagamento — ver
  * usePaymentCheckoutState.ts e handleFinalizePurchase em useMarketplaceState.ts.
  */
-export type ApiPaymentsConfig = { enabled: false } | { enabled: true; publicKey: string }
+export type ApiPaymentsConfig =
+  | { enabled: false; googlePay: ApiGooglePayConfig }
+  | { enabled: true; publicKey: string; googlePay: ApiGooglePayConfig }
 
 export interface ApiPaymentCustomer {
   name: string
@@ -183,12 +196,27 @@ export interface ApiBillingAddress {
   country: string
 }
 
+/** Shape do token que sai de `requestGooglePayment` (src/lib/googlePay.ts) — repassado sem alteração ao servidor. */
+export interface ApiGooglePayToken {
+  protocolVersion: string
+  signature: string
+  signedMessage: string
+  intermediateSigningKey?: unknown
+}
+
 export type ApiPayOrderInput =
   | { method: 'pix'; customer: ApiPaymentCustomer }
   | {
       method: 'credit_card'
       customer: ApiPaymentCustomer
       cardToken: string
+      installments?: number
+      billingAddress?: ApiBillingAddress
+    }
+  | {
+      method: 'google_pay'
+      customer: ApiPaymentCustomer
+      googlePayToken: ApiGooglePayToken
       installments?: number
       billingAddress?: ApiBillingAddress
     }
@@ -524,6 +552,7 @@ export const api = {
     street: string
     number?: string
     complement?: string
+    neighborhood?: string
     city: string
     state: string
     zipCode: string
@@ -533,6 +562,26 @@ export const api = {
   }) => request<{ address: ApiAddress }>('/addresses', { method: 'POST', body: input }),
 
   listAddresses: () => request<{ addresses: ApiAddress[] }>('/me/addresses'),
+
+  updateAddress: (
+    addressId: string,
+    input: {
+      label: string
+      street: string
+      number?: string
+      complement?: string
+      neighborhood?: string
+      city: string
+      state: string
+      zipCode: string
+    },
+  ) => request<{ address: ApiAddress }>(`/addresses/${addressId}`, { method: 'PATCH', body: input }),
+
+  setDefaultAddress: (addressId: string) =>
+    request<{ address: ApiAddress }>(`/addresses/${addressId}/default`, { method: 'PATCH' }),
+
+  deleteAddress: (addressId: string) =>
+    request<{ ok: true }>(`/addresses/${addressId}`, { method: 'DELETE' }),
 
   createOrder: (input: { items: Array<{ productId: string; quantity: number }>; addressId: string }) =>
     request<{ orders: ApiOrder[] }>('/orders', { method: 'POST', body: input }),

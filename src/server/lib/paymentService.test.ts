@@ -355,6 +355,117 @@ describe('createPaymentOrder', () => {
     const body = init!.body as { payments: Array<{ credit_card: { card?: unknown } }> }
     expect(body.payments[0]!.credit_card.card).toBeUndefined()
   })
+
+  describe('google_pay', () => {
+    const googlePayToken = {
+      protocolVersion: 'ECv2',
+      signature: 'assinatura-do-google',
+      signedMessage: '{"encryptedMessage":"..."}',
+      intermediateSigningKey: { signedKey: 'chave', signatures: ['s1'] },
+    }
+
+    it('monta payment_method=credit_card com credit_card.payload.type=google_pay (nunca cardToken)', async () => {
+      pagarmeRequestMock.mockResolvedValue({ id: 'ord_gpay_1', status: 'paid', charges: [] })
+      vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+      await createPaymentOrder(baseOrder, {
+        method: 'google_pay',
+        customer,
+        googlePayToken,
+        gatewayMerchantId: 'acc_platform_123',
+      })
+
+      const [, init] = pagarmeRequestMock.mock.calls[0]!
+      const body = init!.body as {
+        payments: Array<{
+          payment_method: string
+          credit_card: { card_token?: string; payload?: { type: string; google_pay: Record<string, unknown> } }
+        }>
+      }
+      expect(body.payments[0]!.payment_method).toBe('credit_card')
+      expect(body.payments[0]!.credit_card.card_token).toBeUndefined()
+      expect(body.payments[0]!.credit_card.payload).toEqual({
+        type: 'google_pay',
+        google_pay: {
+          version: 'ECv2',
+          signature: 'assinatura-do-google',
+          intermediate_signing_key: { signedKey: 'chave', signatures: ['s1'] },
+          signed_message: '{"encryptedMessage":"..."}',
+          merchant_identifier: 'acc_platform_123',
+        },
+      })
+    })
+
+    it('billing_address vai em credit_card.card.billing_address quando informado, igual ao cartao classico', async () => {
+      pagarmeRequestMock.mockResolvedValue({ id: 'ord_gpay_2', status: 'paid', charges: [] })
+      vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+      await createPaymentOrder(baseOrder, {
+        method: 'google_pay',
+        customer,
+        googlePayToken,
+        gatewayMerchantId: 'acc_platform_123',
+        billingAddress: { line1: 'Rua Teste, 123', zipCode: '01000000', city: 'Sao Paulo', state: 'SP', country: 'BR' },
+      })
+
+      const [, init] = pagarmeRequestMock.mock.calls[0]!
+      const body = init!.body as { payments: Array<{ credit_card: { card?: { billing_address?: { city: string } } } }> }
+      expect(body.payments[0]!.credit_card.card?.billing_address).toEqual(
+        expect.objectContaining({ city: 'Sao Paulo' }),
+      )
+    })
+
+    it('split condicional preservado: com loja+plataforma configuradas, o split vai no payment do google_pay', async () => {
+      pagarmeRequestMock.mockResolvedValue({ id: 'ord_gpay_3', status: 'paid', charges: [] })
+      vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+      await createPaymentOrder(baseOrder, {
+        method: 'google_pay',
+        customer,
+        googlePayToken,
+        gatewayMerchantId: 'acc_platform_123',
+      })
+
+      const [, init] = pagarmeRequestMock.mock.calls[0]!
+      const body = init!.body as { payments: Array<{ split?: Array<{ amount: number }> }> }
+      const totalSplit = body.payments[0]!.split!.reduce((s, r) => s + r.amount, 0)
+      expect(totalSplit).toBe(100)
+    })
+
+    it('split condicional preservado: sem PAGARME_PLATFORM_RECIPIENT_ID, google_pay tambem cai para 100% conta master', async () => {
+      delete process.env.PAGARME_PLATFORM_RECIPIENT_ID
+      pagarmeRequestMock.mockResolvedValue({ id: 'ord_gpay_4', status: 'paid', charges: [] })
+      vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+      await createPaymentOrder(baseOrder, {
+        method: 'google_pay',
+        customer,
+        googlePayToken,
+        gatewayMerchantId: 'acc_platform_123',
+      })
+
+      const [, init] = pagarmeRequestMock.mock.calls[0]!
+      const body = init!.body as { payments: Array<{ split?: unknown }> }
+      expect(body.payments[0]!.split).toBeUndefined()
+    })
+
+    it('persiste pagarmeOrderId/paymentStatus=PENDING igual ao fluxo de cartao', async () => {
+      pagarmeRequestMock.mockResolvedValue({ id: 'ord_gpay_5', status: 'paid', charges: [] })
+      vi.mocked(prisma.order.update).mockResolvedValue({ id: 'order_1', paymentStatus: 'PENDING' } as never)
+
+      await createPaymentOrder(baseOrder, {
+        method: 'google_pay',
+        customer,
+        googlePayToken,
+        gatewayMerchantId: 'acc_platform_123',
+      })
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: 'order_1' },
+        data: { pagarmeOrderId: 'ord_gpay_5', paymentStatus: 'PENDING', platformFeeCents: 500, storeAmountCents: 9500 },
+      })
+    })
+  })
 })
 
 describe('handleWebhook', () => {

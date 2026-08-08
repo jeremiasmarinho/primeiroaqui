@@ -855,5 +855,11 @@ export function useMarketplaceState() {
     cepNotFound: addresses.isCepNotFound,
     selectedAddressId: addresses.selectedAddressId,
     onSelectAddress: handleSelectAddress,
+    editingAddressId: addresses.editingAddressId,
+    onEditAddress: addresses.onEditAddress,
+    onCancelEditAddress: addresses.onCancelEditAddress,
+    onSetDefaultAddress: addresses.onSetDefaultAddress,
+    onDeleteAddress: addresses.onDeleteAddress,
+    pendingAddressIds: addresses.pendingAddressIds,
   }
 }

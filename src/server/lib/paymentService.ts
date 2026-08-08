@@ -11,6 +11,7 @@ import {
   type PagarmeCreateOrderPayload,
   type PagarmeOrderResponse,
   type PagarmeSplitRule,
+  type PagarmeGooglePayPayload,
 } from './pagarmeClient'
 import type { Order, Store } from '@prisma/client'
 
@@ -225,6 +226,21 @@ export type BillingAddressInput = {
   country: string
 }
 
+/**
+ * Shape minimo do token que o front devolve apos `google.payments.api.
+ * PaymentsClient.loadPaymentData` (JSON.parse de
+ * paymentMethodData.tokenizationData.token) — protocolVersion/signature/
+ * signedMessage sao os campos exigidos pelo Pagar.me para decriptar;
+ * intermediateSigningKey e opcional (so aparece com ECv2 + signing key
+ * intermediaria) e e repassado como veio, sem inspecionar o conteudo.
+ */
+export type GooglePayTokenInput = {
+  protocolVersion: string
+  signature: string
+  signedMessage: string
+  intermediateSigningKey?: unknown
+}
+
 export type CreatePaymentOrderOptions =
   | { method: 'pix'; customer: PaymentCustomerInput }
   | {
@@ -234,6 +250,35 @@ export type CreatePaymentOrderOptions =
       installments?: number
       billingAddress?: BillingAddressInput
     }
+  | {
+      method: 'google_pay'
+      customer: PaymentCustomerInput
+      googlePayToken: GooglePayTokenInput
+      /** Id da conta Pagar.me usada como `gatewayMerchantId` no front e `merchant_identifier` aqui. */
+      gatewayMerchantId: string
+      installments?: number
+      billingAddress?: BillingAddressInput
+    }
+
+/**
+ * Monta `credit_card.payload` do fluxo Google Pay — o UNICO pedaco do
+ * payload que muda em relacao ao cartao tokenizado classico (ver
+ * `createPaymentOrder` abaixo). O Pagar.me faz o decrypt do token no
+ * servidor deles; nos so repassamos os campos tal como o SDK do Google
+ * devolveu, convertidos para snake_case.
+ */
+const buildGooglePayPayload = (
+  options: Extract<CreatePaymentOrderOptions, { method: 'google_pay' }>,
+): PagarmeGooglePayPayload => ({
+  type: 'google_pay',
+  google_pay: {
+    version: options.googlePayToken.protocolVersion,
+    signature: options.googlePayToken.signature,
+    intermediate_signing_key: options.googlePayToken.intermediateSigningKey,
+    signed_message: options.googlePayToken.signedMessage,
+    merchant_identifier: options.gatewayMerchantId,
+  },
+})
 
 const PIX_EXPIRES_IN_SECONDS = 30 * 60
 
@@ -299,6 +344,31 @@ export const createPaymentOrder = async (
     code: item.productId,
   }))
 
+  // credit_card.payload SO muda entre cartao classico e Google Pay — o
+  // resto (items/customer/split/billing_address) e identico, ver
+  // `buildGooglePayPayload` acima.
+  const buildCreditCardBlock = (
+    creditOptions: Extract<CreatePaymentOrderOptions, { method: 'credit_card' | 'google_pay' }>,
+  ) => ({
+    installments: creditOptions.installments ?? 1,
+    ...(creditOptions.method === 'credit_card' ? { card_token: creditOptions.cardToken } : {}),
+    ...(creditOptions.method === 'google_pay' ? { payload: buildGooglePayPayload(creditOptions) } : {}),
+    ...(creditOptions.billingAddress
+      ? {
+          card: {
+            billing_address: {
+              line_1: creditOptions.billingAddress.line1,
+              line_2: creditOptions.billingAddress.line2,
+              zip_code: creditOptions.billingAddress.zipCode,
+              city: creditOptions.billingAddress.city,
+              state: creditOptions.billingAddress.state,
+              country: creditOptions.billingAddress.country,
+            },
+          },
+        }
+      : {}),
+  })
+
   const payload: PagarmeCreateOrderPayload =
     options.method === 'pix'
       ? {
@@ -312,24 +382,7 @@ export const createPaymentOrder = async (
           payments: [
             {
               payment_method: 'credit_card',
-              credit_card: {
-                card_token: options.cardToken,
-                installments: options.installments ?? 1,
-                ...(options.billingAddress
-                  ? {
-                      card: {
-                        billing_address: {
-                          line_1: options.billingAddress.line1,
-                          line_2: options.billingAddress.line2,
-                          zip_code: options.billingAddress.zipCode,
-                          city: options.billingAddress.city,
-                          state: options.billingAddress.state,
-                          country: options.billingAddress.country,
-                        },
-                      },
-                    }
-                  : {}),
-              },
+              credit_card: buildCreditCardBlock(options),
               ...(split ? { split } : {}),
             },
           ],

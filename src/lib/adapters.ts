@@ -80,7 +80,9 @@ export const toViewAddress = (dto: ApiAddress): Address => ({
   street: dto.street,
   number: dto.number ?? undefined,
   complement: dto.complement ?? undefined,
+  neighborhood: dto.neighborhood ?? undefined,
   city: dto.city,
+  state: dto.state,
   cep: dto.zipCode,
   isDefault: dto.isDefault,
 })

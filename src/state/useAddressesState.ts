@@ -15,11 +15,9 @@ import type { Address } from '../types'
 
 /**
  * Endereços reais: GET /api/me/addresses quando há sessão, POST /api/addresses
- * no cadastro.
- *
- * O backend ainda não expõe remover nem trocar o padrão (só POST e GET) —
- * essas ações saíram da tela nesta fase em vez de fingir que funcionam
- * (pendência registrada para a fase de conta).
+ * no cadastro, PATCH /api/addresses/:id para editar, PATCH
+ * /api/addresses/:id/default para trocar o padrão, DELETE /api/addresses/:id
+ * para excluir.
  *
  * `hasSession` entra por parâmetro (derivado do usuário logado) para o efeito
  * recarregar quando a pessoa entra/sai.
@@ -33,6 +31,10 @@ export function useAddressesState(hasSession: boolean) {
   const [selectedAddressId, setSelectedAddressId] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  /** Endereço em edição (form CEP-first reaproveitado) — vazio = modo cadastro. */
+  const [editingAddressId, setEditingAddressId] = useState('')
+  /** IDs com ação (definir padrão/excluir) em andamento — desabilita os botões da linha. */
+  const [pendingAddressIds, setPendingAddressIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (!hasSession || !loadStoredSession()) {
@@ -101,6 +103,7 @@ export function useAddressesState(hasSession: boolean) {
           ...prev,
           city: found.city || prev.city,
           state: found.state || prev.state,
+          neighborhood: found.neighborhood || prev.neighborhood,
           street: prev.street.trim() ? prev.street : found.street,
         }))
       })
@@ -111,6 +114,28 @@ export function useAddressesState(hasSession: boolean) {
       cancelled = true
     }
   }, [lookupCepDigits])
+
+  /** Abre o form CEP-first preenchido para editar — mesmo form do cadastro. */
+  const onEditAddress = (address: Address) => {
+    setEditingAddressId(address.id)
+    setAddressError('')
+    setAddressForm({
+      label: address.label,
+      street: address.street,
+      number: address.number ?? '',
+      complement: address.complement ?? '',
+      neighborhood: address.neighborhood ?? '',
+      city: address.city,
+      state: address.state ?? '',
+      cep: address.cep,
+    })
+  }
+
+  const onCancelEditAddress = () => {
+    setEditingAddressId('')
+    setAddressError('')
+    setAddressForm(EMPTY_ADDRESS)
+  }
 
   const onAddressSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -124,11 +149,33 @@ export function useAddressesState(hasSession: boolean) {
 
     setIsSubmitting(true)
     try {
+      if (editingAddressId) {
+        const { address } = await api.updateAddress(editingAddressId, {
+          label: validated.label,
+          street: validated.street,
+          number: validated.number || undefined,
+          complement: validated.complement || undefined,
+          neighborhood: validated.neighborhood || undefined,
+          city: validated.city,
+          state: validated.state,
+          zipCode: validated.cep,
+        })
+        setAddressError('')
+        setAddresses((prev) =>
+          prev.map((item) => (item.id === address.id ? toViewAddress(address) : item)),
+        )
+        setEditingAddressId('')
+        setAddressForm(EMPTY_ADDRESS)
+        pushToast('Endereço atualizado', 'success')
+        return
+      }
+
       const { address } = await api.createAddress({
         label: validated.label,
         street: validated.street,
         number: validated.number || undefined,
         complement: validated.complement || undefined,
+        neighborhood: validated.neighborhood || undefined,
         city: validated.city,
         state: validated.state,
         zipCode: validated.cep,
@@ -147,12 +194,67 @@ export function useAddressesState(hasSession: boolean) {
       setAddressError(
         err instanceof ApiError && err.status > 0
           ? err.message
-          : 'Não foi possível salvar o endereço. Tente novamente.',
+          : editingAddressId
+            ? 'Não foi possível atualizar o endereço. Tente novamente.'
+            : 'Não foi possível salvar o endereço. Tente novamente.',
       )
     } finally {
       setIsSubmitting(false)
     }
   }
+
+  const withPending = async (id: string, action: () => Promise<void>) => {
+    setPendingAddressIds((prev) => new Set(prev).add(id))
+    try {
+      await action()
+    } finally {
+      setPendingAddressIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
+  const onSetDefaultAddress = (id: string) =>
+    withPending(id, async () => {
+      try {
+        const { address } = await api.setDefaultAddress(id)
+        setAddresses((prev) =>
+          prev.map((item) =>
+            item.id === address.id ? toViewAddress(address) : { ...item, isDefault: false },
+          ),
+        )
+        pushToast('Endereço padrão atualizado', 'success')
+      } catch (err) {
+        pushToast(
+          err instanceof ApiError && err.status > 0
+            ? err.message
+            : 'Não foi possível definir o endereço padrão. Tente novamente.',
+          'error',
+        )
+      }
+    })
+
+  const onDeleteAddress = (id: string) =>
+    withPending(id, async () => {
+      try {
+        await api.deleteAddress(id)
+        setAddresses((prev) => prev.filter((item) => item.id !== id))
+        if (editingAddressId === id) onCancelEditAddress()
+        pushToast('Endereço excluído', 'success')
+        // O DELETE promove o próximo padrão no servidor sem devolvê-lo no
+        // corpo da resposta — recarrega para a lista refletir o novo padrão.
+        retry()
+      } catch (err) {
+        pushToast(
+          err instanceof ApiError && err.status > 0
+            ? err.message
+            : 'Não foi possível excluir o endereço. Tente novamente.',
+          'error',
+        )
+      }
+    })
 
   return {
     addresses,
@@ -172,5 +274,11 @@ export function useAddressesState(hasSession: boolean) {
     onAddressFormChange,
     onAddressSubmit,
     isSubmitting,
+    editingAddressId,
+    onEditAddress,
+    onCancelEditAddress,
+    onSetDefaultAddress,
+    onDeleteAddress,
+    pendingAddressIds,
   }
 }

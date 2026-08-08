@@ -20,13 +20,23 @@ describe('isCompleteCep', () => {
 describe('lookupCep', () => {
   it('consulta a ViaCEP com o CEP sem máscara e mapeia o endereço', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      jsonResponse({ logradouro: 'Avenida Paulista', localidade: 'São Paulo', uf: 'SP' }),
+      jsonResponse({
+        logradouro: 'Avenida Paulista',
+        bairro: 'Bela Vista',
+        localidade: 'São Paulo',
+        uf: 'SP',
+      }),
     )
 
     const result = await lookupCep('01310-100', fetchMock)
 
     expect(fetchMock).toHaveBeenCalledWith('https://viacep.com.br/ws/01310100/json/')
-    expect(result).toEqual({ street: 'Avenida Paulista', city: 'São Paulo', state: 'SP' })
+    expect(result).toEqual({
+      street: 'Avenida Paulista',
+      neighborhood: 'Bela Vista',
+      city: 'São Paulo',
+      state: 'SP',
+    })
   })
 
   it('devolve null para CEP inexistente (erro: true da ViaCEP)', async () => {
@@ -47,6 +57,11 @@ describe('lookupCep', () => {
 
   it('campos ausentes viram string vazia (CEP de cidade única)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ localidade: 'Monte Verde', uf: 'MG' }))
-    expect(await lookupCep('37653-000', fetchMock)).toEqual({ street: '', city: 'Monte Verde', state: 'MG' })
+    expect(await lookupCep('37653-000', fetchMock)).toEqual({
+      street: '',
+      neighborhood: '',
+      city: 'Monte Verde',
+      state: 'MG',
+    })
   })
 })

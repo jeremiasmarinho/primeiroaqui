@@ -231,13 +231,36 @@ export type PagarmePixPayment = {
   split?: PagarmeSplitRule[]
 }
 
+/**
+ * Payload de tokenizacao alternativa (wallet) do cartao — Google Pay. O
+ * Pagar.me faz o DECRYPT do token no backend deles; nos so repassamos o
+ * objeto tal como o SDK do Google devolveu (campos version/signature/
+ * intermediate_signing_key/signed_message em snake_case + o
+ * merchant_identifier da nossa conta Pagar.me). Ver
+ * src/server/lib/paymentService.ts `buildGooglePayPayload`.
+ */
+export type PagarmeGooglePayPayload = {
+  type: 'google_pay'
+  google_pay: {
+    version: string
+    signature: string
+    /** Shape interno controlado pelo Google (signedKey/signatures) — repassado sem alteracao. */
+    intermediate_signing_key?: unknown
+    signed_message: string
+    merchant_identifier: string
+  }
+}
+
 export type PagarmeCreditCardPayment = {
   payment_method: 'credit_card'
   credit_card: {
-    card_token: string
+    /** Ausente no fluxo Google Pay — usa `payload` no lugar do token classico. */
+    card_token?: string
     installments?: number
     /** `billing_address` some com card_token — ver PagarmeBillingAddress acima para o porque. */
     card?: { billing_address: PagarmeBillingAddress }
+    /** Presente SOMENTE no fluxo Google Pay — ver PagarmeGooglePayPayload acima. */
+    payload?: PagarmeGooglePayPayload
   }
   /** Ausente = 100% pra conta master. Ver split condicional em paymentService.ts. */
   split?: PagarmeSplitRule[]

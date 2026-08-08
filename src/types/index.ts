@@ -168,7 +168,11 @@ export interface Address {
   /** Ausente em endereços legados cadastrados antes do campo existir. */
   number?: string
   complement?: string
+  /** Bairro/setor — crítico para a entrega; ausente em endereços legados. */
+  neighborhood?: string
   city: string
+  /** UF — necessário para reabrir o form de edição já preenchido. */
+  state?: string
   cep: string
   isDefault: boolean
 }

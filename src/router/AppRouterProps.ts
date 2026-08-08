@@ -115,4 +115,12 @@ export interface AppRouterProps {
   cepLookupPending: boolean
   /** CEP consultado e não encontrado — libera preenchimento manual. */
   cepNotFound: boolean
+  /** ID do endereço em edição — vazio = form em modo cadastro. */
+  editingAddressId: string
+  onEditAddress: (address: Address) => void
+  onCancelEditAddress: () => void
+  onSetDefaultAddress: (id: string) => void
+  onDeleteAddress: (id: string) => void
+  /** IDs com ação (definir padrão/excluir) em andamento. */
+  pendingAddressIds: Set<string>
 }

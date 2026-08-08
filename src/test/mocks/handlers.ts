@@ -89,6 +89,13 @@ interface MockDb {
    * as chaves do Pagar.me — a etapa de pagamento não deve nem aparecer.
    */
   paymentsEnabled: boolean
+  /**
+   * Espelha a feature flag do Google Pay em GET /payments/config
+   * (2026-08-08) — independente de `paymentsEnabled`. Default `true` com um
+   * `gatewayMerchantId`/`environment` de teste, para exercitar o botão sem
+   * cada suíte precisar chamar `setGooglePayEnabled` explicitamente.
+   */
+  googlePayEnabled: boolean
   /** Fator TOTP ativo (verified) do usuário logado — null = 2FA desativado. Ver seedMfaEnrolled. */
   mfaFactorId: string | null
   /** factorId de um enrollment iniciado mas ainda não confirmado por POST /mfa/verify. */
@@ -122,6 +129,7 @@ const createDb = (): MockDb => ({
   seq: 0,
   paymentScenario: 'paid',
   paymentsEnabled: true,
+  googlePayEnabled: true,
   mfaFactorId: null,
   mfaPendingFactorId: null,
   mfaChallengeId: null,
@@ -141,6 +149,11 @@ export const setPaymentScenario = (scenario: MockDb['paymentScenario']): void =>
 /** Atalho de teste: simula a feature flag de GET /payments/config (chaves ausentes = false). */
 export const setPaymentsEnabled = (enabled: boolean): void => {
   db.paymentsEnabled = enabled
+}
+
+/** Atalho de teste: simula a feature flag do Google Pay embutida em GET /payments/config. */
+export const setGooglePayEnabled = (enabled: boolean): void => {
+  db.googlePayEnabled = enabled
 }
 
 /** Código TOTP "válido" nos mocks — qualquer outro de 6 dígitos é tratado como errado. */
@@ -585,6 +598,7 @@ export const handlers = [
       street: body.street ?? '',
       number: body.number ?? null,
       complement: body.complement ?? null,
+      neighborhood: body.neighborhood ?? null,
       city: body.city ?? '',
       state: body.state ?? '',
       zipCode: body.zipCode ?? '',
@@ -596,6 +610,49 @@ export const handlers = [
   http.get('/api/me/addresses', ({ request }) => {
     if (!requireAuth(request)) return unauthorized()
     return HttpResponse.json({ addresses: db.addresses })
+  }),
+
+  http.patch('/api/addresses/:id', async ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const address = db.addresses.find((item) => item.id === params.id)
+    if (!address) return HttpResponse.json({ error: 'Endereco nao encontrado' }, { status: 404 })
+    const body = (await request.json()) as Partial<ApiAddress>
+    if (!(body.number?.trim() || body.complement?.trim())) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    Object.assign(address, {
+      label: body.label ?? address.label,
+      street: body.street ?? address.street,
+      number: body.number ?? null,
+      complement: body.complement ?? null,
+      neighborhood: body.neighborhood ?? null,
+      city: body.city ?? address.city,
+      state: body.state ?? address.state,
+      zipCode: body.zipCode ?? address.zipCode,
+    })
+    return HttpResponse.json({ address })
+  }),
+
+  http.patch('/api/addresses/:id/default', ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const address = db.addresses.find((item) => item.id === params.id)
+    if (!address) return HttpResponse.json({ error: 'Endereco nao encontrado' }, { status: 404 })
+    db.addresses.forEach((item) => {
+      item.isDefault = item.id === params.id
+    })
+    return HttpResponse.json({ address })
+  }),
+
+  http.delete('/api/addresses/:id', ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const index = db.addresses.findIndex((item) => item.id === params.id)
+    if (index === -1) return HttpResponse.json({ error: 'Endereco nao encontrado' }, { status: 404 })
+    const [removed] = db.addresses.splice(index, 1)
+    const nextDefault = db.addresses[0]
+    if (removed?.isDefault && nextDefault) {
+      nextDefault.isDefault = true
+    }
+    return HttpResponse.json({ ok: true })
   }),
 
   // ViaCEP real (fora de /api) — mock genérico "não encontrado" para as
@@ -929,11 +986,18 @@ export const handlers = [
   }),
 
   // ------------------------------------------------------------- pagamento
-  http.get('/api/payments/config', () =>
-    HttpResponse.json(
-      db.paymentsEnabled ? { enabled: true, publicKey: 'pk_test_mock' } : { enabled: false },
-    ),
-  ),
+  http.get('/api/payments/config', () => {
+    const googlePay = {
+      enabled: db.googlePayEnabled,
+      gatewayMerchantId: 'acc_test_mock',
+      environment: 'TEST',
+    }
+    return HttpResponse.json(
+      db.paymentsEnabled
+        ? { enabled: true, publicKey: 'pk_test_mock', googlePay }
+        : { enabled: false, googlePay },
+    )
+  }),
 
   /**
    * Tokenização client-side (URL ABSOLUTA — espelha o Pagar.me real, não
@@ -961,7 +1025,7 @@ export const handlers = [
         { status: 409 },
       )
     }
-    if (body.method === 'credit_card' && db.paymentScenario === 'declined') {
+    if ((body.method === 'credit_card' || body.method === 'google_pay') && db.paymentScenario === 'declined') {
       return HttpResponse.json({ error: 'Cartão recusado pela operadora. Tente outro cartão.' }, { status: 502 })
     }
 

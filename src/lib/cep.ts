@@ -11,6 +11,8 @@
 export interface CepAddress {
   /** Logradouro ("Avenida Paulista"). Pode vir vazio em CEPs de cidade única. */
   street: string
+  /** Bairro/setor ("bairro") — crítico para a entrega, pode vir vazio. */
+  neighborhood: string
   city: string
   /** UF, ex.: "SP". */
   state: string
@@ -18,6 +20,7 @@ export interface CepAddress {
 
 interface ViaCepResponse {
   logradouro?: string
+  bairro?: string
   localidade?: string
   uf?: string
   erro?: boolean
@@ -42,6 +45,7 @@ export async function lookupCep(cep: string, fetchImpl: typeof fetch = fetch): P
     if (data.erro) return null
     return {
       street: data.logradouro ?? '',
+      neighborhood: data.bairro ?? '',
       city: data.localidade ?? '',
       state: data.uf ?? '',
     }

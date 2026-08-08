@@ -85,6 +85,12 @@ export default function MarketplaceApp() {
         addressSubmitting={state.addressSubmitting}
         cepLookupPending={state.cepLookupPending}
         cepNotFound={state.cepNotFound}
+        editingAddressId={state.editingAddressId}
+        onEditAddress={state.onEditAddress}
+        onCancelEditAddress={state.onCancelEditAddress}
+        onSetDefaultAddress={state.onSetDefaultAddress}
+        onDeleteAddress={state.onDeleteAddress}
+        pendingAddressIds={state.pendingAddressIds}
       />
 
       <BusinessSetupModal
