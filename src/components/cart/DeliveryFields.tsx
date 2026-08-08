@@ -1,7 +1,7 @@
 import { formatCep } from '../../state/addresses'
 import type { DeliveryForm, PaymentMethod } from '../../types'
 
-const PAYMENT_METHODS: PaymentMethod[] = ['Pix', 'Cartão', 'Boleto']
+const PAYMENT_METHODS: PaymentMethod[] = ['Pix', 'Cartão']
 
 interface DeliveryFieldsProps {
   deliveryForm: DeliveryForm

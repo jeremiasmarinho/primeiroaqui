@@ -90,7 +90,9 @@ export interface Order {
   storeName?: string
 }
 
-export type PaymentMethod = 'Pix' | 'Cartão' | 'Boleto'
+// Boleto removido por decisão de negócio (2026-08-07): apenas Pix e cartão
+// (crédito/débito) — alinhado aos métodos suportados na integração Pagar.me.
+export type PaymentMethod = 'Pix' | 'Cartão'
 
 export interface DeliveryForm {
   name: string
