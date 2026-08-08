@@ -248,11 +248,28 @@ const REFRESH_SKEW_SECONDS = 60
  */
 let refreshPromise: Promise<ApiSession | null> | null = null
 
+/**
+ * Geração do refresh em voo. `handleLogout` chama `invalidateRefresh()`
+ * IMEDIATAMENTE depois de `clearStoredSession()`: se um refresh já estava em
+ * voo e resolve DEPOIS do logout, a geração capturada no início do refresh
+ * não bate mais com a atual — a sessão renovada é descartada em vez de
+ * regravar o storage e "ressuscitar" a sessão que acabou de ser encerrada.
+ */
+let refreshGeneration = 0
+
+export const invalidateRefresh = (): void => {
+  refreshGeneration += 1
+}
+
 async function refreshSession(): Promise<ApiSession | null> {
   if (refreshPromise) return refreshPromise
 
   const current = loadStoredSession()
   if (!current?.refreshToken) return null
+
+  // Capturado ANTES do await: é o instantâneo de "geração vigente quando este
+  // refresh começou" — comparado no fim para decidir se ainda pode gravar.
+  const generationAtStart = refreshGeneration
 
   refreshPromise = (async () => {
     try {
@@ -263,6 +280,11 @@ async function refreshSession(): Promise<ApiSession | null> {
       })
       if (!response.ok) return null
       const payload = (await response.json()) as { session: ApiSession }
+      if (generationAtStart !== refreshGeneration) {
+        // Logout aconteceu enquanto este refresh estava em voo: a sessão
+        // renovada não pode regravar um storage que já foi limpo de propósito.
+        return null
+      }
       storeSession(payload.session)
       return payload.session
     } catch {
@@ -279,11 +301,17 @@ interface RequestOptions {
   method?: string
   /** Objeto JSON ou FormData (multipart — o browser define o Content-Type sozinho). */
   body?: unknown
+  /**
+   * Bearer explícito, para chamadas feitas DEPOIS que o storage já foi
+   * limpo (ex.: logout) — sem isso a chamada sairia sem Authorization porque
+   * `loadStoredSession()` já não acha nada.
+   */
+  token?: string
 }
 
 async function request<T>(
   path: string,
-  { method = 'GET', body }: RequestOptions = {},
+  { method = 'GET', body, token }: RequestOptions = {},
   isRetryAfterRefresh = false,
 ): Promise<T> {
   // A própria rota de refresh nunca dispara outro refresh — evita recursão.
@@ -301,6 +329,7 @@ async function request<T>(
   const headers: Record<string, string> = {}
   if (body !== undefined && !isFormData) headers['Content-Type'] = 'application/json'
   if (session) headers['Authorization'] = `Bearer ${session.accessToken}`
+  else if (token) headers['Authorization'] = `Bearer ${token}`
 
   let response: Response
   try {
@@ -364,7 +393,12 @@ export const api = {
   login: (input: { email: string; password: string }) =>
     request<{ session: ApiSession; user: ApiUser }>('/auth/login', { method: 'POST', body: input }),
 
-  logout: () => request<{ ok: true }>('/auth/logout', { method: 'POST' }),
+  /**
+   * `token` opcional: `handleLogout` captura o access token ANTES de limpar o
+   * storage e passa aqui, porque a esta altura `loadStoredSession()` já não
+   * acha mais nada (ver `RequestOptions.token`).
+   */
+  logout: (token?: string) => request<{ ok: true }>('/auth/logout', { method: 'POST', token }),
 
   forgotPassword: (email: string) =>
     request<{ ok: true }>('/auth/forgot-password', { method: 'POST', body: { email } }),

@@ -144,10 +144,10 @@ describe('persistencia', () => {
       expect(localStorage.getItem(STORAGE_KEYS.favorites)).toBeNull()
       expect(localStorage.getItem(STORAGE_KEYS.user)).toBeNull()
 
-      // O logout já deixou a árvore em /entrar (sem BottomNav na tela), então
-      // aqui é só clicar no atalho — clickEnterAsClient() tentaria achar o
-      // link "Entrar" da barra, que não existe na própria tela de login.
-      fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
+      // Logout agora faz hardNavigate(ROUTES.home) — a árvore volta pra home
+      // pública (com BottomNav), não mais para /entrar. clickEnterAsClient()
+      // vai pelo link "Entrar" da barra, como um visitante comum faria.
+      clickEnterAsClient()
       const nav = screen.getByRole('navigation', { name: /navegação principal/i })
       expect(within(nav).getByRole('button', { name: 'Carrinho' })).toBeInTheDocument()
     })

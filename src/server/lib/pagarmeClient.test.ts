@@ -3,6 +3,7 @@ import {
   getPagarmeSecretKey,
   getPlatformRecipientId,
   getPlatformFeePercent,
+  hasPlatformRecipientId,
   requireActiveRecipient,
   pagarmeRequest,
   PagarmeConfigError,
@@ -29,6 +30,13 @@ describe('pagarmeClient — leitura lazy de env', () => {
   it('getPlatformRecipientId lanca PagarmeConfigError se ausente', () => {
     delete process.env.PAGARME_PLATFORM_RECIPIENT_ID
     expect(() => getPlatformRecipientId()).toThrow(PagarmeConfigError)
+  })
+
+  it('hasPlatformRecipientId nao lanca — false se ausente, true se presente', () => {
+    delete process.env.PAGARME_PLATFORM_RECIPIENT_ID
+    expect(hasPlatformRecipientId()).toBe(false)
+    process.env.PAGARME_PLATFORM_RECIPIENT_ID = 'rp_platform'
+    expect(hasPlatformRecipientId()).toBe(true)
   })
 
   it('getPlatformFeePercent default e 5 (decisao de negocio 2026-08-07)', () => {

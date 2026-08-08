@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'wouter'
 
 import { ROUTES, toCategorySlug } from '../router/routes'
 import type { AuthForm } from '../screens/LoginScreen'
 import { writeStoredJSON } from '../lib/storage'
-import { api, ApiError, loadStoredSession, setOnUnauthorized } from '../lib/api'
+import { hardNavigate } from '../lib/hardNavigate'
+import { api, ApiError, invalidateRefresh, loadStoredSession, setOnUnauthorized } from '../lib/api'
 import { favoriteToViewProduct, toViewOrder } from '../lib/adapters'
 import { clearCart, replaceCart } from './cart'
 import { repeatOrder } from './orders'
@@ -198,13 +199,25 @@ export function useMarketplaceState() {
     writeStoredJSON(STORAGE_KEYS.business, session.authUser ? admin.businessProfile : null)
   }, [session.authUser, admin.businessProfile])
 
+  /**
+   * Ordem importa (corrida do refresh em voo — "sessão ressuscitada" depois
+   * de sair): capturar a sessão atual → limpar o storage IMEDIATAMENTE, antes
+   * de qualquer await → invalidar a geração do single-flight de refresh (um
+   * refresh que já estava em voo e resolve DEPOIS não pode regravar a sessão
+   * que acabou de ser encerrada, ver `invalidateRefresh` em api.ts) → disparar
+   * o logout no servidor com o token capturado (fire-and-forget; o storage já
+   * não tem mais nada para `api.logout()` ler sozinho) → navegação dura para
+   * a home, garantindo caches e estado 100% frescos.
+   */
   const handleLogout = () => {
-    // Invalida o token no servidor; o estado local cai mesmo se a rede falhar.
-    if (loadStoredSession()) {
-      api.logout().catch(() => {})
+    const current = loadStoredSession()
+    clearSession()
+    invalidateRefresh()
+    if (current) {
+      api.logout(current.accessToken).catch(() => {})
     }
     dropLocalSession()
-    navigate(ROUTES.login)
+    hardNavigate(ROUTES.home)
   }
 
   /** Escolher endereço salvo preenche a entrega — o campo segue editável. */
@@ -297,10 +310,34 @@ export function useMarketplaceState() {
     session.clearPendingLogin()
   }
 
+  /**
+   * Continuação pós-reload do login por senha/Google: `session` já
+   * rehidratou `pendingReturnTo`/`pendingIntent` do sessionStorage (ver
+   * useEffect de mount em useSessionState). Aqui só falta aplicar a
+   * intenção (favoritar/retomar checkout) — o mesmo trabalho que, sem
+   * reload, `resolvePendingLoginAndNavigate` fazia na hora. Um favorito
+   * depende do catálogo remoto estar carregado; roda uma única vez (ref)
+   * para não reaplicar em cada render.
+   */
+  const pendingLoginResolvedRef = useRef(false)
+  useEffect(() => {
+    if (pendingLoginResolvedRef.current) return
+    if (!hasSession) return
+    if (!session.pendingIntent && !session.pendingReturnTo) return
+    if (session.pendingIntent?.type === 'favorite' && remoteCatalog.products.length === 0) return
+
+    pendingLoginResolvedRef.current = true
+    resolvePendingLoginAndNavigate()
+  }, [hasSession, session.pendingIntent, session.pendingReturnTo, remoteCatalog.products])
+
+  /**
+   * `session.handleAuthSubmit` já faz o `hardNavigate` sozinho no sucesso
+   * (senha ou signup+login) — nenhum trabalho de navegação sobra pra cá; a
+   * intenção pendente é resolvida depois do reload, ver o efeito de
+   * rehidratação logo abaixo.
+   */
   const onAuthSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    void session.handleAuthSubmit(event).then((success) => {
-      if (success) resolvePendingLoginAndNavigate()
-    })
+    void session.handleAuthSubmit(event)
   }
 
   const onQuickLogin = (role: Role) => {
@@ -312,10 +349,9 @@ export function useMarketplaceState() {
     void session.handleGoogleLogin()
   }
 
+  /** Mesmo raciocínio de `onAuthSubmit`: `session.handleOAuthComplete` já faz o hardNavigate no sucesso. */
   const onOAuthComplete = async (tokens: { accessToken: string; refreshToken: string; expiresAt?: number }) => {
-    const result = await session.handleOAuthComplete(tokens)
-    if (result.ok) resolvePendingLoginAndNavigate()
-    return result
+    return session.handleOAuthComplete(tokens)
   }
 
   const onOAuthError = (message: string) => {

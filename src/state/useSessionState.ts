@@ -3,10 +3,11 @@ import { useEffect, useState } from 'react'
 import { ROUTES } from '../router/routes'
 import type { AuthForm } from '../screens/LoginScreen'
 import { readStoredJSON } from '../lib/storage'
+import { hardNavigate } from '../lib/hardNavigate'
 import { api, ApiError, loadStoredSession, storeSession, type ApiUser } from '../lib/api'
-import { STORAGE_KEYS } from './session'
+import { STORAGE_KEYS, storeUser } from './session'
 import { EMAIL_REGEX, normalizeStoredUser } from './marketplaceSeed'
-import type { PendingIntent } from './pendingIntent'
+import { consumePendingLogin, savePendingLogin, type PendingIntent } from './pendingIntent'
 import type { Role, User } from '../types'
 
 /** ApiUser → User da UI. O papel vem SEMPRE do servidor, nunca do storage. */
@@ -54,6 +55,22 @@ export function useSessionState(
   const [resetSuccessMessage, setResetSuccessMessage] = useState('')
 
   const isDevMode = import.meta.env.DEV
+
+  // Rehidrata a intenção pendente gravada por `savePendingLogin` antes de um
+  // `hardNavigate` (login por senha ou Google): o reload de verdade zera o
+  // estado em memória, então `handleAuthSubmit`/`handleOAuthComplete`
+  // persistem `pendingReturnTo`/`pendingIntent` no sessionStorage antes de
+  // navegar, e este é o único mount que os consome de volta — só roda uma vez
+  // e só encontra algo quando o mount anterior foi de fato interrompido por
+  // um reload (F5 manual em `/entrar` não passa por aqui, por isso nunca
+  // regrava nada extra).
+  useEffect(() => {
+    const { returnTo, intent } = consumePendingLogin()
+    if (returnTo !== null) setPendingReturnTo(returnTo)
+    if (intent !== null) setPendingIntent(intent)
+    // Roda uma única vez, na montagem do app.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Revalidação da sessão persistida: com token salvo, o /me confirma quem é
   // e qual o papel real. Um 401 aqui já derruba o storage via api.ts; o
@@ -144,9 +161,23 @@ export function useSessionState(
         email: authForm.email,
         password: authForm.password,
       })
+      const viewUser = toViewUser(user)
       storeSession(session)
-      setAuthUser(toViewUser(user))
+      // Grava o usuário no storage SÍNCRONO (não via efeito de
+      // useMarketplaceState, que só roda no próximo passive-effect flush):
+      // hardNavigate troca de documento no mesmo tick em produção, e um
+      // efeito agendado pode nunca chegar a rodar antes da troca. Sem isso,
+      // o próximo mount começaria sem `authUser` e piscaria a tela de login
+      // até o /me revalidar.
+      storeUser(viewUser)
+      setAuthUser(viewUser)
       setUserRole(user.role)
+      // A intenção pendente (favoritar/retomar checkout) vive em memória e o
+      // hardNavigate abaixo zera essa memória — persiste antes de navegar
+      // para o próximo mount reidratar e aplicar (ver useEffect acima e
+      // `resolvePendingLoginAndNavigate` em useMarketplaceState).
+      savePendingLogin(pendingReturnTo, pendingIntent)
+      hardNavigate(pendingReturnTo ?? ROUTES.home)
       return true
     } catch (error) {
       setAuthError(
@@ -240,9 +271,18 @@ export function useSessionState(
   }): Promise<{ ok: true } | { ok: false; message: string }> => {
     try {
       const { session, user } = await api.oauthComplete(tokens)
+      const viewUser = toViewUser(user)
       storeSession(session)
-      setAuthUser(toViewUser(user))
+      // Mesmo raciocínio do login por senha: grava síncrono (ver comentário
+      // em handleAuthSubmit) — não depende do efeito de useMarketplaceState.
+      storeUser(viewUser)
+      setAuthUser(viewUser)
       setUserRole(user.role)
+      // Persiste a intenção pendente antes do reload duro (o redirect de
+      // retorno do Google já trouxe a navegação até aqui — o `hardNavigate`
+      // agora troca de identidade com caches 100% frescos).
+      savePendingLogin(pendingReturnTo, pendingIntent)
+      hardNavigate(pendingReturnTo ?? ROUTES.home)
       return { ok: true }
     } catch (error) {
       return {

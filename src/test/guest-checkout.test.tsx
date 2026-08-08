@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
 import { ROUTES } from '../router/routes'
+import { setHardNavigateForTests } from '../lib/hardNavigate'
 import { waitForCatalog } from './authTestHelpers'
 
 const bottomNav = () => screen.getByRole('navigation', { name: /navegação principal/i })
@@ -38,6 +39,54 @@ describe('visitante — favoritar', () => {
     expect(
       screen.getAllByRole('button', { name: new RegExp(`^remover ${title} dos favoritos$`, 'i') }).length,
     ).toBeGreaterThanOrEqual(1)
+  })
+})
+
+describe('login por senha real — navegação dura (hardNavigate)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  it('a intenção pendente sobrevive a um reload de verdade via sessionStorage e é aplicada no remount', async () => {
+    // Este teste NÃO usa o mock padrão de hardNavigate (que reescreve a URL
+    // e mantém a árvore React montada — bom o bastante pra maioria dos
+    // testes, mas não prova a persistência). Aqui só capturamos o path e
+    // simulamos o reload de VERDADE: desmontamos a árvore (perde memória) e
+    // remontamos, exatamente como spec pede.
+    let capturedPath: string | null = null
+    setHardNavigateForTests((path) => {
+      capturedPath = path
+    })
+
+    const first = render(<MarketplaceApp />)
+    await waitForCatalog()
+    const heart = screen.getAllByRole('button', { name: /^salvar .+ nos favoritos$/i })[0] as HTMLElement
+    const title = heart.getAttribute('aria-label')?.replace(/^Salvar /, '').replace(/ nos favoritos$/, '') ?? ''
+    fireEvent.click(heart)
+
+    fireEvent.change(screen.getByPlaceholderText('E-mail'), { target: { value: 'ana@teste.com' } })
+    fireEvent.change(screen.getByPlaceholderText('Senha'), { target: { value: 'senha-valida-123' } })
+    fireEvent.submit(screen.getByPlaceholderText('Senha').closest('form') as HTMLFormElement)
+
+    await waitFor(() => expect(capturedPath).toBe('/'))
+    // handleAuthSubmit gravou a intenção pendente no sessionStorage antes de
+    // "navegar" — é o que sobrevive a um reload de verdade.
+    const raw = sessionStorage.getItem('primeiroaqui_pending_login')
+    expect(raw).toContain('favorite')
+
+    // Simula o reload: desmonta (perde todo o estado em memória) e remonta.
+    first.unmount()
+    render(<MarketplaceApp />)
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('button', { name: new RegExp(`^remover ${title} dos favoritos$`, 'i') })
+          .length,
+      ).toBeGreaterThanOrEqual(1),
+    )
+    // Consumido — um F5 manual subsequente não reaplica nada.
+    expect(sessionStorage.getItem('primeiroaqui_pending_login')).toBeNull()
   })
 })
 

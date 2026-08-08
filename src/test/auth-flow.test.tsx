@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import MarketplaceApp from '../MarketplaceApp'
 import { goToLoginFromNav } from './authTestHelpers'
 
@@ -45,7 +45,7 @@ describe('auth flow', () => {
     expect(screen.queryByRole('button', { name: 'Painel' })).not.toBeInTheDocument()
   })
 
-  it('logout volta para login e limpa sessao', () => {
+  it('logout faz navegação dura para a home e limpa sessao', () => {
     localStorage.setItem('primeiroaqui_user', JSON.stringify({ name: 'Ana', email: 'ana@teste.com', role: 'client' }))
     localStorage.setItem('primeiroaqui_cart', JSON.stringify({ items: [{ product: { id: 1, title: 'Produto', price: 10 }, quantity: 1 }] }))
 
@@ -54,7 +54,15 @@ describe('auth flow', () => {
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
     fireEvent.click(screen.getByRole('button', { name: /sair da conta/i }))
 
-    expect(screen.getByText(/compre na sua cidade e gerencie suas vendas/i)).toBeInTheDocument()
+    // Logout agora faz hardNavigate(ROUTES.home) — não mais SPA para /entrar.
+    // O mock padrão de teste (setup.ts) reescreve a URL e simula o popstate;
+    // a home pública mostra o link "Entrar" na barra de navegação.
+    expect(window.location.pathname).toBe('/')
+    expect(
+      within(screen.getByRole('navigation', { name: /navegação principal/i })).getByRole('link', {
+        name: /^entrar$/i,
+      }),
+    ).toBeInTheDocument()
     expect(localStorage.getItem('primeiroaqui_user')).toBeNull()
     // Desde a Task 4, o carrinho de visitante sobrevive ao logout de propósito
     // (persistencia deixou de depender de sessao) — o item some, mas a chave
