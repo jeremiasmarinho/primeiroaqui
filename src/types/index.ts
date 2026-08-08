@@ -65,6 +65,14 @@ export interface OrderLine {
   quantity: number
 }
 
+/** Linha de item com preço, para a tela de detalhe (`OrderDetailScreen`) — `items`/`lines` bastam para o card resumido, mas o detalhe mostra preço por linha. */
+export interface OrderItemLine {
+  title: string
+  quantity: number
+  unitPrice: number
+  lineTotal: number
+}
+
 export interface Order {
   id: string
   customer: string
@@ -90,6 +98,10 @@ export interface Order {
   storeName?: string
   /** Status do pagamento (`ApiPaymentStatus`); 'NONE' quando o pedido ainda não tentou pagar. */
   paymentStatus?: string
+  /** Data de criação (ISO), quando o pedido veio da API — alimenta o título formatado e a tela de detalhe. */
+  createdAt?: string
+  /** Itens com preço por linha, para a tela de detalhe. Ausente em pedidos mock do painel admin. */
+  itemLines?: OrderItemLine[]
 }
 
 // Boleto removido por decisão de negócio (2026-08-07): apenas Pix e cartão

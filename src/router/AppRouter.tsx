@@ -44,6 +44,7 @@ const CategoriesScreen = lazy(() => import('../screens/CategoriesScreen'))
 const FavoritesScreen = lazy(() => import('../screens/FavoritesScreen'))
 const AddressesScreen = lazy(() => import('../screens/AddressesScreen'))
 const OrdersScreen = lazy(() => import('../screens/OrdersScreen'))
+const OrderDetailScreen = lazy(() => import('../screens/OrderDetailScreen'))
 const ProfileScreen = lazy(() => import('../screens/ProfileScreen'))
 
 /** Fallback acessível enquanto o chunk do painel admin carrega. */
@@ -229,11 +230,20 @@ export default function AppRouter(props: AppRouterProps) {
         )}
       </Route>
 
-      {/* Rastreio OCULTO no MVP: a TrackingScreen simulava progresso de entrega
-          sem backend por tras. Deep links caem no historico real de pedidos.
-          Religar quando houver tracking de verdade. */}
+      {/* Tela de detalhe real (nao o TrackingScreen mock antigo, que simulava
+          progresso de entrega sem backend por tras e por isso saiu). Busca o
+          pedido em `orders` (GET /me/orders, ja carregado para a sessao). */}
       <Route path={ROUTE_PATTERNS.order}>
-        <Redirect to={ROUTES.orders} replace />
+        {(params) => (
+          <Suspense fallback={<AdminScreenFallback />}>
+            <OrderDetailScreen
+              orderId={params.id ?? ''}
+              orders={props.orders}
+              isLoading={props.ordersLoading}
+              error={props.ordersError}
+            />
+          </Suspense>
+        )}
       </Route>
 
       <Route path={ROUTE_PATTERNS.favorites}>

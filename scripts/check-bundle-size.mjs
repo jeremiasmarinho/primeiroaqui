@@ -73,8 +73,12 @@ const MAX_TOTAL_BYTES = MAX_TOTAL_KB * 1024
 // Chunks lazy conhecidos (nome do arquivo gerado pelo Vite = nome da tela).
 // Qualquer chunk cujo nome NÃO case aqui conta como inicial — o padrão seguro:
 // um chunk novo desconhecido pesa no orçamento apertado até ser classificado.
+// PaymentStatusChip e orderDisplay são chunks compartilhados extraídos pelo
+// Vite: só são importados por OrdersScreen/OrderDetailScreen/ProfileScreen
+// (todos lazy), então só baixam quando um desses chunks baixa — contam como
+// lazy também, apesar do nome não ser o de uma tela.
 const LAZY_CHUNK_PATTERN =
-  /^(AdminScreen|StoreDashboardScreen|ResetPasswordScreen|OAuthCallbackScreen|CategoriesScreen|FavoritesScreen|AddressesScreen|OrdersScreen|ProfileScreen)-/
+  /^(AdminScreen|StoreDashboardScreen|ResetPasswordScreen|OAuthCallbackScreen|CategoriesScreen|FavoritesScreen|AddressesScreen|OrdersScreen|OrderDetailScreen|ProfileScreen|PaymentStatusChip|orderDisplay)-/
 
 const main = () => {
   if (!fs.existsSync(assetsDir)) {

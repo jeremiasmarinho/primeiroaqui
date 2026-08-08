@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
 
 import { formatCurrency } from '../lib/format'
+import { formatOrderDate, orderTitle } from '../lib/orderDisplay'
 import { ROUTES } from '../router/routes'
 import { api, ApiError } from '../lib/api'
 import { pushToast } from '../state/useToasts'
@@ -617,14 +618,26 @@ export default function ProfileScreen({
             </div>
             <div className="mt-4 space-y-3">
               {orders.slice(0, 3).map((order) => (
-                <div key={order.id} className="rounded-[20px] bg-surface-page p-3">
+                <Link
+                  key={order.id}
+                  href={ROUTES.order(order.id)}
+                  className="block rounded-[20px] bg-surface-page p-3 transition-colors duration-150 hover:bg-surface-sunken"
+                >
                   <div className="flex items-center justify-between">
-                    <p className="font-bold text-ink">{order.id}</p>
+                    <p className="font-bold text-ink">{orderTitle(order.id)}</p>
                     <span className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-faint">{order.status}</span>
                   </div>
-                  <p className="mt-1 text-sm text-ink-muted">{order.customer} • {formatCurrency(order.value)}</p>
+                  {order.storeName ? (
+                    <p className="mt-0.5 text-xs font-bold uppercase tracking-wide text-ink-faint">{order.storeName}</p>
+                  ) : null}
+                  {(() => {
+                    const line = [formatOrderDate(order.createdAt), formatCurrency(order.value)]
+                      .filter(Boolean)
+                      .join(' • ')
+                    return line ? <p className="mt-1 text-sm text-ink-muted">{line}</p> : null
+                  })()}
                   {order.items?.length ? <p className="mt-1 text-xs text-ink-faint">{order.items.length} item(s) • {order.payment || 'Pix'}</p> : null}
-                </div>
+                </Link>
               ))}
             </div>
           </div>

@@ -137,8 +137,8 @@ describe('ProfileScreen', () => {
         orders={[makeOrder({ id: '2001' }), makeOrder({ id: '2002' })]}
       />,
     )
-    expect(screen.getByText('2001')).toBeInTheDocument()
-    expect(screen.getByText('2002')).toBeInTheDocument()
+    expect(screen.getByText('Pedido #2001')).toBeInTheDocument()
+    expect(screen.getByText('Pedido #2002')).toBeInTheDocument()
   })
 
   it('sair da conta dispara o logout', () => {

@@ -1,9 +1,13 @@
 import { PackageSearch, RotateCcw } from 'lucide-react'
+import { Link } from 'wouter'
 
 import BottomNav from '../components/BottomNav'
+import { PaymentStatusChip } from '../components/PaymentStatusChip'
 import { EmptyBlock, ScreenHeader, itemsLabel } from '../components/ScreenShell'
 import { formatCurrency } from '../lib/format'
+import { formatOrderDate, orderTitle } from '../lib/orderDisplay'
 import { groupOrders, isOrderInProgress, summarizeOrders } from '../lib/orderSummary'
+import { ROUTES } from '../router/routes'
 import type { Order } from '../types'
 
 interface OrdersScreenProps {
@@ -60,27 +64,6 @@ function SummaryRow({ orders }: { orders: Order[] }) {
   )
 }
 
-/** Chip de status do pagamento — tokens semânticos (success/warning/error), some quando 'NONE'/ausente. */
-function PaymentStatusChip({ paymentStatus }: { paymentStatus?: string }) {
-  if (!paymentStatus || paymentStatus === 'NONE') return null
-
-  const config: Record<string, { label: string; className: string }> = {
-    PENDING: { label: 'Aguardando pagamento', className: 'bg-warning/15 text-warning' },
-    PAID: { label: 'Pago', className: 'bg-success/15 text-success' },
-    FAILED: { label: 'Pagamento falhou', className: 'bg-error/15 text-error' },
-    REFUNDED: { label: 'Reembolsado', className: 'bg-surface-sunken text-ink-muted' },
-    CHARGEDBACK: { label: 'Contestado', className: 'bg-error/15 text-error' },
-  }
-  const entry = config[paymentStatus]
-  if (!entry) return null
-
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-micro font-bold uppercase tracking-wide ${entry.className}`}>
-      {entry.label}
-    </span>
-  )
-}
-
 function OrderCard({
   order,
   highlightStatus,
@@ -90,54 +73,72 @@ function OrderCard({
   highlightStatus: boolean
   onRepeatOrder: (order: Order) => void
 }) {
+  const title = orderTitle(order.id)
+  const date = formatOrderDate(order.createdAt)
+
   return (
-    <li className="rounded-card bg-surface p-4 shadow-card">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="font-display text-base font-bold text-ink">{order.id}</p>
-          {order.storeName ? (
-            <p className="text-micro font-bold uppercase tracking-wide text-ink-faint">
-              {order.storeName}
-            </p>
-          ) : null}
+    <li
+      className="relative cursor-pointer rounded-card bg-surface p-4 shadow-card transition-transform
+                 duration-150 motion-safe:active:scale-[0.98]"
+    >
+      {/* Card inteiro é o alvo de toque (padrão "stretched link"): o Link cobre
+          a área toda em z-0; "Repetir pedido" fica acima (z-10) e não é filho
+          do <a>, então o clique nele não navega — sem precisar de nested
+          <button> dentro de <a>. */}
+      <Link
+        href={ROUTES.order(order.id)}
+        aria-label={`Ver detalhes do ${title}`}
+        className="absolute inset-0 z-0 rounded-card"
+      />
+
+      <div className="pointer-events-none relative z-[1]">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <p className="font-display text-base font-bold text-ink">{title}</p>
+            {order.storeName || date ? (
+              <p className="text-micro text-ink-faint">
+                {[order.storeName, date].filter(Boolean).join(' · ')}
+              </p>
+            ) : null}
+          </div>
+          <div className="flex flex-col items-end gap-1">
+            <span
+              className={
+                highlightStatus
+                  ? 'rounded-full bg-brand px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-navy'
+                  : 'rounded-full bg-surface-sunken px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-ink-muted'
+              }
+            >
+              {order.status}
+            </span>
+            <PaymentStatusChip paymentStatus={order.paymentStatus} />
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <span
-            className={
-              highlightStatus
-                ? 'rounded-full bg-brand px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-navy'
-                : 'rounded-full bg-surface-sunken px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-ink-muted'
-            }
-          >
-            {order.status}
-          </span>
-          <PaymentStatusChip paymentStatus={order.paymentStatus} />
-        </div>
+
+        <p className="mt-1 text-sm leading-6 text-ink-muted">
+          {order.items?.length ? order.items.join(', ') : 'Itens não registrados neste pedido.'}
+        </p>
+        <p className="tabular mt-1 font-display text-lg font-black text-ink">
+          {formatCurrency(order.value)}
+        </p>
+        {order.address || order.region ? (
+          <p className="text-micro text-ink-faint">
+            {order.payment ?? 'Pix'} · {order.address ?? order.region}
+          </p>
+        ) : (
+          <p className="text-micro text-ink-faint">{order.payment ?? 'Pix'}</p>
+        )}
       </div>
 
-      <p className="mt-1 text-sm leading-6 text-ink-muted">
-        {order.items?.length ? order.items.join(', ') : 'Itens não registrados neste pedido.'}
-      </p>
-      <p className="tabular mt-1 font-display text-lg font-black text-ink">
-        {formatCurrency(order.value)}
-      </p>
-      {order.address || order.region ? (
-        <p className="text-micro text-ink-faint">
-          {order.payment ?? 'Pix'} · {order.address ?? order.region}
-        </p>
-      ) : (
-        <p className="text-micro text-ink-faint">{order.payment ?? 'Pix'}</p>
-      )}
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {/* O link "Acompanhar" saiu nesta fase: o rastreio (/pedido/:id)
-            ainda é mock e não conhece os pedidos reais da API — esconder
-            o ponto de entrada é melhor do que abrir uma tela vazia. */}
+      <div className="relative z-10 mt-3 flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => onRepeatOrder(order)}
+          onClick={(event) => {
+            event.stopPropagation()
+            onRepeatOrder(order)
+          }}
           aria-label={`Repetir pedido ${order.id}`}
-          className="inline-flex min-h-[44px] items-center gap-1 rounded-full border border-line
+          className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 rounded-full border border-line
                      px-4 text-sm font-bold text-ink transition-colors duration-150 hover:bg-surface-sunken"
         >
           <RotateCcw className="h-4 w-4" aria-hidden="true" />
@@ -151,8 +152,9 @@ function OrderCard({
 /**
  * Dashboard "Minhas compras".
  *
- * O acompanhamento continua em `/pedido/:id` (TrackingScreen): aqui só há o
- * link para lá, sem duplicar a tela de rastreio.
+ * Cada card é um link para `/pedido/:id` (OrderDetailScreen — a tela de
+ * detalhe real, ver src/screens/OrderDetailScreen.tsx), com "Repetir pedido"
+ * como ação separada dentro do card.
  */
 export default function OrdersScreen({
   orders,

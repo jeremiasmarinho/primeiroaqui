@@ -48,9 +48,9 @@ describe('OrdersScreen — dashboard "Minhas compras"', () => {
     const inProgressSection = screen.getByRole('region', { name: /pedidos em andamento/i })
     const previousSection = screen.getByRole('region', { name: /pedidos anteriores/i })
 
-    expect(within(inProgressSection).getByText('live-1')).toBeInTheDocument()
-    expect(within(previousSection).getByText('old-1')).toBeInTheDocument()
-    expect(within(inProgressSection).queryByText('old-1')).not.toBeInTheDocument()
+    expect(within(inProgressSection).getByText('Pedido #LIVE-1')).toBeInTheDocument()
+    expect(within(previousSection).getByText('Pedido #OLD-1')).toBeInTheDocument()
+    expect(within(inProgressSection).queryByText('Pedido #OLD-1')).not.toBeInTheDocument()
   })
 
   it('mostra a loja do pedido quando o adaptador resolveu o nome', () => {
@@ -66,7 +66,7 @@ describe('OrdersScreen — dashboard "Minhas compras"', () => {
 
     render(<OrdersScreen {...baseProps} orders={orders} />)
 
-    expect(screen.getByText('p1')).toBeInTheDocument()
+    expect(screen.getByText('Pedido #P1')).toBeInTheDocument()
     expect(screen.queryByText(/undefined/i)).not.toBeInTheDocument()
   })
 

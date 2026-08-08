@@ -68,18 +68,20 @@ describe('OrdersScreen — os tres estados', () => {
       />,
     )
 
-    expect(screen.getByText('2042')).toBeInTheDocument()
+    expect(screen.getByText('Pedido #2042')).toBeInTheDocument()
     expect(screen.getByText('Em rota')).toBeInTheDocument()
     expect(screen.getAllByText(/R\$\s?250,00/).length).toBeGreaterThan(0)
     expect(screen.getByText(/ventilador, whey/i)).toBeInTheDocument()
   })
 
-  it('sem link de rastreio nesta fase — a tela de rastreio segue mock', () => {
-    // Decisão da fase de integração: esconder o ponto de entrada é melhor do
-    // que abrir /pedido/:id vazio para um pedido real que o mock não conhece.
-    render(<OrdersScreen {...baseProps} orders={[makeOrder({ id: '2042' })]} />)
+  it('o card inteiro é um link para a tela de detalhe do pedido', () => {
+    const order = makeOrder({ id: '2042' })
+    render(<OrdersScreen {...baseProps} orders={[order]} />)
 
-    expect(screen.queryByRole('link', { name: /acompanhar pedido/i })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /ver detalhes do pedido #2042/i })).toHaveAttribute(
+      'href',
+      ROUTES.order('2042'),
+    )
   })
 
   it('repetir pedido avisa o pai e respeita o alvo minimo de toque', () => {
@@ -104,7 +106,7 @@ describe('OrdersScreen — os tres estados', () => {
     )
 
     expect(screen.getByRole('alert')).toHaveTextContent(/saiu do catálogo/i)
-    expect(screen.getByText('2042')).toBeInTheDocument()
+    expect(screen.getByText('Pedido #2042')).toBeInTheDocument()
   })
 })
 
@@ -157,6 +159,40 @@ describe('historico ponta a ponta', () => {
     // Mesmos itens e mesmas quantidades: 2 unidades do mesmo produto.
     expect(within(bottomNav()).getByRole('button', { name: /carrinho — 2 itens/i })).toBeInTheDocument()
     expect(screen.getByRole('dialog', { name: /carrinho de compras/i })).toBeInTheDocument()
+  })
+
+  it('clicar no card do pedido navega para a tela de detalhe real (/pedido/:id)', async () => {
+    seedAddress()
+    render(<MarketplaceApp />)
+    enterAsClient()
+    await waitForCatalog()
+
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
+
+    expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('CPF'), { target: { value: '529.982.247-25' } })
+    fireEvent.change(screen.getByLabelText(/telefone/i), { target: { value: '11987654321' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Pagar' }))
+    fireEvent.click(await screen.findByRole('button', { name: /ver meus pedidos/i }))
+
+    await waitFor(() => expect(window.location.pathname).toBe(ROUTES.orders))
+    expect(await screen.findByText(/ventilador de mesa premium/i)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('link', { name: /ver detalhes do pedido/i }))
+
+    await waitFor(() => expect(window.location.pathname).toMatch(/^\/pedido\//))
+    // A tela de destino é diferenciada pelo <h2> "Pedido #..." (a OrdersScreen
+    // não tem esse heading) — `findByText` sozinho poderia casar um instante
+    // cedo demais na tela antiga, que também lista o mesmo item.
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(/pedido #/i)
+    })
+    expect(screen.getByText(/ventilador de mesa premium/i)).toBeInTheDocument()
+    expect(screen.getByText(/^total$/i)).toBeInTheDocument()
+    expect(screen.getByText(/aguardando confirmação/i)).toBeInTheDocument()
   })
 
   it('deep link em /pedidos sem sessao volta para /entrar', () => {

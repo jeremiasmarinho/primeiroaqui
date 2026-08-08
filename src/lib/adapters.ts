@@ -109,4 +109,11 @@ export const toViewOrder = (
   storeId: dto.storeId,
   storeName: storeNameById.get(dto.storeId),
   paymentStatus: dto.paymentStatus ?? 'NONE',
+  createdAt: dto.createdAt,
+  itemLines: dto.items.map((item) => ({
+    title: titleById.get(item.productId) ?? 'Produto',
+    quantity: item.quantity,
+    unitPrice: centsToReais(item.unitPriceCents),
+    lineTotal: centsToReais(item.unitPriceCents * item.quantity),
+  })),
 })
