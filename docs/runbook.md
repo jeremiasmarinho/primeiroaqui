@@ -183,3 +183,15 @@ Checklist de rotação (nesta ordem, com o app já no ar):
 
 A `SUPABASE_ANON_KEY` não precisa rotacionar (é pública por design, RLS é a
 proteção).
+
+## Acesso ao servidor (pós-hardening de 08/08/2026)
+
+- SSH: **somente chave**, usuário **koraforce@72.61.131.217** (sudo sem senha,
+  grupo docker). Root e senha estão DESABILITADOS no sshd.
+- fail2ban ativo (jail sshd) e unattended-upgrades ligado.
+- Deploy: `ssh koraforce@... "cd /opt/primeiroaqui && git pull && docker build
+  -t primeiro-aqui:latest . && docker rm -f primeiroaqui && docker run -d
+  --name primeiroaqui --restart unless-stopped -p 127.0.0.1:3333:3333
+  --env-file /opt/primeiroaqui/.env primeiro-aqui:latest"`.
+- Monitor de uptime: workflow GitHub Actions `uptime.yml` (15 em 15 min,
+  falha = e-mail do GitHub ao dono do repo).
