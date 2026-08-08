@@ -38,7 +38,9 @@ jobs:
 
       - name: Compilar APK de debug
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon
 
       - name: Publicar APK como artifact
         uses: actions/upload-artifact@v4
