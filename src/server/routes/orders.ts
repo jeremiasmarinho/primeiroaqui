@@ -39,6 +39,9 @@ const createOrderSchema = z.object({
     )
     .nonempty('O carrinho precisa ter ao menos um item'),
   addressId: z.string().min(1),
+  isGift: z.boolean().optional(),
+  giftRecipientName: z.string().trim().min(1).optional(),
+  giftMessage: z.string().optional(),
 })
 
 orderRoutes.post('/orders', requireUser, async (c) => {
@@ -52,7 +55,14 @@ orderRoutes.post('/orders', requireUser, async (c) => {
   }
 
   const authedUser = c.get('authedUser')
-  const { addressId } = parsed.data
+  const { addressId, isGift, giftRecipientName, giftMessage } = parsed.data
+
+  // isGift=true exige giftRecipientName (nome de quem vai receber o presente)
+  // — checagem manual pois o schema acima trata o campo como opcional para
+  // não travar pedidos comuns (isGift ausente/false).
+  if (isGift && !giftRecipientName) {
+    return c.json({ error: 'Dados invalidos', details: { giftRecipientName: 'Nome de quem vai receber é obrigatório' } }, 400)
+  }
 
   // Consolida entradas duplicadas do mesmo productId somando as quantidades,
   // ANTES de qualquer checagem de estoque ou agrupamento por loja. Sem isso,
@@ -150,6 +160,9 @@ orderRoutes.post('/orders', requireUser, async (c) => {
             storeId,
             addressId,
             totalCents,
+            isGift: isGift ?? false,
+            giftRecipientName: isGift ? giftRecipientName : undefined,
+            giftMessage: isGift ? giftMessage : undefined,
             items: {
               create: storeItems.map((item) => ({
                 productId: item.productId,

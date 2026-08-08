@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { enterAsClient, waitForCatalog } from './authTestHelpers'
-import { seedAddress } from './mocks/handlers'
+import { db, seedAddress } from './mocks/handlers'
 import { ROUTES } from '../router/routes'
 
 describe('checkout', () => {
@@ -93,5 +93,70 @@ describe('checkout', () => {
 
     await waitFor(() => expect(window.location.pathname).toBe(ROUTES.orders))
     expect(await screen.findByText(/ventilador de mesa premium/i)).toBeInTheDocument()
+  })
+})
+
+describe('comprar para presente (Item 8)', () => {
+  // O primeiro produto do catálogo mock pertence à loja "Loja Vizinhança"
+  // (id 'loja-vizinhanca'), semeada com giftWrapAvailable: true.
+  const bottomNav = () => screen.getByRole('navigation', { name: /navegação principal/i })
+  const openCart = () => fireEvent.click(within(bottomNav()).getByRole('button', { name: /carrinho/i }))
+  const addFirstProduct = () => {
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+  })
+
+  it('loja com giftWrapAvailable permite marcar "É um presente?" e exige o nome do presenteado', async () => {
+    seedAddress()
+    enterAsClient()
+    await waitForCatalog()
+
+    addFirstProduct()
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+
+    fireEvent.click(screen.getByLabelText(/é um presente\?/i))
+    fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
+
+    expect(screen.getByText(/informe o nome de quem vai receber o presente/i)).toBeInTheDocument()
+  })
+
+  it('marcado como presente com nome preenchido, o pedido criado carrega isGift/giftRecipientName/giftMessage', async () => {
+    seedAddress()
+    enterAsClient()
+    await waitForCatalog()
+
+    addFirstProduct()
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+
+    fireEvent.click(screen.getByLabelText(/é um presente\?/i))
+    fireEvent.change(screen.getByLabelText(/nome de quem vai receber/i), {
+      target: { value: 'Maria Presenteada' },
+    })
+    fireEvent.change(screen.getByLabelText(/mensagem do presente/i), {
+      target: { value: 'Parabéns!' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
+
+    await waitFor(() => expect(db.orders[0]?.isGift).toBe(true))
+    expect(db.orders[0]?.giftRecipientName).toBe('Maria Presenteada')
+    expect(db.orders[0]?.giftMessage).toBe('Parabéns!')
+  })
+
+  it('loja sem giftWrapAvailable mostra o aviso e não deixa marcar presente', async () => {
+    seedAddress()
+    enterAsClient()
+    const buttons = await waitForCatalog()
+    // O 2º produto do catálogo mock ("Kit Supermercado Express") pertence à
+    // loja "Mercado Central" (giftWrapAvailable: false).
+    fireEvent.click(buttons[1] as HTMLElement)
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+
+    expect(screen.getByText(/esta loja não oferece embalagem para presente/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/é um presente\?/i)).not.toBeInTheDocument()
   })
 })

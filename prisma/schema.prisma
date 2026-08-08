@@ -76,6 +76,9 @@ model Store {
   pagarmeRecipientId String?
   recipientStatus    String?
 
+  /** Item 9 — loja embala o pedido como presente e entrega no endereço do presenteado. */
+  giftWrapAvailable Boolean @default(false)
+
   products    Product[]
   orders      Order[]
 
@@ -174,6 +177,13 @@ model Order {
   paymentStatus    String      @default("NONE")
   platformFeeCents Int?
   storeAmountCents Int?
+
+  // Item 8 — comprar para presente. addressId acima já é o endereço do
+  // presenteado quando isGift=true (nenhuma tabela nova): o comprador
+  // escolhe/cadastra o endereço do presenteado no mesmo seletor existente.
+  isGift            Boolean @default(false)
+  giftRecipientName String?
+  giftMessage       String?
 
   items       OrderItem[]
 

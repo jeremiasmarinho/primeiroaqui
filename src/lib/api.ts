@@ -82,6 +82,8 @@ export interface ApiStore {
   category: string
   logoUrl: string | null
   isActive: boolean
+  /** Item 9 — loja embala o pedido como presente e entrega no endereço do presenteado. */
+  giftWrapAvailable: boolean
   createdAt: string
   updatedAt: string
 }
@@ -94,6 +96,7 @@ export interface ApiPublicStore {
   description: string | null
   category: string
   logoUrl: string | null
+  giftWrapAvailable: boolean
 }
 
 /** Cliente agregado de GET /me/store-customers — CRM básico do lojista. */
@@ -158,6 +161,10 @@ export interface ApiOrder {
   items: ApiOrderItem[]
   /** Ausente em fixtures antigas de teste; a UI trata como 'NONE'. */
   paymentStatus?: ApiPaymentStatus
+  /** Item 8 — comprar para presente. addressId acima já é o endereço do presenteado quando isGift=true. */
+  isGift?: boolean
+  giftRecipientName?: string | null
+  giftMessage?: string | null
 }
 
 /**
@@ -583,8 +590,13 @@ export const api = {
   deleteAddress: (addressId: string) =>
     request<{ ok: true }>(`/addresses/${addressId}`, { method: 'DELETE' }),
 
-  createOrder: (input: { items: Array<{ productId: string; quantity: number }>; addressId: string }) =>
-    request<{ orders: ApiOrder[] }>('/orders', { method: 'POST', body: input }),
+  createOrder: (input: {
+    items: Array<{ productId: string; quantity: number }>
+    addressId: string
+    isGift?: boolean
+    giftRecipientName?: string
+    giftMessage?: string
+  }) => request<{ orders: ApiOrder[] }>('/orders', { method: 'POST', body: input }),
 
   listMyOrders: () => request<{ orders: ApiOrder[] }>('/me/orders'),
 
@@ -601,7 +613,22 @@ export const api = {
     latitude: number
     longitude: number
     category?: string
+    giftWrapAvailable?: boolean
   }) => request<{ store: ApiStore }>('/stores', { method: 'POST', body: input }),
+
+  /** PATCH parcial da loja (Item 9: toggle "Embalo para presente" no painel do lojista). */
+  updateStore: (
+    storeId: string,
+    input: Partial<{
+      name: string
+      slug: string
+      description: string
+      latitude: number
+      longitude: number
+      category: string
+      giftWrapAvailable: boolean
+    }>,
+  ) => request<{ store: ApiStore }>(`/stores/${storeId}`, { method: 'PATCH', body: input }),
 
   listStoreOrders: () => request<{ orders: ApiStoreOrder[] }>('/me/store-orders'),
 

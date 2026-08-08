@@ -1,3 +1,4 @@
+import { Gift } from 'lucide-react'
 import type { ApiAdminOrder } from '../../lib/api'
 import { formatCents } from '../../lib/money'
 import {
@@ -59,6 +60,7 @@ export default function AdminOrdersTab({
               <th scope="col" className="px-4 py-3">Itens</th>
               <th scope="col" className="px-4 py-3 text-right">Valor</th>
               <th scope="col" className="px-4 py-3">Status</th>
+              <th scope="col" className="px-4 py-3">Presente</th>
               <th scope="col" className="px-4 py-3">Ações</th>
             </tr>
           </thead>
@@ -79,6 +81,19 @@ export default function AdminOrdersTab({
                     <span className="rounded-full bg-surface-page px-3 py-1 text-xs font-semibold text-ink-muted">
                       {orderStatusLabel(order.status)}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {order.isGift ? (
+                      <span
+                        title={order.giftMessage ? `"${order.giftMessage}"` : undefined}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2 py-1 text-xs font-semibold text-ink"
+                      >
+                        <Gift className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        {order.giftRecipientName || 'Sim'}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-ink-muted">—</span>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">

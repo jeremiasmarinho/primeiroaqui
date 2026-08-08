@@ -1,3 +1,4 @@
+import { Gift } from 'lucide-react'
 import { formatCents } from '../../lib/money'
 import {
   canCancelOrder,
@@ -53,6 +54,15 @@ export default function OrdersPanel({ orders, pendingOrderIds, onChangeStatus }:
                 {orderStatusLabel(order.status)}
               </span>
             </div>
+            {order.isGift ? (
+              <div className="mt-3 rounded-[16px] bg-primary/10 p-3 text-sm">
+                <p className="flex items-center gap-2 font-semibold text-ink">
+                  <Gift className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  Presente para {order.giftRecipientName || 'destinatário'}
+                </p>
+                {order.giftMessage ? <p className="mt-1 text-ink-muted">"{order.giftMessage}"</p> : null}
+              </div>
+            ) : null}
             <div className="mt-3 flex flex-wrap gap-2">
               {next ? (
                 <button

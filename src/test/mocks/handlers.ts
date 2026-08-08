@@ -42,10 +42,10 @@ export const mockUser: ApiUser = {
 // Ids e títulos espelham o catálogo de demonstração antigo — os testes de
 // tela citam esses nomes/urls (ex.: /produto/1, /loja/mercado-central).
 export const mockStores: ApiStore[] = [
-  { id: 'loja-vizinhanca', name: 'Loja Vizinhança', slug: 'loja-vizinhanca', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, createdAt: now, updatedAt: now },
-  { id: 'mercado-central', name: 'Mercado Central', slug: 'mercado-central', description: 'Zona Norte', latitude: 0, longitude: 0, category: 'MERCADO', logoUrl: null, isActive: true, createdAt: now, updatedAt: now },
-  { id: 'tech-shop', name: 'Tech Shop', slug: 'tech-shop', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, createdAt: now, updatedAt: now },
-  { id: 'farmacia-local', name: 'Farmácia Local', slug: 'farmacia-local', description: 'Zona Sul', latitude: 0, longitude: 0, category: 'FARMACIA', logoUrl: null, isActive: true, createdAt: now, updatedAt: now },
+  { id: 'loja-vizinhanca', name: 'Loja Vizinhança', slug: 'loja-vizinhanca', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, giftWrapAvailable: true, createdAt: now, updatedAt: now },
+  { id: 'mercado-central', name: 'Mercado Central', slug: 'mercado-central', description: 'Zona Norte', latitude: 0, longitude: 0, category: 'MERCADO', logoUrl: null, isActive: true, giftWrapAvailable: false, createdAt: now, updatedAt: now },
+  { id: 'tech-shop', name: 'Tech Shop', slug: 'tech-shop', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, giftWrapAvailable: false, createdAt: now, updatedAt: now },
+  { id: 'farmacia-local', name: 'Farmácia Local', slug: 'farmacia-local', description: 'Zona Sul', latitude: 0, longitude: 0, category: 'FARMACIA', logoUrl: null, isActive: true, giftWrapAvailable: false, createdAt: now, updatedAt: now },
 ]
 
 const baseProducts: ApiProduct[] = [
@@ -198,6 +198,7 @@ export const seedStoreOwner = (overrides: Partial<ApiStore> = {}): ApiStore => {
     category: 'OUTROS',
     logoUrl: null,
     isActive: true,
+    giftWrapAvailable: false,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -550,12 +551,13 @@ export const handlers = [
       .filter((store) => !category || store.category === category)
       .slice()
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map(({ id, name, slug, description, category: storeCategory }) => ({
+      .map(({ id, name, slug, description, category: storeCategory, giftWrapAvailable }) => ({
         id,
         name,
         slug,
         description,
         category: storeCategory,
+        giftWrapAvailable,
       }))
     return HttpResponse.json({ stores })
   }),
@@ -666,8 +668,14 @@ export const handlers = [
     const body = (await request.json()) as {
       items?: Array<{ productId: string; quantity: number }>
       addressId?: string
+      isGift?: boolean
+      giftRecipientName?: string
+      giftMessage?: string
     }
     if (!body?.items?.length || !body.addressId) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    if (body.isGift && !body.giftRecipientName) {
       return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
     }
     if (!db.addresses.some((address) => address.id === body.addressId)) {
@@ -720,6 +728,9 @@ export const handlers = [
           quantity: item.quantity,
           unitPriceCents: item.unitPriceCents,
         })),
+        isGift: body.isGift ?? false,
+        giftRecipientName: body.isGift ? body.giftRecipientName : undefined,
+        giftMessage: body.isGift ? body.giftMessage : undefined,
       }
     })
     db.orders.unshift(...orders)
@@ -758,6 +769,7 @@ export const handlers = [
       latitude?: number
       longitude?: number
       category?: string
+      giftWrapAvailable?: boolean
     }
     if (!body?.name || !body?.slug) {
       return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
@@ -775,11 +787,23 @@ export const handlers = [
       category: body.category ?? 'OUTROS',
       logoUrl: null,
       isActive: true,
+      giftWrapAvailable: body.giftWrapAvailable ?? false,
       createdAt: now,
       updatedAt: now,
     }
     db.myStores.push(store)
     return HttpResponse.json({ store }, { status: 201 })
+  }),
+
+  http.patch('/api/stores/:id', async ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const store = db.myStores.find((item) => item.id === params.id)
+    if (!store) return HttpResponse.json({ error: 'Loja nao encontrada' }, { status: 404 })
+    const body = (await request.json()) as Partial<
+      Pick<ApiStore, 'name' | 'slug' | 'description' | 'latitude' | 'longitude' | 'category' | 'giftWrapAvailable'>
+    >
+    Object.assign(store, body, { updatedAt: new Date().toISOString() })
+    return HttpResponse.json({ store })
   }),
 
   http.get('/api/me/store-orders', ({ request }) => {

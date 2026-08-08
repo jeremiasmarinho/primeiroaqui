@@ -36,10 +36,16 @@ export function useRemoteCatalog() {
         )
         if (cancelled) return
         const nameById = new Map<string, string>()
+        const giftWrapById = new Map<string, boolean>()
         for (const result of stores) {
-          if (result) nameById.set(result.store.id, result.store.name)
+          if (result) {
+            nameById.set(result.store.id, result.store.name)
+            giftWrapById.set(result.store.id, result.store.giftWrapAvailable)
+          }
         }
-        setProducts(dtos.map((dto) => toViewProduct(dto, nameById.get(dto.storeId))))
+        setProducts(
+          dtos.map((dto) => toViewProduct(dto, nameById.get(dto.storeId), giftWrapById.get(dto.storeId))),
+        )
       })
       .catch((err: unknown) => {
         if (cancelled) return

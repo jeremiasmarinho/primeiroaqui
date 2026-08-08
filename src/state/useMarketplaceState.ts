@@ -598,6 +598,13 @@ export function useMarketplaceState() {
       cartCheckout.setCheckoutError('Cadastre e selecione um endereço de entrega para finalizar.')
       return
     }
+    // Item 8 — mesma regra do servidor (POST /orders): presente marcado exige
+    // o nome de quem vai receber. Checado aqui também para não depender só do
+    // round-trip com o backend.
+    if (cartCheckout.deliveryForm.isGift && !cartCheckout.deliveryForm.giftRecipientName.trim()) {
+      cartCheckout.setCheckoutError('Informe o nome de quem vai receber o presente.')
+      return
+    }
 
     cartCheckout.setCheckoutError('')
     setIsConfirmingOrder(true)
@@ -608,6 +615,13 @@ export function useMarketplaceState() {
           quantity: item.quantity,
         })),
         addressId,
+        ...(cartCheckout.deliveryForm.isGift
+          ? {
+              isGift: true,
+              giftRecipientName: cartCheckout.deliveryForm.giftRecipientName.trim(),
+              giftMessage: cartCheckout.deliveryForm.giftMessage.trim() || undefined,
+            }
+          : {}),
       })
 
       const titleById = new Map(

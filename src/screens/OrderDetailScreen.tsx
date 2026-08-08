@@ -1,4 +1,4 @@
-import { ArrowLeft, PackageSearch, Store as StoreIcon } from 'lucide-react'
+import { ArrowLeft, Gift, PackageSearch, Store as StoreIcon } from 'lucide-react'
 import { Link } from 'wouter'
 
 import EmptyState from '../components/EmptyState'
@@ -121,6 +121,16 @@ export default function OrderDetailScreen({ orderId, orders, isLoading = false, 
               <StoreIcon className="h-4 w-4" aria-hidden="true" />
               {order.storeName}
             </p>
+          ) : null}
+
+          {order.isGift ? (
+            <div className="mt-3 rounded-[16px] bg-primary/10 p-3 text-sm">
+              <p className="flex items-center gap-2 font-semibold text-ink">
+                <Gift className="h-4 w-4 shrink-0" aria-hidden="true" />
+                Presente para {order.giftRecipientName || 'destinatário'}
+              </p>
+              {order.giftMessage ? <p className="mt-1 text-ink-muted">"{order.giftMessage}"</p> : null}
+            </div>
           ) : null}
         </div>
 

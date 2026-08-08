@@ -109,6 +109,9 @@ export default function CartDrawer({
   const itemsCount = getCartItemsCount(cartState)
   const subtotal = getCartSubtotal(cartState)
   const total = Math.max(0, subtotal - discount)
+  // Carrinho é de 1 loja por pedido (Item 8): o primeiro item já basta para
+  // saber se a loja do carrinho embala para presente.
+  const storeGiftWrapAvailable = cartState.items[0]?.product.storeGiftWrapAvailable ?? false
 
   const titleByStep: Record<CheckoutStep, string> = { cart: 'Carrinho', delivery: 'Entrega', payment: 'Pagamento' }
   const subtitleByStep: Record<CheckoutStep, string> = {
@@ -168,6 +171,7 @@ export default function CartDrawer({
             couponError={couponError}
             addresses={addresses}
             selectedAddressId={selectedAddressId}
+            storeGiftWrapAvailable={storeGiftWrapAvailable}
             onSelectAddress={onSelectAddress}
             onDeliveryChange={onDeliveryChange}
             onCouponCodeChange={onCouponCodeChange}

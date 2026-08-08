@@ -2,6 +2,7 @@ import type { Address, DeliveryForm } from '../../types'
 import AddressPicker from './AddressPicker'
 import CartOrderSummary from './CartOrderSummary'
 import DeliveryFields from './DeliveryFields'
+import GiftOptionField from './GiftOptionField'
 
 interface CheckoutFormProps {
   itemsCount: number
@@ -14,6 +15,8 @@ interface CheckoutFormProps {
   couponError: string
   addresses: Address[]
   selectedAddressId: string
+  /** Se a loja do carrinho oferece embalagem para presente (Item 9) — controla o toggle "É um presente?". */
+  storeGiftWrapAvailable: boolean
   onSelectAddress: (id: string) => void
   onDeliveryChange: (patch: Partial<DeliveryForm>) => void
   onCouponCodeChange: (code: string) => void
@@ -33,6 +36,7 @@ export default function CheckoutForm({
   checkoutError,
   addresses,
   selectedAddressId,
+  storeGiftWrapAvailable,
   onSelectAddress,
   onDeliveryChange,
   onConfirm,
@@ -50,6 +54,12 @@ export default function CheckoutForm({
         addresses={addresses}
         selectedAddressId={selectedAddressId}
         onSelectAddress={onSelectAddress}
+      />
+
+      <GiftOptionField
+        storeGiftWrapAvailable={storeGiftWrapAvailable}
+        deliveryForm={deliveryForm}
+        onDeliveryChange={onDeliveryChange}
       />
 
       <DeliveryFields deliveryForm={deliveryForm} onDeliveryChange={onDeliveryChange} />

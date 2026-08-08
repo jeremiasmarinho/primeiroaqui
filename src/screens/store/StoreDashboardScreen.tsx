@@ -1,4 +1,4 @@
-import { Store as StoreIcon } from 'lucide-react'
+import { Gift, Store as StoreIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link } from 'wouter'
 
@@ -39,8 +39,16 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
   const logoInputRef = useRef<HTMLInputElement>(null)
   const [logoPending, setLogoPending] = useState(false)
   const [logoError, setLogoError] = useState('')
+  const [giftWrapPending, setGiftWrapPending] = useState(false)
 
   const handleLogoPick = () => logoInputRef.current?.click()
+
+  const handleToggleGiftWrap = async () => {
+    if (!dashboard.store) return
+    setGiftWrapPending(true)
+    await dashboard.updateGiftWrapAvailable(!dashboard.store.giftWrapAvailable)
+    setGiftWrapPending(false)
+  }
 
   const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -182,6 +190,30 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
             <p className="text-sm text-ink-muted">Faturamento</p>
             <p className="tabular text-2xl font-black text-ink">{formatCents(metrics.revenueCents)}</p>
           </div>
+        </div>
+
+        <div className="mt-4 flex items-center justify-between gap-3 rounded-card border border-line p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <Gift className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden="true" />
+            Embalo para presente
+          </p>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={dashboard.store.giftWrapAvailable}
+            aria-label="Embalo para presente"
+            onClick={() => void handleToggleGiftWrap()}
+            disabled={giftWrapPending}
+            className={`min-h-[32px] w-14 shrink-0 rounded-full p-1 transition-colors duration-150 disabled:opacity-60 ${
+              dashboard.store.giftWrapAvailable ? 'bg-primary' : 'bg-surface-sunken'
+            }`}
+          >
+            <span
+              className={`block h-6 w-6 rounded-full bg-white shadow transition-transform duration-150 ${
+                dashboard.store.giftWrapAvailable ? 'translate-x-6' : 'translate-x-0'
+              }`}
+            />
+          </button>
         </div>
 
         {dashboard.actionError ? (

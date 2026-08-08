@@ -193,6 +193,39 @@ describe('aba Clientes do painel /minha-loja', () => {
   })
 })
 
+describe('embalagem para presente no painel /minha-loja (Item 9)', () => {
+  it('liga o toggle "Embalo para presente" e salva via PATCH /stores/:id', async () => {
+    const store = seedStoreOwner({ giftWrapAvailable: false })
+    seedLoggedInStorage()
+    renderAt('/minha-loja')
+
+    await screen.findByRole('heading', { name: store.name })
+    const toggle = screen.getByRole('switch', { name: /embalo para presente/i })
+    expect(toggle).toHaveAttribute('aria-checked', 'false')
+
+    fireEvent.click(toggle)
+
+    await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'true'))
+    expect(db.myStores[0]?.giftWrapAvailable).toBe(true)
+  })
+
+  it('pedido com isGift mostra o selo "Presente" com nome e mensagem', async () => {
+    const store = seedStoreOwner()
+    seedStoreOrder(store.id, {
+      buyerName: 'João Comprador',
+      status: 'PENDING',
+      isGift: true,
+      giftRecipientName: 'Maria Presenteada',
+      giftMessage: 'Feliz aniversário!',
+    })
+    seedLoggedInStorage()
+    renderAt('/minha-loja')
+
+    expect(await screen.findByText(/presente para maria presenteada/i)).toBeInTheDocument()
+    expect(screen.getByText(/feliz aniversário/i)).toBeInTheDocument()
+  })
+})
+
 describe('logo da loja no painel /minha-loja', () => {
   // `api.uploadStoreLogo` é mockado diretamente em vez de ir até o MSW via
   // fetch real — mesmo motivo documentado em profile-avatar.test.tsx: um

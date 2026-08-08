@@ -14,7 +14,7 @@ import type { Address, Order, Product, Store } from '../types'
  * este arquivo.
  */
 
-export const toViewProduct = (dto: ApiProduct, storeName?: string): Product => {
+export const toViewProduct = (dto: ApiProduct, storeName?: string, storeGiftWrapAvailable?: boolean): Product => {
   const price = centsToReais(dto.priceCents)
   return {
     id: dto.id,
@@ -36,6 +36,7 @@ export const toViewProduct = (dto: ApiProduct, storeName?: string): Product => {
     // (offline-safe) — mesmo padrão de `favoriteToViewProduct`.
     image: dto.photoUrl ?? localImage(dto.title),
     stock: dto.stock,
+    storeGiftWrapAvailable,
   }
 }
 
@@ -71,6 +72,7 @@ export const toViewStore = (dto: ApiStore): Store => ({
   neighborhood: dto.description ?? '',
   cover: localImage(dto.name),
   logoUrl: dto.logoUrl,
+  giftWrapAvailable: dto.giftWrapAvailable,
 })
 
 /** cep exibido = zipCode do backend; lat/lng ficam no backend, a UI não usa. */
@@ -112,6 +114,9 @@ export const toViewOrder = (
   storeName: storeNameById.get(dto.storeId),
   paymentStatus: dto.paymentStatus ?? 'NONE',
   createdAt: dto.createdAt,
+  isGift: dto.isGift,
+  giftRecipientName: dto.giftRecipientName,
+  giftMessage: dto.giftMessage,
   itemLines: dto.items.map((item) => ({
     title: titleById.get(item.productId) ?? 'Produto',
     quantity: item.quantity,

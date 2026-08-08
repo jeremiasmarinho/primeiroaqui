@@ -62,6 +62,7 @@ storeOwnerRoutes.get('/me/stores', requireUser, requireStoreOwner, async (c) => 
       longitude: store.longitude,
       logoUrl: store.logoUrl,
       isActive: store.isActive,
+      giftWrapAvailable: store.giftWrapAvailable,
       createdAt: store.createdAt,
       updatedAt: store.updatedAt,
     })),
@@ -91,6 +92,9 @@ storeOwnerRoutes.get('/me/store-orders', requireUser, requireStoreOwner, async (
       updatedAt: order.updatedAt,
       items: order.items,
       buyerName: order.buyer.name,
+      isGift: order.isGift,
+      giftRecipientName: order.giftRecipientName,
+      giftMessage: order.giftMessage,
     })),
   })
 })

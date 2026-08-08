@@ -38,6 +38,20 @@ describe('OrderDetailScreen', () => {
     expect(screen.getByText(/pago/i)).toBeInTheDocument()
   })
 
+  it('pedido presente mostra "Presente para [nome]" e a mensagem (Item 8)', () => {
+    const order = makeOrder({
+      id: 'gift-order-1',
+      isGift: true,
+      giftRecipientName: 'Maria Presenteada',
+      giftMessage: 'Feliz aniversário!',
+    })
+
+    render(<OrderDetailScreen orderId={order.id} orders={[order]} />)
+
+    expect(screen.getByText(/presente para maria presenteada/i)).toBeInTheDocument()
+    expect(screen.getByText(/feliz aniversário/i)).toBeInTheDocument()
+  })
+
   it('pedido que não existe (ou não é do usuário — a API só devolve os próprios) mostra "não encontrado"', () => {
     const order = makeOrder({ id: 'meu-pedido' })
 

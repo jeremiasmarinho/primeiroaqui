@@ -108,6 +108,9 @@ adminRoutes.get('/admin/orders', requireUser, requireAdmin, async (c) => {
       items: order.items,
       buyerName: order.buyer.name,
       storeName: order.store.name,
+      isGift: order.isGift,
+      giftRecipientName: order.giftRecipientName,
+      giftMessage: order.giftMessage,
     })),
     total,
   })

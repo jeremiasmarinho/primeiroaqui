@@ -191,6 +191,25 @@ export function useStoreDashboard(enabled: boolean) {
     }
   }, [store])
 
+  /** Item 9 — toggle "Embalo para presente" do painel do lojista. */
+  const updateGiftWrapAvailable = useCallback(async (giftWrapAvailable: boolean) => {
+    if (!store) return false
+    setActionError('')
+    try {
+      const { store: updated } = await api.updateStore(store.id, { giftWrapAvailable })
+      setStore(updated)
+      pushToast(giftWrapAvailable ? 'Embalagem para presente ativada' : 'Embalagem para presente desativada', 'success')
+      return true
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível salvar a preferência. Tente novamente.',
+      )
+      return false
+    }
+  }, [store])
+
   const removeLogo = useCallback(async () => {
     if (!store) return false
     setActionError('')
@@ -247,5 +266,6 @@ export function useStoreDashboard(enabled: boolean) {
     uploadPhoto,
     uploadLogo,
     removeLogo,
+    updateGiftWrapAvailable,
   }
 }

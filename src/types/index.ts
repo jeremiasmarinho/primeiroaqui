@@ -35,6 +35,8 @@ export interface Product {
   storeId?: string
   /** Estoque informado pela API; ausente nos dados de demonstração. */
   stock?: number
+  /** Item 9 — a loja dona deste produto embala para presente; alimenta o toggle "É um presente?" no checkout. */
+  storeGiftWrapAvailable?: boolean
 }
 
 export interface CartItem {
@@ -102,6 +104,10 @@ export interface Order {
   createdAt?: string
   /** Itens com preço por linha, para a tela de detalhe. Ausente em pedidos mock do painel admin. */
   itemLines?: OrderItemLine[]
+  /** Item 8 — comprar para presente. Quando true, `address` é o endereço do presenteado. */
+  isGift?: boolean
+  giftRecipientName?: string | null
+  giftMessage?: string | null
 }
 
 // Boleto removido por decisão de negócio (2026-08-07): apenas Pix e cartão
@@ -114,6 +120,10 @@ export interface DeliveryForm {
   city: string
   cep: string
   payment: PaymentMethod
+  /** Item 8 — comprar para presente. Só pode ser marcado se a loja do carrinho tiver giftWrapAvailable. */
+  isGift: boolean
+  giftRecipientName: string
+  giftMessage: string
 }
 
 export interface User {
@@ -142,6 +152,8 @@ export interface Store {
   cover: string
   /** Logo circular da loja, quando cadastrado — null/undefined cai no fallback (cover/iniciais). */
   logoUrl?: string | null
+  /** Item 9 — loja embala o pedido como presente e entrega no endereço do presenteado. */
+  giftWrapAvailable?: boolean
 }
 
 export interface Customer {

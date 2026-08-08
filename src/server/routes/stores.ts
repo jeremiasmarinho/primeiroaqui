@@ -51,6 +51,7 @@ const createStoreSchema = z.object({
   latitude: z.number(),
   longitude: z.number(),
   category: storeCategorySchema.optional(),
+  giftWrapAvailable: z.boolean().optional(),
 })
 
 const updateStoreSchema = z
@@ -61,6 +62,7 @@ const updateStoreSchema = z
     latitude: z.number(),
     longitude: z.number(),
     category: storeCategorySchema,
+    giftWrapAvailable: z.boolean(),
   })
   .partial()
   .refine((data) => Object.keys(data).length > 0, {
@@ -78,6 +80,7 @@ function toPublicStore(store: {
   category: string
   logoUrl: string | null
   isActive: boolean
+  giftWrapAvailable: boolean
   createdAt: Date
   updatedAt: Date
 }) {
@@ -91,6 +94,7 @@ function toPublicStore(store: {
     category: store.category,
     logoUrl: store.logoUrl,
     isActive: store.isActive,
+    giftWrapAvailable: store.giftWrapAvailable,
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,
   }
@@ -120,7 +124,7 @@ storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
   }
 
   const authedUser = c.get('authedUser')
-  const { name, slug, description, latitude, longitude, category } = parsed.data
+  const { name, slug, description, latitude, longitude, category, giftWrapAvailable } = parsed.data
 
   const existing = await prisma.store.findUnique({ where: { slug } })
   if (existing) {
@@ -137,6 +141,7 @@ storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
         latitude,
         longitude,
         ...(category !== undefined ? { category } : {}),
+        ...(giftWrapAvailable !== undefined ? { giftWrapAvailable } : {}),
       },
     })
     return c.json({ store: toPublicStore(store) }, 201)
@@ -174,6 +179,7 @@ storeRoutes.get('/stores', async (c) => {
       description: store.description,
       category: store.category,
       logoUrl: store.logoUrl,
+      giftWrapAvailable: store.giftWrapAvailable,
     })),
   })
 })
@@ -211,7 +217,7 @@ storeRoutes.patch('/stores/:id', requireUser, requireStoreOwner, async (c) => {
     return c.json({ error: 'Voce nao tem permissao para editar esta loja' }, 403)
   }
 
-  const { name, slug, description, latitude, longitude, category } = parsed.data
+  const { name, slug, description, latitude, longitude, category, giftWrapAvailable } = parsed.data
 
   if (slug && slug !== store.slug) {
     const existing = await prisma.store.findUnique({ where: { slug } })
@@ -223,7 +229,7 @@ storeRoutes.patch('/stores/:id', requireUser, requireStoreOwner, async (c) => {
   try {
     const updated = await prisma.store.update({
       where: { id },
-      data: { name, slug, description, latitude, longitude, category },
+      data: { name, slug, description, latitude, longitude, category, giftWrapAvailable },
     })
     return c.json({ store: toPublicStore(updated) })
   } catch {

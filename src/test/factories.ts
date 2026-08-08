@@ -51,6 +51,9 @@ export const makeDelivery = (overrides: Partial<DeliveryForm> = {}): DeliveryFor
   city: 'Centro',
   cep: '12345-678',
   payment: 'Pix',
+  isGift: false,
+  giftRecipientName: '',
+  giftMessage: '',
   ...overrides,
 })
 

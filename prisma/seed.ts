@@ -84,6 +84,8 @@ type StoreSeed = {
   ownerEmail: string
   latitude: number
   longitude: number
+  /** Item 9 — loja embala para presente. Variedade na demo: mercearia sim, padaria/hortifruti não. */
+  giftWrapAvailable: boolean
 }
 
 // Mesma cidade (Belo Horizonte, MG) — coordenadas plausiveis espalhadas pelos
@@ -99,6 +101,7 @@ const STORE_SEEDS: StoreSeed[] = [
     ownerEmail: 'rosana.ferreira@exemplo-primeiroaqui.com.br',
     latitude: -19.9227,
     longitude: -43.9451,
+    giftWrapAvailable: true,
   },
   {
     slug: 'farmacia-vida-nova',
@@ -110,6 +113,7 @@ const STORE_SEEDS: StoreSeed[] = [
     ownerEmail: 'carlos.nunes@exemplo-primeiroaqui.com.br',
     latitude: -19.9186,
     longitude: -43.9386,
+    giftWrapAvailable: true,
   },
   {
     slug: 'padaria-sao-jose',
@@ -121,6 +125,7 @@ const STORE_SEEDS: StoreSeed[] = [
     ownerEmail: 'jose.silva@exemplo-primeiroaqui.com.br',
     latitude: -19.9294,
     longitude: -43.9378,
+    giftWrapAvailable: false,
   },
   {
     slug: 'petshop-amigo-fiel',
@@ -132,6 +137,7 @@ const STORE_SEEDS: StoreSeed[] = [
     ownerEmail: 'fernanda.lima@exemplo-primeiroaqui.com.br',
     latitude: -19.9155,
     longitude: -43.9502,
+    giftWrapAvailable: true,
   },
   {
     slug: 'hortifruti-flor-do-campo',
@@ -143,6 +149,7 @@ const STORE_SEEDS: StoreSeed[] = [
     ownerEmail: 'marcos.andrade@exemplo-primeiroaqui.com.br',
     latitude: -19.9263,
     longitude: -43.9309,
+    giftWrapAvailable: false,
   },
 ]
 
@@ -283,6 +290,7 @@ async function main() {
         longitude: seed.longitude,
         ownerId: owner.id,
         isActive: true,
+        giftWrapAvailable: seed.giftWrapAvailable,
       },
       create: {
         slug: seed.slug,
@@ -293,6 +301,7 @@ async function main() {
         longitude: seed.longitude,
         ownerId: owner.id,
         isActive: true,
+        giftWrapAvailable: seed.giftWrapAvailable,
       },
     })
     createdStores.push({ id: store.id, slug: store.slug, category: seed.category })
