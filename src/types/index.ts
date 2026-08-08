@@ -88,6 +88,8 @@ export interface Order {
   storeId?: string
   /** Nome da loja, resolvido no adaptador a partir do catálogo carregado; ausente quando a loja não foi encontrada. */
   storeName?: string
+  /** Status do pagamento (`ApiPaymentStatus`); 'NONE' quando o pedido ainda não tentou pagar. */
+  paymentStatus?: string
 }
 
 // Boleto removido por decisão de negócio (2026-08-07): apenas Pix e cartão

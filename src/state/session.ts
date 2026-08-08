@@ -12,6 +12,14 @@ export const STORAGE_KEYS = {
   notifications: 'primeiroaqui_notifications',
   addresses: 'primeiroaqui_addresses',
   searchHistory: 'primeiroaqui_search_history',
+  /**
+   * CPF/telefone digitados na etapa de pagamento, para pré-preencher compras
+   * futuras — pendência de backend: o User ainda não tem esses campos, então
+   * fica só client-side (ver comentário em usePaymentCheckoutState.ts).
+   * Fora de SESSION_CLEAR_KEYS de propósito: é dado de preenchimento, não de
+   * sessão, e sobrevive ao logout para não redigitar CPF a cada compra.
+   */
+  paymentCustomer: 'primeiroaqui_payment_customer',
 } as const
 
 /** Chaves apagadas no logout: tudo que pertence a pessoa, nada de catalogo. */

@@ -152,7 +152,64 @@ describe('rotas de pagamento (Pagar.me, sandbox)', () => {
     })
   }
 
+  describe('GET /payments/config', () => {
+    afterEach(() => {
+      delete process.env.PAGARME_PUBLIC_KEY
+    })
+
+    it('com as duas chaves configuradas: enabled=true + public key para o front tokenizar', async () => {
+      process.env.PAGARME_PUBLIC_KEY = 'pk_test_fixture'
+      const res = await app.request('/payments/config')
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { enabled: boolean; publicKey?: string }
+      expect(body).toEqual({ enabled: true, publicKey: 'pk_test_fixture' })
+    })
+
+    it('feature flag: sem PAGARME_PUBLIC_KEY, responde 200 enabled=false (nunca 500/503)', async () => {
+      delete process.env.PAGARME_PUBLIC_KEY
+      const res = await app.request('/payments/config')
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { enabled: boolean }
+      expect(body).toEqual({ enabled: false })
+    })
+
+    it('feature flag: sem PAGARME_SECRET_KEY (mesmo com public key), tambem enabled=false', async () => {
+      delete process.env.PAGARME_SECRET_KEY
+      process.env.PAGARME_PUBLIC_KEY = 'pk_test_fixture'
+      const res = await app.request('/payments/config')
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { enabled: boolean }
+      expect(body).toEqual({ enabled: false })
+    })
+  })
+
   describe('POST /orders/:id/pay', () => {
+    it('Pix gateado (action_forbidden) vira 409 com mensagem clara', async () => {
+      const store = await createStoreFixture()
+      const product = await createProductFixture(store.id)
+      const address = await createAddressFixture(buyerFixture.user.id)
+      const order = await createOrderFixture(buyerFixture.user.id, store.id, address.id, product.id)
+
+      mockPagarmeFetch(
+        new Response(
+          JSON.stringify({ type: 'action_forbidden', message: 'This action is not allowed' }),
+          { status: 403 },
+        ),
+      )
+
+      const res = await app.request(`/orders/${order.id}/pay`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify({ method: 'pix', customer: validCustomer }),
+      })
+
+      expect(res.status).toBe(409)
+      const body = (await res.json()) as { error: string; code: string }
+      expect(body.code).toBe('PAYMENT_METHOD_UNAVAILABLE')
+      expect(body.error).toMatch(/Pix indispon/i)
+    })
+
+
     it('Pix: cria a order no Pagar.me, persiste pagarmeOrderId/paymentStatus=PENDING e retorna qr_code', async () => {
       const store = await createStoreFixture()
       const product = await createProductFixture(store.id)

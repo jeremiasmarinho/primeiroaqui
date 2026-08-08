@@ -6,7 +6,7 @@ import type { AuthForm } from '../screens/LoginScreen'
 import { writeStoredJSON } from '../lib/storage'
 import { hardNavigate } from '../lib/hardNavigate'
 import { api, ApiError, invalidateRefresh, loadStoredSession, setOnUnauthorized } from '../lib/api'
-import { favoriteToViewProduct, toViewOrder } from '../lib/adapters'
+import { favoriteToViewProduct, toViewOrder, toViewProduct } from '../lib/adapters'
 import { clearCart, replaceCart } from './cart'
 import { repeatOrder } from './orders'
 import { STORAGE_KEYS, clearSession } from './session'
@@ -17,6 +17,7 @@ import { useSessionState } from './useSessionState'
 import { useCatalogState } from './useCatalogState'
 import { useRemoteCatalog } from './useRemoteCatalog'
 import { useCartCheckoutState } from './useCartCheckoutState'
+import { usePaymentCheckoutState } from './usePaymentCheckoutState'
 import { useBusinessSetupState } from './useBusinessSetupState'
 import { useAddressesState } from './useAddressesState'
 import { CEP_ERROR_MESSAGE, formatAddressLine, isValidCep } from './addresses'
@@ -37,6 +38,7 @@ export function useMarketplaceState() {
   const catalog = useCatalogState()
   const remoteCatalog = useRemoteCatalog()
   const cartCheckout = useCartCheckoutState()
+  const payment = usePaymentCheckoutState()
   // Fecha a gaveta do carrinho antes de qualquer redirecionamento para
   // /entrar: veja o comentário de `onBeforeRedirect` em useSessionState.
   const session = useSessionState(navigate, () => cartCheckout.setIsCartOpen(false))
@@ -340,8 +342,37 @@ export function useMarketplaceState() {
     void session.handleAuthSubmit(event)
   }
 
+  /**
+   * Login rápido de desenvolvimento: NÃO recarrega a página (diferente do
+   * login por senha/Google, que faz hardNavigate). Isso significa que, se a
+   * intenção pendente for favoritar um produto, o catálogo remoto pode
+   * ainda não ter chegado neste exato instante — resolver a intenção aqui
+   * na hora faria `remoteCatalog.products.find(...)` não achar nada e o
+   * favorito virar no-op silencioso (bug real: e2e/jornada-visitante.spec.ts).
+   * Nesse caso específico, NÃO resolve aqui: deixa a intenção pendente no
+   * estado e o efeito guardado por `pendingLoginResolvedRef` (abaixo) —
+   * que já espera o catálogo carregar — assume a resolução assim que
+   * `remoteCatalog.products` deixar de estar vazio. Para qualquer outra
+   * intenção (ou nenhuma), resolve e navega na hora, como sempre.
+   */
+  /**
+   * Login rápido de desenvolvimento: NÃO recarrega a página (diferente do
+   * login por senha/Google, que faz hardNavigate). Isso significa que, se a
+   * intenção pendente for favoritar um produto, o catálogo remoto pode
+   * ainda não ter chegado neste exato instante — resolver a intenção aqui
+   * na hora faria `remoteCatalog.products.find(...)` não achar nada e o
+   * favorito virar no-op silencioso (bug real: e2e/jornada-visitante.spec.ts).
+   * Nesse caso específico, NÃO resolve aqui: deixa a intenção pendente no
+   * estado e o efeito guardado por `pendingLoginResolvedRef` (abaixo) —
+   * que já espera o catálogo carregar — assume a resolução assim que
+   * `remoteCatalog.products` deixar de estar vazio. Para qualquer outra
+   * intenção (ou nenhuma), resolve e navega na hora, como sempre.
+   */
   const onQuickLogin = (role: Role) => {
     session.handleQuickLogin(role)
+    if (session.pendingIntent?.type === 'favorite' && remoteCatalog.products.length === 0) {
+      return
+    }
     resolvePendingLoginAndNavigate()
   }
 
@@ -455,6 +486,17 @@ export function useMarketplaceState() {
     pushToast('Itens do pedido adicionados ao carrinho', 'success')
   }
 
+  /** Fecha o loop do checkout: limpa carrinho/gaveta/cupom e vai para Meus pedidos. Comum aos dois desfechos (com e sem etapa de pagamento). */
+  const closeCheckoutDrawer = () => {
+    cartCheckout.dispatchCart(clearCart())
+    cartCheckout.setCheckoutStep('cart')
+    cartCheckout.setDeliveryForm(EMPTY_DELIVERY)
+    cartCheckout.handleRemoveCoupon()
+    cartCheckout.setIsCartOpen(false)
+    setOrdersReloadKey((key) => key + 1)
+    navigate(ROUTES.orders)
+  }
+
   /**
    * Checkout real: POST /api/orders com os itens do carrinho e o endereço
    * salvo escolhido. O backend valida estoque e preço; os erros discriminados
@@ -497,21 +539,37 @@ export function useMarketplaceState() {
         ...orders.map((order) => toViewOrder(order, titleById, storeNameById)),
         ...prev,
       ])
-      cartCheckout.dispatchCart(clearCart())
-      catalog.addNotification(
-        'Compra confirmada',
-        orders.length > 1
-          ? `Seus ${orders.length} pedidos foram confirmados (um por loja).`
-          : 'Pedido confirmado! Acompanhe em Meus pedidos.',
-        'success',
-        ROUTES.orders,
-      )
-      cartCheckout.setCheckoutStep('cart')
-      cartCheckout.setDeliveryForm(EMPTY_DELIVERY)
-      cartCheckout.handleRemoveCoupon()
-      cartCheckout.setIsCartOpen(false)
-      setOrdersReloadKey((key) => key + 1)
-      navigate(ROUTES.orders)
+
+      // Feature flag por ambiente (2026-08-07): producao nao tera as chaves
+      // do Pagar.me configuradas ate o go-live de pagamento (dinheiro real)
+      // ser decidido pelo usuario. `payment.paymentsEnabled` vem de GET
+      // /api/payments/config, consultado no mount (ver
+      // usePaymentCheckoutState.ts) — chega bem antes do checkout terminar
+      // na pratica, mas se ainda estiver `null` (indefinido) tratamos como
+      // desligado: falha fechado, nunca abre uma etapa de pagamento capaz
+      // de quebrar por falta de publicKey.
+      if (payment.paymentsEnabled) {
+        // O pedido existe (PENDING de pagamento) — a partir daqui o
+        // carrinho NAO e limpo nem a gaveta fechada ainda: a etapa de
+        // pagamento (Fase 2) cobre cada order (um por loja) antes de dar o
+        // checkout por concluido. Ver finishCheckoutAfterPayment, chamado
+        // quando o ultimo pagamento termina (onPaymentContinue).
+        payment.startPayment(orders)
+        cartCheckout.setCheckoutStep('payment')
+      } else {
+        // Comportamento PRE-FASE 2: sem chaves no ambiente, o pedido fica
+        // PENDING de pagamento (paymentStatus NONE, sem tentativa) e o
+        // checkout encerra na hora — igual ao fluxo anterior a esta feature.
+        catalog.addNotification(
+          'Compra confirmada',
+          orders.length > 1
+            ? `Seus ${orders.length} pedidos foram confirmados (um por loja).`
+            : 'Pedido confirmado! Acompanhe em Meus pedidos.',
+          'success',
+          ROUTES.orders,
+        )
+        closeCheckoutDrawer()
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 409) {
         // Estoque acabou entre o carrinho e o checkout: recarrega o catálogo
@@ -536,6 +594,38 @@ export function useMarketplaceState() {
     } finally {
       setIsConfirmingOrder(false)
     }
+  }
+
+  /** Roda quando o ÚLTIMO pedido pendente termina de ser pago: fecha o loop do checkout. */
+  const finishCheckoutAfterPayment = () => {
+    catalog.addNotification(
+      'Compra confirmada',
+      payment.totalPayments > 1
+        ? `Seus ${payment.totalPayments} pedidos foram pagos (um por loja).`
+        : 'Pagamento confirmado! Acompanhe em Meus pedidos.',
+      'success',
+      ROUTES.orders,
+    )
+    pushToast('Pagamento confirmado!', 'success')
+    payment.resetPayment()
+    closeCheckoutDrawer()
+  }
+
+  /** Confirma o pagamento do pedido atual (cartão tokenizado no navegador ou Pix). */
+  const handlePaymentSubmit = async () => {
+    const buyerName = session.authUser?.name ?? cartCheckout.deliveryForm.name
+    const buyerEmail = session.authUser?.email ?? ''
+    if (cartCheckout.deliveryForm.payment === 'Cartão') {
+      await payment.payWithCard(buyerName, buyerEmail)
+    } else {
+      await payment.payWithPix(buyerName, buyerEmail)
+    }
+  }
+
+  /** Após um pagamento aprovado: paga o próximo pedido pendente (multi-loja) ou fecha o checkout. */
+  const handlePaymentContinue = () => {
+    const hasNext = payment.advanceToNextPayment()
+    if (!hasNext) finishCheckoutAfterPayment()
   }
 
   return {
@@ -625,6 +715,10 @@ export function useMarketplaceState() {
     onCartClose: () => {
       cartCheckout.setIsCartOpen(false)
       cartCheckout.setCheckoutStep('cart')
+      // Fechar no meio da etapa de pagamento não deve deixar cardForm/CPF ou
+      // pedidos pendentes "vazando" pro próximo checkout — os pedidos já
+      // criados continuam PENDING no backend, retomáveis por Meus pedidos.
+      if (payment.pendingOrders.length > 0) payment.resetPayment()
     },
     onCartIncrement: cartCheckout.onIncrement,
     onCartDecrement: cartCheckout.onDecrement,
@@ -639,6 +733,26 @@ export function useMarketplaceState() {
     },
     isConfirmingOrder,
 
+    // etapa de pagamento (Fase 2)
+    paymentOrder: payment.currentOrder,
+    paymentIndex: payment.paymentIndex,
+    totalPayments: payment.totalPayments,
+    paymentCardForm: payment.cardForm,
+    paymentCustomerForm: payment.customerForm,
+    paymentFieldErrors: payment.fieldErrors,
+    paymentStatus: payment.status,
+    paymentErrorMessage: payment.errorMessage,
+    pixData: payment.pixData,
+    pixPaymentStatus: payment.pixPaymentStatus,
+    paymentPublicKey: payment.publicKey,
+    paymentConfigError: payment.configError,
+    onPaymentCardFormChange: payment.onCardFormChange,
+    onPaymentCustomerFormChange: payment.onCustomerFormChange,
+    onPaymentSubmit: () => {
+      void handlePaymentSubmit()
+    },
+    onPaymentContinue: handlePaymentContinue,
+
     // endereços reais
     addresses: addresses.addresses,
     addressesLoading: addresses.isLoading,
@@ -652,6 +766,7 @@ export function useMarketplaceState() {
       void addresses.onAddressSubmit(event)
     },
     addressSubmitting: addresses.isSubmitting,
+    cepLookupPending: addresses.isCepLookupPending,
     selectedAddressId: addresses.selectedAddressId,
     onSelectAddress: handleSelectAddress,
   }

@@ -134,7 +134,15 @@ describe('historico ponta a ponta', () => {
     fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
-    // POST /api/orders responde e o app navega direto para o historico.
+    // POST /api/orders cria o pedido (PENDING) e abre a etapa de pagamento
+    // (Fase 2) — Pix é o método padrão do formulário de entrega.
+    expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()
+    // Pix puro também exige CPF/telefone (mesma exigência do servidor).
+    fireEvent.change(screen.getByLabelText('CPF'), { target: { value: '529.982.247-25' } })
+    fireEvent.change(screen.getByLabelText(/telefone/i), { target: { value: '11987654321' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Pagar' }))
+    fireEvent.click(await screen.findByRole('button', { name: /ver meus pedidos/i }))
+
     await waitFor(() => expect(window.location.pathname).toBe(ROUTES.orders))
     expect(await screen.findByText(/ventilador de mesa premium/i)).toBeInTheDocument()
 

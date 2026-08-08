@@ -81,11 +81,13 @@ export default function TopBar({
   }, [userAvatarUrl])
 
   const toggleNotifications = () => {
-    setIsNotificationsOpen((prev) => {
-      const next = !prev
-      if (next) onNotificationsOpen?.()
-      return next
-    })
+    // Efeito (marcar como lidas no estado do pai) fica FORA do updater: React
+    // executa updaters durante o render, e chamar setState de outro
+    // componente ali dispara o warning "Cannot update a component
+    // (MarketplaceApp) while rendering a different component (TopBar)".
+    const next = !isNotificationsOpen
+    if (next) onNotificationsOpen?.()
+    setIsNotificationsOpen(next)
   }
 
   useEffect(() => {

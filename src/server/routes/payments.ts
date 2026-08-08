@@ -2,10 +2,33 @@ import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { prisma } from '../lib/prismaClient'
 import { requireUser, type AuthEnv } from '../middleware/auth'
-import { requireActiveRecipient } from '../lib/pagarmeClient'
+import { requireActiveRecipient, getPagarmePublicKey, PagarmeApiError } from '../lib/pagarmeClient'
 import { createPaymentOrder, handleWebhook, PaymentValidationError, type PagarmeWebhookEvent } from '../lib/paymentService'
 
 export const paymentRoutes = new Hono<AuthEnv>()
+
+/**
+ * Config publica do Pagar.me para o front tokenizar cartao no navegador
+ * (nunca expor a secret key). Sem `requireUser`: a public key nao e
+ * segredo — e o mesmo dado que o Pagar.me espera ver em requests client-side.
+ *
+ * FEATURE FLAG por ambiente (decisao 2026-08-07): producao NAO tera as
+ * chaves do Pagar.me configuradas ate o go-live de pagamento (dinheiro
+ * real) ser decidido pelo usuario. Em vez de quebrar (500/503) quando as
+ * chaves estao ausentes, a rota responde 200 `{ enabled: false }` — sinal
+ * neutro que o front usa para nem oferecer a etapa de pagamento, caindo de
+ * volta no fluxo pre-Fase 2 (pedido criado -> toast -> /pedidos,
+ * paymentStatus NONE). Checa a SECRET key tambem, nao so a public: sem ela
+ * `/orders/:id/pay` falharia de qualquer forma, entao "enabled" precisa
+ * refletir o par completo, nao so a metade que da pra tokenizar.
+ */
+paymentRoutes.get('/payments/config', (c) => {
+  const hasKeys = Boolean(process.env.PAGARME_SECRET_KEY) && Boolean(process.env.PAGARME_PUBLIC_KEY)
+  if (!hasKeys) {
+    return c.json({ enabled: false as const })
+  }
+  return c.json({ enabled: true as const, publicKey: getPagarmePublicKey() })
+})
 
 /** Mesmo padrao de `parseJsonBody` em `src/server/routes/orders.ts`. */
 async function parseJsonBody(c: Context<AuthEnv>): Promise<unknown> {
@@ -148,6 +171,20 @@ paymentRoutes.post('/orders/:id/pay', requireUser, async (c) => {
   } catch (err) {
     if (err instanceof PaymentValidationError) {
       return c.json({ error: err.message }, 409)
+    }
+    // Pix gateado na conta sandbox (confirmado 2026-08-07): a API do
+    // Pagar.me responde com um erro do tipo "action_forbidden" quando o
+    // metodo pix nao esta liberado para a conta. Traduz num erro de
+    // dominio claro em vez do 502 generico, para o front distinguir
+    // "Pix indisponivel" de "gateway fora do ar".
+    if (err instanceof PagarmeApiError) {
+      const body = err.body as { type?: string; message?: string } | undefined
+      if (body?.type === 'action_forbidden') {
+        return c.json(
+          { error: 'Pix indisponível no momento, use cartão', code: 'PAYMENT_METHOD_UNAVAILABLE' },
+          409,
+        )
+      }
     }
     console.error('Erro ao criar order de pagamento no Pagar.me', err)
     return c.json({ error: 'Erro ao processar pagamento' }, 502)

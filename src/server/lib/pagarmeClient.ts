@@ -47,6 +47,19 @@ export const getPlatformRecipientId = (): string => {
 export const hasPlatformRecipientId = (): boolean => Boolean(process.env.PAGARME_PLATFORM_RECIPIENT_ID)
 
 /**
+ * Public key do Pagar.me (`pk_...`) — SEGURA para o front, usada na
+ * tokenizacao client-side (POST /core/v5/tokens?appId=pk_...). Exposta via
+ * GET /api/payments/config para o front nunca precisar de env propria.
+ */
+export const getPagarmePublicKey = (): string => {
+  const key = process.env.PAGARME_PUBLIC_KEY
+  if (!key) {
+    throw new PagarmeConfigError('PAGARME_PUBLIC_KEY ausente — configure no .env.local (sandbox) ou no ambiente')
+  }
+  return key
+}
+
+/**
  * Percentual da plataforma no split, LIQUIDO — decisao de negocio
  * (2026-08-07): a plataforma fica com 5% livre de taxas de processamento
  * (essas taxas ficam por conta da loja). Default 5, configuravel via

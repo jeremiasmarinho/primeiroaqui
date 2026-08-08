@@ -256,6 +256,7 @@ export default function AppRouter(props: AppRouterProps) {
           onAddressFormChange={props.onAddressFormChange}
           onAddressSubmit={props.onAddressSubmit}
           isSubmitting={props.addressSubmitting}
+          isCepLookupPending={props.cepLookupPending}
         />
       </Route>
 

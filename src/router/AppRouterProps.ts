@@ -101,4 +101,6 @@ export interface AppRouterProps {
   onAddressFormChange: (patch: Partial<AddressDraft>) => void
   onAddressSubmit: (event: React.FormEvent<HTMLFormElement>) => void
   addressSubmitting: boolean
+  /** Busca de endereço por CEP (ViaCEP) em andamento. */
+  cepLookupPending: boolean
 }

@@ -7,6 +7,7 @@ import type {
   ApiAdminStore,
   ApiFavoriteProduct,
   ApiOrder,
+  ApiPayOrderInput,
   ApiProduct,
   ApiStore,
   ApiStoreCustomer,
@@ -71,6 +72,20 @@ interface MockDb {
   adminOrders: ApiAdminOrder[]
   adminStores: ApiAdminStore[]
   seq: number
+  /**
+   * Controla o desfecho de POST /orders/:id/pay nos testes de UI:
+   * 'paid' (default) aprova cartão/gera Pix pendente; 'declined' simula
+   * recusa do cartão pela operadora; 'pix_gated' simula o action_forbidden
+   * real do sandbox (Pix indisponível na conta).
+   */
+  paymentScenario: 'paid' | 'declined' | 'pix_gated'
+  /**
+   * Espelha a feature flag por ambiente de GET /payments/config (2026-08-07):
+   * default true (chaves configuradas) para não quebrar os testes de
+   * pagamento já escritos; `setPaymentsEnabled(false)` simula produção sem
+   * as chaves do Pagar.me — a etapa de pagamento não deve nem aparecer.
+   */
+  paymentsEnabled: boolean
 }
 
 const emptyAdminMetrics = (): ApiAdminMetrics => ({
@@ -96,12 +111,24 @@ const createDb = (): MockDb => ({
   adminOrders: [],
   adminStores: [],
   seq: 0,
+  paymentScenario: 'paid',
+  paymentsEnabled: true,
 })
 
 export let db: MockDb = createDb()
 
 export const resetMockDb = (): void => {
   db = createDb()
+}
+
+/** Atalho de teste: define o desfecho do próximo POST /orders/:id/pay. */
+export const setPaymentScenario = (scenario: MockDb['paymentScenario']): void => {
+  db.paymentScenario = scenario
+}
+
+/** Atalho de teste: simula a feature flag de GET /payments/config (chaves ausentes = false). */
+export const setPaymentsEnabled = (enabled: boolean): void => {
+  db.paymentsEnabled = enabled
 }
 
 /** Semeia um endereço salvo — atalho para testes de checkout. */
@@ -772,5 +799,71 @@ export const handlers = [
       return HttpResponse.json({ error: 'Acesso restrito a donos de loja' }, { status: 403 })
     }
     return HttpResponse.json({ customers: db.storeCustomers })
+  }),
+
+  // ------------------------------------------------------------- pagamento
+  http.get('/api/payments/config', () =>
+    HttpResponse.json(
+      db.paymentsEnabled ? { enabled: true, publicKey: 'pk_test_mock' } : { enabled: false },
+    ),
+  ),
+
+  /**
+   * Tokenização client-side (URL ABSOLUTA — espelha o Pagar.me real, não
+   * passa pelo nosso servidor). Falha só se o número não passar no Luhn
+   * (mesma checagem visual que o formulário já faz antes de chamar isso).
+   */
+  http.post('https://api.pagar.me/core/v5/tokens', async ({ request }) => {
+    const body = (await request.json()) as { card?: { number?: string } }
+    if (!body?.card?.number) {
+      return HttpResponse.json({ message: 'Dados do cartão inválidos' }, { status: 400 })
+    }
+    return HttpResponse.json({ id: `token_${++db.seq}`, type: 'card' }, { status: 200 })
+  }),
+
+  http.post('/api/orders/:id/pay', async ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const order = db.orders.find((item) => item.id === params.id)
+    if (!order) return HttpResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
+
+    const body = (await request.json()) as ApiPayOrderInput
+
+    if (body.method === 'pix' && db.paymentScenario === 'pix_gated') {
+      return HttpResponse.json(
+        { error: 'Pix indisponível no momento, use cartão', code: 'PAYMENT_METHOD_UNAVAILABLE' },
+        { status: 409 },
+      )
+    }
+    if (body.method === 'credit_card' && db.paymentScenario === 'declined') {
+      return HttpResponse.json({ error: 'Cartão recusado pela operadora. Tente outro cartão.' }, { status: 502 })
+    }
+
+    order.paymentStatus = body.method === 'pix' ? 'PENDING' : 'PAID'
+
+    return HttpResponse.json({
+      order,
+      pagarmeOrderId: `ord_pagarme_${db.seq}`,
+      status: order.paymentStatus === 'PAID' ? 'paid' : 'pending',
+      pix:
+        body.method === 'pix'
+          ? {
+              qrCode: '000201mockqrcode',
+              qrCodeUrl: 'https://example.com/qr/mock.png',
+              expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
+            }
+          : undefined,
+    })
+  }),
+
+  http.get('/api/orders/:id/payment', ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const order = db.orders.find((item) => item.id === params.id)
+    if (!order) return HttpResponse.json({ error: 'Pedido nao encontrado' }, { status: 404 })
+    return HttpResponse.json({
+      paymentStatus: order.paymentStatus ?? 'NONE',
+      pagarmeOrderId: null,
+      platformFeeCents: null,
+      storeAmountCents: null,
+    })
   }),
 ]

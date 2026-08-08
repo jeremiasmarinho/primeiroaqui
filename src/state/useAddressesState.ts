@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { api, ApiError, loadStoredSession } from '../lib/api'
 import { toViewAddress } from '../lib/adapters'
+import { isCompleteCep, lookupCep } from '../lib/cep'
 import {
   EMPTY_ADDRESS,
   formatCep,
@@ -64,6 +65,8 @@ export function useAddressesState(hasSession: boolean) {
 
   const retry = useCallback(() => setReloadKey((key) => key + 1), [])
 
+  const [isCepLookupPending, setIsCepLookupPending] = useState(false)
+
   const onAddressFormChange = (patch: Partial<AddressDraft>) => {
     setAddressForm((prev) => ({
       ...prev,
@@ -73,6 +76,34 @@ export function useAddressesState(hasSession: boolean) {
       ...(patch.cep === undefined ? {} : { cep: formatCep(patch.cep) }),
     }))
   }
+
+  // Autopreenchimento por CEP (ViaCEP): dispara quando o CEP fica completo
+  // (8 dígitos). Cidade/UF vêm da base oficial e sobrescrevem; a rua só é
+  // sugerida se o campo ainda está vazio (não apaga o que a pessoa digitou).
+  // Falha de rede/CEP inexistente degrada em silêncio — a busca é
+  // conveniência, os campos continuam editáveis à mão.
+  const lookupCepDigits = addressForm.cep.replace(/\D/g, '')
+  useEffect(() => {
+    if (!isCompleteCep(lookupCepDigits)) return
+    let cancelled = false
+    setIsCepLookupPending(true)
+    void lookupCep(lookupCepDigits)
+      .then((found) => {
+        if (cancelled || !found) return
+        setAddressForm((prev) => ({
+          ...prev,
+          city: found.city || prev.city,
+          state: found.state || prev.state,
+          street: prev.street.trim() ? prev.street : found.street,
+        }))
+      })
+      .finally(() => {
+        if (!cancelled) setIsCepLookupPending(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [lookupCepDigits])
 
   const onAddressSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -121,6 +152,7 @@ export function useAddressesState(hasSession: boolean) {
     setAddressForm,
     addressError,
     setAddressError,
+    isCepLookupPending,
     isLoading,
     loadError,
     retry,

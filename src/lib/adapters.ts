@@ -106,4 +106,5 @@ export const toViewOrder = (
   lines: dto.items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
   storeId: dto.storeId,
   storeName: storeNameById.get(dto.storeId),
+  paymentStatus: dto.paymentStatus ?? 'NONE',
 })

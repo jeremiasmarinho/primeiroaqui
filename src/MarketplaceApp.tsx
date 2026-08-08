@@ -76,6 +76,7 @@ export default function MarketplaceApp() {
         onAddressFormChange={state.onAddressFormChange}
         onAddressSubmit={state.onAddressSubmit}
         addressSubmitting={state.addressSubmitting}
+        cepLookupPending={state.cepLookupPending}
       />
 
       <BusinessSetupModal
@@ -109,6 +110,22 @@ export default function MarketplaceApp() {
         onContinue={state.onCartContinue}
         onConfirm={state.onCartConfirm}
         isConfirming={state.isConfirmingOrder}
+        paymentOrder={state.paymentOrder}
+        paymentIndex={state.paymentIndex}
+        totalPayments={state.totalPayments}
+        paymentCardForm={state.paymentCardForm}
+        paymentCustomerForm={state.paymentCustomerForm}
+        paymentFieldErrors={state.paymentFieldErrors}
+        paymentStatus={state.paymentStatus}
+        paymentErrorMessage={state.paymentErrorMessage}
+        pixData={state.pixData}
+        pixPaymentStatus={state.pixPaymentStatus}
+        paymentPublicKey={state.paymentPublicKey}
+        paymentConfigError={state.paymentConfigError}
+        onPaymentCardFormChange={state.onPaymentCardFormChange}
+        onPaymentCustomerFormChange={state.onPaymentCustomerFormChange}
+        onPaymentSubmit={state.onPaymentSubmit}
+        onPaymentContinue={state.onPaymentContinue}
       />
 
       <ToastStack />

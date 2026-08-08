@@ -1,9 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { http, HttpResponse } from 'msw'
 import MarketplaceApp from '../MarketplaceApp'
 import { ROUTES } from '../router/routes'
 import { setHardNavigateForTests } from '../lib/hardNavigate'
 import { waitForCatalog } from './authTestHelpers'
+import { server } from './mocks/server'
+import { db } from './mocks/handlers'
 
 const bottomNav = () => screen.getByRole('navigation', { name: /navegação principal/i })
 
@@ -39,6 +42,61 @@ describe('visitante — favoritar', () => {
     expect(
       screen.getAllByRole('button', { name: new RegExp(`^remover ${title} dos favoritos$`, 'i') }).length,
     ).toBeGreaterThanOrEqual(1)
+  })
+
+  /**
+   * Regressão do bug real (e2e/jornada-visitante.spec.ts): o login rápido de
+   * desenvolvimento (`onQuickLogin`) NÃO recarrega a página — diferente do
+   * login por senha/Google — então resolvia a intenção de favorito na hora,
+   * mesmo que o catálogo remoto (`remoteCatalog.products`) ainda não tivesse
+   * chegado. `products.find(...)` não achava o produto, e o favorito virava
+   * no-op silencioso (nenhum POST /favorites disparava).
+   *
+   * Reproduzido de forma DETERMINÍSTICA (sem depender de timing/delay de
+   * verdade, que pode "acidentalmente" passar se o catálogo resolver rápido
+   * demais): GET /products (lista completa) fica preso numa Promise que só
+   * a própria asserção libera, DEPOIS dos dois cliques (favoritar + login
+   * rápido). Nesse instante o catálogo está garantidamente vazio — é
+   * exatamente a janela onde o bug antigo perdia o favorito. A página do
+   * produto usa GET /products/:id (não afetado), então o coração aparece
+   * normalmente antes do catálogo completo chegar.
+   */
+  it('favoritar na página do produto com o catálogo ainda carregando: aplica assim que o catálogo chega', async () => {
+    const productId = db.products[0]!.id
+    const productTitle = db.products[0]!.title
+
+    let releaseCatalog: () => void = () => {}
+    const catalogGate = new Promise<void>((resolve) => {
+      releaseCatalog = resolve
+    })
+    server.use(
+      http.get('/api/products', async ({ request }) => {
+        const url = new URL(request.url)
+        // Só trava a listagem completa (sem storeId) — a página do produto
+        // usa GET /products/:id, que não passa por aqui.
+        if (!url.searchParams.get('storeId')) await catalogGate
+        return HttpResponse.json({ products: db.products })
+      }),
+    )
+
+    window.history.pushState({}, '', ROUTES.product(productId))
+    render(<MarketplaceApp />)
+
+    const heart = await screen.findByRole('button', { name: /^salvar .+ nos favoritos$/i })
+    fireEvent.click(heart)
+    // Catálogo completo AINDA preso (releaseCatalog não foi chamado) — login
+    // rápido não pode perder a intenção pendente nesta janela.
+    fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
+
+    releaseCatalog()
+
+    await waitFor(() =>
+      expect(
+        screen.getAllByRole('button', {
+          name: new RegExp(`^remover ${productTitle} dos favoritos$`, 'i'),
+        }).length,
+      ).toBeGreaterThanOrEqual(1),
+    )
   })
 })
 

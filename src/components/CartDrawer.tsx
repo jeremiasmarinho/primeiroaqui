@@ -1,10 +1,20 @@
 import { X } from 'lucide-react'
 import { getCartItemsCount, getCartSubtotal } from '../state/cart'
+import type { ApiOrder, ApiPaymentStatus } from '../lib/api'
+import type { CardFormState, CustomerFormState, PaymentStatus, PixData } from '../state/usePaymentCheckoutState'
 import type { Address, CartState, DeliveryForm } from '../types'
 import CartItemsStep from './cart/CartItemsStep'
 import CheckoutForm from './cart/CheckoutForm'
+import PaymentStep from './cart/PaymentStep'
 
-export type CheckoutStep = 'cart' | 'delivery'
+/**
+ * Passo 'payment' (Fase 2 do pagamento): decisão de arquitetura — nova etapa
+ * DENTRO desta mesma gaveta em vez de tela separada (/pagamento/:orderId).
+ * O CartDrawer já é uma máquina de passos com o mesmo carrinho/entrega no
+ * contexto; abrir uma rota nova reconstruiria esse contexto à toa e perderia
+ * o "voltar ao carrinho" natural do modal.
+ */
+export type CheckoutStep = 'cart' | 'delivery' | 'payment'
 
 interface CartDrawerProps {
   open: boolean
@@ -29,6 +39,23 @@ interface CartDrawerProps {
   onContinue: () => void
   onConfirm: () => void
   isConfirming?: boolean
+  // -------------------------------------------------------- pagamento
+  paymentOrder?: ApiOrder
+  paymentIndex: number
+  totalPayments: number
+  paymentCardForm: CardFormState
+  paymentCustomerForm: CustomerFormState
+  paymentFieldErrors: Record<string, string>
+  paymentStatus: PaymentStatus
+  paymentErrorMessage: string
+  pixData: PixData | null
+  pixPaymentStatus?: ApiPaymentStatus | null
+  paymentPublicKey: string | null
+  paymentConfigError: string
+  onPaymentCardFormChange: (patch: Partial<CardFormState>) => void
+  onPaymentCustomerFormChange: (patch: Partial<CustomerFormState>) => void
+  onPaymentSubmit: () => void
+  onPaymentContinue: () => void
 }
 
 /**
@@ -60,6 +87,22 @@ export default function CartDrawer({
   onContinue,
   onConfirm,
   isConfirming = false,
+  paymentOrder,
+  paymentIndex,
+  totalPayments,
+  paymentCardForm,
+  paymentCustomerForm,
+  paymentFieldErrors,
+  paymentStatus,
+  paymentErrorMessage,
+  pixData,
+  pixPaymentStatus,
+  paymentPublicKey,
+  paymentConfigError,
+  onPaymentCardFormChange,
+  onPaymentCustomerFormChange,
+  onPaymentSubmit,
+  onPaymentContinue,
 }: CartDrawerProps) {
   if (!open) return null
 
@@ -67,20 +110,30 @@ export default function CartDrawer({
   const subtotal = getCartSubtotal(cartState)
   const total = Math.max(0, subtotal - discount)
 
+  const titleByStep: Record<CheckoutStep, string> = { cart: 'Carrinho', delivery: 'Entrega', payment: 'Pagamento' }
+  const subtitleByStep: Record<CheckoutStep, string> = {
+    cart: `${itemsCount} itens`,
+    delivery: 'Complete os dados para o pedido',
+    payment: 'Confirme o pagamento do pedido',
+  }
+  const dialogLabelByStep: Record<CheckoutStep, string> = {
+    cart: 'Carrinho de compras',
+    delivery: 'Dados de entrega',
+    payment: 'Pagamento do pedido',
+  }
+
   return (
     <div className="fixed inset-0 z-50 bg-ink/75 p-4 backdrop-blur-sm">
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={step === 'cart' ? 'Carrinho de compras' : 'Dados de entrega'}
+        aria-label={dialogLabelByStep[step]}
         className="ml-auto flex h-full max-w-md flex-col overflow-hidden rounded-[32px] bg-surface shadow-[0_30px_80px_rgba(15,23,42,0.25)]"
       >
         <div className="flex items-center justify-between border-b border-navy/15 bg-brand p-4 text-navy">
           <div>
-            <h2 className="font-display text-lg font-black">{step === 'cart' ? 'Carrinho' : 'Entrega'}</h2>
-            <p className="text-sm text-navy/70">
-              {step === 'cart' ? `${itemsCount} itens` : 'Complete os dados para o pedido'}
-            </p>
+            <h2 className="font-display text-lg font-black">{titleByStep[step]}</h2>
+            <p className="text-sm text-navy/70">{subtitleByStep[step]}</p>
           </div>
           <button
             type="button"
@@ -103,7 +156,7 @@ export default function CartDrawer({
             onRemove={onRemove}
             onContinue={onContinue}
           />
-        ) : (
+        ) : step === 'delivery' ? (
           <CheckoutForm
             itemsCount={itemsCount}
             subtotal={subtotal}
@@ -122,6 +175,27 @@ export default function CartDrawer({
             onRemoveCoupon={onRemoveCoupon}
             onConfirm={onConfirm}
             isConfirming={isConfirming}
+          />
+        ) : (
+          <PaymentStep
+            order={paymentOrder}
+            paymentIndex={paymentIndex}
+            totalPayments={totalPayments}
+            paymentMethod={deliveryForm.payment}
+            cardForm={paymentCardForm}
+            customerForm={paymentCustomerForm}
+            fieldErrors={paymentFieldErrors}
+            status={paymentStatus}
+            errorMessage={paymentErrorMessage}
+            pixData={pixData}
+            pixPaymentStatus={pixPaymentStatus}
+            publicKey={paymentPublicKey}
+            configError={paymentConfigError}
+            onCardFormChange={onPaymentCardFormChange}
+            onCustomerFormChange={onPaymentCustomerFormChange}
+            onSubmit={onPaymentSubmit}
+            onContinue={onPaymentContinue}
+            onClose={onClose}
           />
         )}
       </div>

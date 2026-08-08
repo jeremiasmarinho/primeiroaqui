@@ -60,6 +60,27 @@ function SummaryRow({ orders }: { orders: Order[] }) {
   )
 }
 
+/** Chip de status do pagamento — tokens semânticos (success/warning/error), some quando 'NONE'/ausente. */
+function PaymentStatusChip({ paymentStatus }: { paymentStatus?: string }) {
+  if (!paymentStatus || paymentStatus === 'NONE') return null
+
+  const config: Record<string, { label: string; className: string }> = {
+    PENDING: { label: 'Aguardando pagamento', className: 'bg-warning/15 text-warning' },
+    PAID: { label: 'Pago', className: 'bg-success/15 text-success' },
+    FAILED: { label: 'Pagamento falhou', className: 'bg-error/15 text-error' },
+    REFUNDED: { label: 'Reembolsado', className: 'bg-surface-sunken text-ink-muted' },
+    CHARGEDBACK: { label: 'Contestado', className: 'bg-error/15 text-error' },
+  }
+  const entry = config[paymentStatus]
+  if (!entry) return null
+
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-micro font-bold uppercase tracking-wide ${entry.className}`}>
+      {entry.label}
+    </span>
+  )
+}
+
 function OrderCard({
   order,
   highlightStatus,
@@ -80,15 +101,18 @@ function OrderCard({
             </p>
           ) : null}
         </div>
-        <span
-          className={
-            highlightStatus
-              ? 'rounded-full bg-brand px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-navy'
-              : 'rounded-full bg-surface-sunken px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-ink-muted'
-          }
-        >
-          {order.status}
-        </span>
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={
+              highlightStatus
+                ? 'rounded-full bg-brand px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-navy'
+                : 'rounded-full bg-surface-sunken px-2 py-0.5 text-micro font-bold uppercase tracking-wide text-ink-muted'
+            }
+          >
+            {order.status}
+          </span>
+          <PaymentStatusChip paymentStatus={order.paymentStatus} />
+        </div>
       </div>
 
       <p className="mt-1 text-sm leading-6 text-ink-muted">

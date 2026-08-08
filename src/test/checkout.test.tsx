@@ -67,7 +67,7 @@ describe('checkout', () => {
     expect(screen.getByText(/informe um cep valido/i)).toBeInTheDocument()
   })
 
-  it('com endereco salvo, confirmar cria o pedido real e leva ao historico', async () => {
+  it('com endereco salvo, confirmar cria o pedido e abre a etapa de pagamento (Pix por padrao)', async () => {
     // Endereco pre-existente no "servidor": carregado via GET /me/addresses.
     seedAddress()
     enterAsClient()
@@ -78,7 +78,19 @@ describe('checkout', () => {
     fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
-    // POST /api/orders e navegacao acontecem apos a resposta da API.
+    // POST /api/orders cria o pedido (PENDING) e a gaveta avanca para a
+    // etapa de pagamento — o checkout so termina depois de pago (Fase 2).
+    expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()
+
+    // Pix puro também exige CPF/telefone (mesma exigência do servidor).
+    fireEvent.change(screen.getByLabelText('CPF'), { target: { value: '529.982.247-25' } })
+    fireEvent.change(screen.getByLabelText(/telefone/i), { target: { value: '11987654321' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Pagar' }))
+
+    // Pix aprovado (mock 'paid' default) mostra o QR e o botao de conclusao.
+    const finishButton = await screen.findByRole('button', { name: /ver meus pedidos/i })
+    fireEvent.click(finishButton)
+
     await waitFor(() => expect(window.location.pathname).toBe(ROUTES.orders))
     expect(await screen.findByText(/ventilador de mesa premium/i)).toBeInTheDocument()
   })

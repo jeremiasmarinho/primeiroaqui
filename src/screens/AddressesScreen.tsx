@@ -19,6 +19,8 @@ interface AddressesScreenProps {
   isLoading?: boolean
   error?: string
   isSubmitting?: boolean
+  /** Busca de endereço por CEP (ViaCEP) em andamento — mostra o hint no campo. */
+  isCepLookupPending?: boolean
 }
 
 const FIELDS = [
@@ -41,6 +43,7 @@ export default function AddressesScreen({
   isLoading = false,
   error = '',
   isSubmitting = false,
+  isCepLookupPending = false,
 }: AddressesScreenProps) {
   const form = (
     <form onSubmit={onAddressSubmit} className="rounded-card bg-surface p-4 shadow-card">
@@ -75,6 +78,11 @@ export default function AddressesScreen({
             onChange={(event) => onAddressFormChange({ cep: event.target.value })}
             className={inputClass}
           />
+          {isCepLookupPending ? (
+            <p role="status" className="mt-1 text-xs font-semibold text-ink-muted">
+              Buscando endereço pelo CEP…
+            </p>
+          ) : null}
         </div>
       </div>
 

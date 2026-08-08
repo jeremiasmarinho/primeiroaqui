@@ -121,6 +121,9 @@ export interface ApiOrderItem {
   unitPriceCents: number
 }
 
+/** Espelha o enum PaymentStatus do Prisma (`src/server/routes/payments.ts`). */
+export type ApiPaymentStatus = 'NONE' | 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED' | 'CHARGEDBACK'
+
 export interface ApiOrder {
   id: string
   buyerId: string
@@ -131,6 +134,50 @@ export interface ApiOrder {
   createdAt: string
   updatedAt: string
   items: ApiOrderItem[]
+  /** Ausente em fixtures antigas de teste; a UI trata como 'NONE'. */
+  paymentStatus?: ApiPaymentStatus
+}
+
+/**
+ * Feature flag por ambiente (2026-08-07): producao nao tera as chaves do
+ * Pagar.me ate o go-live de pagamento (dinheiro real) ser decidido. Quando
+ * `enabled` e false, o front nem oferece a etapa de pagamento — ver
+ * usePaymentCheckoutState.ts e handleFinalizePurchase em useMarketplaceState.ts.
+ */
+export type ApiPaymentsConfig = { enabled: false } | { enabled: true; publicKey: string }
+
+export interface ApiPaymentCustomer {
+  name: string
+  email: string
+  document: string
+  documentType: 'CPF' | 'CNPJ'
+  phone?: { countryCode: string; areaCode: string; number: string }
+}
+
+export interface ApiBillingAddress {
+  line1: string
+  line2?: string
+  zipCode: string
+  city: string
+  state: string
+  country: string
+}
+
+export type ApiPayOrderInput =
+  | { method: 'pix'; customer: ApiPaymentCustomer }
+  | {
+      method: 'credit_card'
+      customer: ApiPaymentCustomer
+      cardToken: string
+      installments?: number
+      billingAddress?: ApiBillingAddress
+    }
+
+export interface ApiPayOrderResponse {
+  order: ApiOrder
+  pagarmeOrderId: string
+  status: string
+  pix?: { qrCode: string | null; qrCodeUrl: string | null; expiresAt: string | null }
 }
 
 /** Pedido de GET /me/store-orders — o mesmo shape do pedido, mais o nome do comprador. */
@@ -549,4 +596,15 @@ export const api = {
     request<{ store: ApiStore }>(`/me/stores/${storeId}/logo`, { method: 'DELETE' }),
 
   listStoreCustomers: () => request<{ customers: ApiStoreCustomer[] }>('/me/store-customers'),
+
+  // ------------------------------------------------------------ pagamento
+  paymentsConfig: () => request<ApiPaymentsConfig>('/payments/config'),
+
+  payOrder: (orderId: string, input: ApiPayOrderInput) =>
+    request<ApiPayOrderResponse>(`/orders/${orderId}/pay`, { method: 'POST', body: input }),
+
+  getPaymentStatus: (orderId: string) =>
+    request<{ paymentStatus: ApiPaymentStatus; pagarmeOrderId: string | null; platformFeeCents: number | null; storeAmountCents: number | null }>(
+      `/orders/${orderId}/payment`,
+    ),
 }
