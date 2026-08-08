@@ -54,6 +54,16 @@ export interface AppRouterProps {
   /** Navega de volta ao login com aviso de sucesso após `/redefinir-senha`. */
   onPasswordResetSuccess: () => void
 
+  // verificação em 2 etapas (TOTP) — sub-etapa do login
+  /** Presente quando a senha foi aceita mas falta o código de 6 dígitos. */
+  mfaChallengeActive: boolean
+  mfaCode: string
+  onMfaCodeChange: (value: string) => void
+  mfaError: string
+  mfaPending: boolean
+  onMfaChallengeSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  onCancelMfaChallenge: () => void
+
   // callback OAuth (/entrar/callback)
   onOAuthComplete: (tokens: {
     accessToken: string

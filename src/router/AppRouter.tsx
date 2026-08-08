@@ -155,6 +155,13 @@ export default function AppRouter(props: AppRouterProps) {
           onOpenForgotPassword={props.onOpenForgotPassword}
           onCloseForgotPassword={props.onCloseForgotPassword}
           onForgotPasswordSubmit={props.onForgotPasswordSubmit}
+          mfaChallengeActive={props.mfaChallengeActive}
+          mfaCode={props.mfaCode}
+          onMfaCodeChange={props.onMfaCodeChange}
+          mfaError={props.mfaError}
+          mfaPending={props.mfaPending}
+          onMfaChallengeSubmit={props.onMfaChallengeSubmit}
+          onCancelMfaChallenge={props.onCancelMfaChallenge}
         />
       </Route>
 

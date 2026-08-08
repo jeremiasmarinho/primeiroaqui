@@ -122,6 +122,25 @@ authRoutes.post('/auth/login', async (c) => {
     return c.json({ error: GENERIC_AUTH_ERROR }, 401)
   }
 
+  // Usuario com fator TOTP ativo (verified): a sessao emitida pelo
+  // signInWithPassword ainda esta em aal1 — o login so termina depois de
+  // POST /mfa/challenge + POST /mfa/verify-challenge com essa mesma sessao
+  // (ver mfa.ts). O front nao recebe a sessao final aqui, so o suficiente
+  // para completar o desafio.
+  const { data: factorsData } = await supabasePublic.auth.mfa.listFactors()
+  const totpFactor = factorsData?.totp?.find((factor) => factor.status === 'verified')
+  if (totpFactor) {
+    return c.json({
+      mfaRequired: true,
+      factorId: totpFactor.id,
+      tempSession: {
+        accessToken: data.session.access_token,
+        refreshToken: data.session.refresh_token,
+        expiresAt: data.session.expires_at,
+      },
+    })
+  }
+
   return c.json({
     session: {
       accessToken: data.session.access_token,

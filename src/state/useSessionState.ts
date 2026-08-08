@@ -4,7 +4,7 @@ import { ROUTES } from '../router/routes'
 import type { AuthForm } from '../screens/LoginScreen'
 import { readStoredJSON } from '../lib/storage'
 import { hardNavigate } from '../lib/hardNavigate'
-import { api, ApiError, loadStoredSession, storeSession, type ApiUser } from '../lib/api'
+import { api, ApiError, loadStoredSession, storeSession, type ApiUser, type ApiSession } from '../lib/api'
 import { STORAGE_KEYS, storeUser } from './session'
 import { EMAIL_REGEX, normalizeStoredUser } from './marketplaceSeed'
 import { consumePendingLogin, savePendingLogin, type PendingIntent } from './pendingIntent'
@@ -55,6 +55,19 @@ export function useSessionState(
   const [forgotError, setForgotError] = useState('')
   // Aviso mostrado no login após voltar de /redefinir-senha com sucesso.
   const [resetSuccessMessage, setResetSuccessMessage] = useState('')
+
+  // Sub-etapa de verificação em 2 etapas (TOTP) durante o login: senha
+  // correta, mas o usuário tem fator ativo — a sessão só termina depois do
+  // código de 6 dígitos. `mfaChallenge` guarda o suficiente para concluir
+  // (challengeId + a sessão temporária em aal1, usada como Bearer).
+  const [mfaChallenge, setMfaChallenge] = useState<{
+    factorId: string
+    challengeId: string
+    tempSession: ApiSession
+  } | null>(null)
+  const [mfaCode, setMfaCode] = useState('')
+  const [mfaError, setMfaError] = useState('')
+  const [mfaPending, setMfaPending] = useState(false)
 
   const isDevMode = import.meta.env.DEV
 
@@ -159,10 +172,26 @@ export function useSessionState(
         })
       }
       // Signup não devolve sessão — o login em sequência autentica de fato.
-      const { session, user } = await api.login({
+      const loginResult = await api.login({
         email: authForm.email,
         password: authForm.password,
       })
+
+      if ('mfaRequired' in loginResult) {
+        // Senha correta, mas falta o código do app autenticador — inicia o
+        // desafio agora (challengeId de uso único) e espera o código na tela.
+        const { challengeId } = await api.mfaChallenge(loginResult.factorId, loginResult.tempSession.accessToken)
+        setMfaChallenge({
+          factorId: loginResult.factorId,
+          challengeId,
+          tempSession: loginResult.tempSession,
+        })
+        setMfaCode('')
+        setMfaError('')
+        return false
+      }
+
+      const { session, user } = loginResult
       const viewUser = toViewUser(user)
       storeSession(session)
       // Grava o usuário no storage SÍNCRONO (não via efeito de
@@ -189,6 +218,54 @@ export function useSessionState(
     } finally {
       setAuthPending(false)
     }
+  }
+
+  /** Conclui o login após o código de 6 dígitos da sub-etapa de 2FA. */
+  const handleMfaChallengeSubmit = async (event: React.FormEvent<HTMLFormElement>): Promise<boolean> => {
+    event.preventDefault()
+    if (!mfaChallenge) return false
+
+    if (!/^\d{6}$/.test(mfaCode)) {
+      setMfaError('Informe o código de 6 dígitos.')
+      return false
+    }
+
+    setMfaError('')
+    setMfaPending(true)
+    try {
+      const { session, user } = await api.mfaVerifyChallenge(
+        {
+          factorId: mfaChallenge.factorId,
+          challengeId: mfaChallenge.challengeId,
+          code: mfaCode,
+        },
+        mfaChallenge.tempSession.accessToken,
+      )
+      const viewUser = toViewUser(user)
+      storeSession(session)
+      storeUser(viewUser)
+      setAuthUser(viewUser)
+      setUserRole(user.role)
+      setMfaChallenge(null)
+      setMfaCode('')
+      savePendingLogin(pendingReturnTo, pendingIntent)
+      hardNavigate(pendingReturnTo ?? ROUTES.home)
+      return true
+    } catch (error) {
+      setMfaError(
+        error instanceof ApiError ? error.message : 'Não foi possível confirmar o código. Tente novamente.',
+      )
+      return false
+    } finally {
+      setMfaPending(false)
+    }
+  }
+
+  /** Volta da sub-etapa de 2FA para o formulário de login (senha errada, desistiu, etc.). */
+  const cancelMfaChallenge = () => {
+    setMfaChallenge(null)
+    setMfaCode('')
+    setMfaError('')
   }
 
   /**
@@ -329,5 +406,12 @@ export function useSessionState(
     handleForgotPasswordSubmit,
     resetSuccessMessage,
     notePasswordResetSuccess,
+    mfaChallenge,
+    mfaCode,
+    setMfaCode,
+    mfaError,
+    mfaPending,
+    handleMfaChallengeSubmit,
+    cancelMfaChallenge,
   }
 }

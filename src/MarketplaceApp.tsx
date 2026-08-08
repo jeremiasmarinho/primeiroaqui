@@ -40,6 +40,13 @@ export default function MarketplaceApp() {
         onCloseForgotPassword={state.onCloseForgotPassword}
         onForgotPasswordSubmit={state.onForgotPasswordSubmit}
         onPasswordResetSuccess={state.onPasswordResetSuccess}
+        mfaChallengeActive={state.mfaChallengeActive}
+        mfaCode={state.mfaCode}
+        onMfaCodeChange={state.onMfaCodeChange}
+        mfaError={state.mfaError}
+        mfaPending={state.mfaPending}
+        onMfaChallengeSubmit={state.onMfaChallengeSubmit}
+        onCancelMfaChallenge={state.onCancelMfaChallenge}
         onOAuthComplete={state.onOAuthComplete}
         onOAuthError={state.onOAuthError}
         products={state.products}

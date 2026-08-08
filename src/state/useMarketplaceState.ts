@@ -736,6 +736,15 @@ export function useMarketplaceState() {
       void session.handleForgotPasswordSubmit(event)
     },
     onPasswordResetSuccess: session.notePasswordResetSuccess,
+    mfaChallengeActive: session.mfaChallenge !== null,
+    mfaCode: session.mfaCode,
+    onMfaCodeChange: session.setMfaCode,
+    mfaError: session.mfaError,
+    mfaPending: session.mfaPending,
+    onMfaChallengeSubmit: (event: React.FormEvent<HTMLFormElement>) => {
+      void session.handleMfaChallengeSubmit(event)
+    },
+    onCancelMfaChallenge: session.cancelMfaChallenge,
     onOAuthComplete,
     onOAuthError,
 

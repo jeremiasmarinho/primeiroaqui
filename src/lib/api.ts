@@ -41,6 +41,21 @@ export interface ApiSession {
   expiresAt: number | undefined
 }
 
+/** Resposta de POST /auth/login quando o usuário tem TOTP ativo — login ainda não terminou. */
+export interface ApiMfaChallengeRequired {
+  mfaRequired: true
+  factorId: string
+  tempSession: ApiSession
+}
+
+export type ApiLoginResult = { session: ApiSession; user: ApiUser } | ApiMfaChallengeRequired
+
+export interface ApiMfaFactor {
+  id: string
+  status: 'verified' | 'unverified'
+  createdAt: string
+}
+
 export interface ApiProduct {
   id: string
   storeId: string
@@ -443,7 +458,7 @@ export const api = {
     request<{ user: ApiUser }>('/auth/signup', { method: 'POST', body: input }),
 
   login: (input: { email: string; password: string }) =>
-    request<{ session: ApiSession; user: ApiUser }>('/auth/login', { method: 'POST', body: input }),
+    request<ApiLoginResult>('/auth/login', { method: 'POST', body: input }),
 
   /**
    * `token` opcional: `handleLogout` captura o access token ANTES de limpar o
@@ -622,4 +637,32 @@ export const api = {
     request<{ paymentStatus: ApiPaymentStatus; pagarmeOrderId: string | null; platformFeeCents: number | null; storeAmountCents: number | null }>(
       `/orders/${orderId}/payment`,
     ),
+
+  // ------------------------------------------------------------ 2FA (TOTP)
+  /** Inicia o enrollment: QR code (data-uri SVG) + secret para digitar manualmente. */
+  mfaEnroll: () => request<{ factorId: string; qrCode: string; secret: string }>('/mfa/enroll', { method: 'POST' }),
+
+  /** Confirma o enrollment com o primeiro código do app autenticador. */
+  mfaVerify: (input: { factorId: string; code: string }) =>
+    request<{ ok: true }>('/mfa/verify', { method: 'POST', body: input }),
+
+  /**
+   * Inicia o desafio de login (ou de qualquer outra confirmação, ex.:
+   * desativar). `token` só é necessário durante o desafio de LOGIN — a
+   * sessão ainda não foi persistida em `loadStoredSession()` nesse momento.
+   */
+  mfaChallenge: (factorId: string, token?: string) =>
+    request<{ challengeId: string }>('/mfa/challenge', { method: 'POST', body: { factorId }, token }),
+
+  /** Conclui o desafio de LOGIN — devolve o mesmo shape de sucesso de `login`. */
+  mfaVerifyChallenge: (input: { factorId: string; challengeId: string; code: string }, token?: string) =>
+    request<{ session: ApiSession; user: ApiUser }>('/mfa/verify-challenge', {
+      method: 'POST',
+      body: input,
+      token,
+    }),
+
+  mfaFactors: () => request<{ factors: ApiMfaFactor[] }>('/mfa/factors'),
+
+  mfaUnenroll: (factorId: string) => request<{ ok: true }>(`/mfa/${factorId}`, { method: 'DELETE' }),
 }

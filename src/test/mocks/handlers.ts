@@ -89,6 +89,12 @@ interface MockDb {
    * as chaves do Pagar.me — a etapa de pagamento não deve nem aparecer.
    */
   paymentsEnabled: boolean
+  /** Fator TOTP ativo (verified) do usuário logado — null = 2FA desativado. Ver seedMfaEnrolled. */
+  mfaFactorId: string | null
+  /** factorId de um enrollment iniciado mas ainda não confirmado por POST /mfa/verify. */
+  mfaPendingFactorId: string | null
+  /** challengeId em voo de POST /mfa/challenge — POST /mfa/verify-challenge exige que bata. */
+  mfaChallengeId: string | null
 }
 
 const emptyAdminMetrics = (): ApiAdminMetrics => ({
@@ -116,6 +122,9 @@ const createDb = (): MockDb => ({
   seq: 0,
   paymentScenario: 'paid',
   paymentsEnabled: true,
+  mfaFactorId: null,
+  mfaPendingFactorId: null,
+  mfaChallengeId: null,
 })
 
 export let db: MockDb = createDb()
@@ -132,6 +141,14 @@ export const setPaymentScenario = (scenario: MockDb['paymentScenario']): void =>
 /** Atalho de teste: simula a feature flag de GET /payments/config (chaves ausentes = false). */
 export const setPaymentsEnabled = (enabled: boolean): void => {
   db.paymentsEnabled = enabled
+}
+
+/** Código TOTP "válido" nos mocks — qualquer outro de 6 dígitos é tratado como errado. */
+export const MOCK_MFA_CODE = '123456'
+
+/** Semeia o usuário logado com 2FA (TOTP) já ativo — atalho para testes de login/perfil. */
+export const seedMfaEnrolled = (factorId = 'factor-1'): void => {
+  db.mfaFactorId = factorId
 }
 
 /** Semeia um endereço salvo — atalho para testes de checkout. */
@@ -304,10 +321,85 @@ export const handlers = [
     if (!body?.email || body?.password === 'senha-errada') {
       return HttpResponse.json({ error: 'E-mail ou senha invalidos' }, { status: 401 })
     }
+    if (db.mfaFactorId) {
+      return HttpResponse.json({
+        mfaRequired: true,
+        factorId: db.mfaFactorId,
+        tempSession: { accessToken: 'test-token-aal1', refreshToken: 'test-refresh-aal1', expiresAt: 9999999999 },
+      })
+    }
     return HttpResponse.json({
       session: { accessToken: 'test-token', refreshToken: 'test-refresh', expiresAt: 9999999999 },
       user: { ...db.user, email: body.email },
     })
+  }),
+
+  // ------------------------------------------------------------- 2FA (TOTP)
+  http.post('/api/mfa/enroll', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    db.mfaPendingFactorId = `factor-${++db.seq}`
+    return HttpResponse.json({
+      factorId: db.mfaPendingFactorId,
+      qrCode: 'data:image/svg+xml;base64,PHN2Zy8+',
+      secret: 'JBSWY3DPEHPK3PXP',
+    })
+  }),
+
+  http.post('/api/mfa/verify', async ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const body = (await request.json().catch(() => undefined)) as { factorId?: string; code?: string } | undefined
+    if (!body?.factorId || !body?.code || body.code.length !== 6) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    if (body.code !== MOCK_MFA_CODE || body.factorId !== db.mfaPendingFactorId) {
+      return HttpResponse.json({ error: 'Codigo invalido ou expirado' }, { status: 400 })
+    }
+    db.mfaFactorId = db.mfaPendingFactorId
+    db.mfaPendingFactorId = null
+    return HttpResponse.json({ ok: true })
+  }),
+
+  http.post('/api/mfa/challenge', async ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const body = (await request.json().catch(() => undefined)) as { factorId?: string } | undefined
+    if (!body?.factorId) return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    db.mfaChallengeId = `challenge-${++db.seq}`
+    return HttpResponse.json({ challengeId: db.mfaChallengeId })
+  }),
+
+  http.post('/api/mfa/verify-challenge', async ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const body = (await request.json().catch(() => undefined)) as
+      | { factorId?: string; challengeId?: string; code?: string }
+      | undefined
+    if (!body?.factorId || !body?.challengeId || !body?.code) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    if (body.code !== MOCK_MFA_CODE || body.challengeId !== db.mfaChallengeId) {
+      return HttpResponse.json({ error: 'Codigo invalido ou expirado' }, { status: 401 })
+    }
+    return HttpResponse.json({
+      session: { accessToken: 'test-token', refreshToken: 'test-refresh', expiresAt: 9999999999 },
+      user: { ...db.user },
+    })
+  }),
+
+  http.get('/api/mfa/factors', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    return HttpResponse.json({
+      factors: db.mfaFactorId
+        ? [{ id: db.mfaFactorId, status: 'verified' as const, createdAt: now }]
+        : [],
+    })
+  }),
+
+  http.delete('/api/mfa/:factorId', ({ request, params }) => {
+    if (!requireAuth(request)) return unauthorized()
+    if (params.factorId !== db.mfaFactorId) {
+      return HttpResponse.json({ error: 'Fator nao encontrado' }, { status: 400 })
+    }
+    db.mfaFactorId = null
+    return HttpResponse.json({ ok: true })
   }),
 
   http.post('/api/auth/logout', () => HttpResponse.json({ ok: true })),

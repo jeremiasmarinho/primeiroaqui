@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'wouter'
 
 import { formatCurrency } from '../lib/format'
@@ -115,6 +115,112 @@ export default function ProfileScreen({
       )
     } finally {
       setProfileSaving(false)
+    }
+  }
+
+  // Verificação em 2 etapas (TOTP) — seção independente da edição de perfil.
+  const [mfaStatus, setMfaStatus] = useState<'loading' | 'off' | 'on'>('loading')
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null)
+  const [mfaEnrolling, setMfaEnrolling] = useState(false)
+  const [mfaQrCode, setMfaQrCode] = useState('')
+  const [mfaSecret, setMfaSecret] = useState('')
+  const [mfaPendingFactorId, setMfaPendingFactorId] = useState('')
+  const [mfaConfirmCode, setMfaConfirmCode] = useState('')
+  const [mfaDisableCode, setMfaDisableCode] = useState('')
+  const [mfaDisabling, setMfaDisabling] = useState(false)
+  const [mfaSaving, setMfaSaving] = useState(false)
+  const [mfaError, setMfaError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .mfaFactors()
+      .then(({ factors }) => {
+        if (cancelled) return
+        const active = factors.find((factor) => factor.status === 'verified')
+        setMfaStatus(active ? 'on' : 'off')
+        setMfaFactorId(active?.id ?? null)
+      })
+      .catch(() => {
+        if (!cancelled) setMfaStatus('off')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const startMfaEnroll = async () => {
+    setMfaError('')
+    setMfaEnrolling(true)
+    try {
+      const { factorId, qrCode, secret } = await api.mfaEnroll()
+      setMfaPendingFactorId(factorId)
+      setMfaQrCode(qrCode)
+      setMfaSecret(secret)
+      setMfaConfirmCode('')
+    } catch (error) {
+      setMfaError(
+        error instanceof ApiError ? error.message : 'Não foi possível iniciar a verificação em duas etapas.',
+      )
+      setMfaEnrolling(false)
+    }
+  }
+
+  const cancelMfaEnroll = () => {
+    setMfaEnrolling(false)
+    setMfaPendingFactorId('')
+    setMfaQrCode('')
+    setMfaSecret('')
+    setMfaConfirmCode('')
+    setMfaError('')
+  }
+
+  const confirmMfaEnroll = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!/^\d{6}$/.test(mfaConfirmCode)) {
+      setMfaError('Informe o código de 6 dígitos.')
+      return
+    }
+    setMfaError('')
+    setMfaSaving(true)
+    try {
+      await api.mfaVerify({ factorId: mfaPendingFactorId, code: mfaConfirmCode })
+      setMfaStatus('on')
+      setMfaFactorId(mfaPendingFactorId)
+      cancelMfaEnroll()
+      pushToast('Verificação em duas etapas ativada', 'success')
+    } catch (error) {
+      setMfaError(error instanceof ApiError ? error.message : 'Código inválido. Tente novamente.')
+    } finally {
+      setMfaSaving(false)
+    }
+  }
+
+  const confirmMfaDisable = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!mfaFactorId) return
+    if (!/^\d{6}$/.test(mfaDisableCode)) {
+      setMfaError('Informe o código de 6 dígitos.')
+      return
+    }
+    setMfaError('')
+    setMfaSaving(true)
+    try {
+      // Confirma posse do fator antes de desativar: um desafio+verify válido
+      // prova que quem está pedindo a desativação ainda controla o app
+      // autenticador (mesma exigência do Supabase para operação sensível).
+      const { challengeId } = await api.mfaChallenge(mfaFactorId)
+      await api.mfaVerifyChallenge({ factorId: mfaFactorId, challengeId, code: mfaDisableCode })
+      await api.mfaUnenroll(mfaFactorId)
+      setMfaStatus('off')
+      setMfaFactorId(null)
+      setMfaDisabling(false)
+      setMfaDisableCode('')
+      pushToast('Verificação em duas etapas desativada', 'success')
+    } catch (error) {
+      setMfaError(error instanceof ApiError ? error.message : 'Código inválido. Tente novamente.')
+    } finally {
+      setMfaSaving(false)
     }
   }
 
@@ -362,6 +468,119 @@ export default function ProfileScreen({
               <button onClick={onLogout} className="w-full rounded-[18px] border border-line px-4 py-3 text-sm font-semibold text-ink-muted">Sair da conta</button>
             </div>
           </div>
+        </div>
+
+        <div className="mt-6 rounded-[24px] border border-line p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Segurança</p>
+              <h3 className="text-lg font-black text-ink">Verificação em 2 etapas</h3>
+            </div>
+            {mfaStatus === 'on' ? (
+              <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">Ativa</span>
+            ) : mfaStatus === 'off' ? (
+              <span className="rounded-full bg-surface-page px-3 py-1 text-xs font-semibold text-ink-muted">Inativa</span>
+            ) : null}
+          </div>
+
+          <p className="mt-2 text-sm leading-6 text-ink-muted">
+            Proteja sua conta com um app autenticador (Google Authenticator, Authy). Depois de ativada, o
+            login pede um código de 6 dígitos além da senha.
+          </p>
+
+          {mfaError ? <p className="mt-2 text-xs font-semibold text-error">{mfaError}</p> : null}
+
+          {mfaStatus === 'loading' ? null : mfaStatus === 'on' ? (
+            mfaDisabling ? (
+              <form onSubmit={confirmMfaDisable} className="mt-4 space-y-3">
+                <div>
+                  <label htmlFor="mfa-disable-code" className="text-xs font-semibold text-ink-muted">
+                    Digite o código atual do app autenticador para desativar
+                  </label>
+                  <input
+                    id="mfa-disable-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={mfaDisableCode}
+                    onChange={(event) => setMfaDisableCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    className="mt-1 h-11 w-full rounded-[14px] border border-line px-3 text-sm text-ink"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button type="submit" disabled={mfaSaving} className="min-h-[44px] flex-1 rounded-[14px] border border-error px-4 text-sm font-semibold text-error disabled:opacity-50">
+                    {mfaSaving ? 'Desativando…' : 'Confirmar desativação'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMfaDisabling(false)
+                      setMfaDisableCode('')
+                      setMfaError('')
+                    }}
+                    disabled={mfaSaving}
+                    className="min-h-[44px] flex-1 rounded-[14px] border border-line px-4 text-sm font-semibold text-ink-muted disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setMfaDisabling(true)}
+                className="mt-4 rounded-[14px] border border-error px-4 py-2 text-sm font-semibold text-error"
+              >
+                Desativar verificação em 2 etapas
+              </button>
+            )
+          ) : mfaEnrolling ? (
+            <form onSubmit={confirmMfaEnroll} className="mt-4 space-y-3">
+              {mfaQrCode ? (
+                <div className="flex flex-col items-center gap-2 rounded-[16px] bg-surface-page p-4">
+                  <img src={mfaQrCode} alt="QR code para configurar o app autenticador" className="h-40 w-40" />
+                  <p className="text-xs text-ink-muted">
+                    Não consegue escanear? Digite manualmente: <span className="font-mono font-semibold">{mfaSecret}</span>
+                  </p>
+                </div>
+              ) : null}
+              <div>
+                <label htmlFor="mfa-confirm-code" className="text-xs font-semibold text-ink-muted">
+                  Código do app autenticador
+                </label>
+                <input
+                  id="mfa-confirm-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={mfaConfirmCode}
+                  onChange={(event) => setMfaConfirmCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  className="mt-1 h-11 w-full rounded-[14px] border border-line px-3 text-sm text-ink"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button type="submit" disabled={mfaSaving} className="btn-primary min-h-[44px] flex-1 px-4 disabled:opacity-50">
+                  {mfaSaving ? 'Confirmando…' : 'Ativar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelMfaEnroll}
+                  disabled={mfaSaving}
+                  className="min-h-[44px] flex-1 rounded-[14px] border border-line px-4 text-sm font-semibold text-ink-muted disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button type="button" onClick={startMfaEnroll} className="btn-primary min-h-[44px] mt-4 px-4">
+              Ativar verificação em 2 etapas
+            </button>
+          )}
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">

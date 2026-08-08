@@ -34,6 +34,15 @@ interface LoginScreenProps {
   onOpenForgotPassword: () => void
   onCloseForgotPassword: () => void
   onForgotPasswordSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+
+  // Verificação em 2 etapas (sub-etapa do login, após senha correta)
+  mfaChallengeActive: boolean
+  mfaCode: string
+  onMfaCodeChange: (value: string) => void
+  mfaError: string
+  mfaPending: boolean
+  onMfaChallengeSubmit: (event: React.FormEvent<HTMLFormElement>) => void
+  onCancelMfaChallenge: () => void
 }
 
 /**
@@ -60,6 +69,13 @@ export default function LoginScreen({
   onOpenForgotPassword,
   onCloseForgotPassword,
   onForgotPasswordSubmit,
+  mfaChallengeActive,
+  mfaCode,
+  onMfaCodeChange,
+  mfaError,
+  mfaPending,
+  onMfaChallengeSubmit,
+  onCancelMfaChallenge,
 }: LoginScreenProps) {
   const [showPassword, setShowPassword] = useState(false)
   // Validação inline: só aparece depois que a pessoa saiu do campo (blur),
@@ -116,7 +132,50 @@ export default function LoginScreen({
           </p>
         ) : null}
 
-        {forgotPasswordOpen ? (
+        {mfaChallengeActive ? (
+          <form onSubmit={onMfaChallengeSubmit} noValidate className="mt-6 rounded-[28px] border border-line p-4">
+            <p className="text-sm leading-6 text-ink-muted">
+              Proteja sua conta com um app autenticador. Abra o Google Authenticator (ou Authy) e digite o
+              código de 6 dígitos gerado para sua conta.
+            </p>
+            <div className="mt-3">
+              <label htmlFor="mfa-code" className="text-sm font-semibold text-ink-muted">
+                Código de verificação
+              </label>
+              <input
+                id="mfa-code"
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                autoFocus
+                maxLength={6}
+                value={mfaCode}
+                onChange={(event) => onMfaCodeChange(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="mt-1 h-12 w-full rounded-[16px] border border-line px-3 text-center text-lg tracking-[0.4em] outline-none focus:border-primary"
+              />
+            </div>
+            {mfaError ? (
+              <p role="alert" className="mt-3 rounded-[14px] bg-error/10 px-3 py-2 text-sm font-semibold text-error">
+                {mfaError}
+              </p>
+            ) : null}
+            <button
+              type="submit"
+              disabled={mfaPending}
+              className="btn-primary min-h-[44px] mt-4 w-full rounded-[20px] px-4 py-3 disabled:opacity-60"
+            >
+              {mfaPending ? 'Verificando...' : 'Confirmar'}
+            </button>
+            <button
+              type="button"
+              onClick={onCancelMfaChallenge}
+              className="mt-3 w-full text-center text-sm font-semibold text-primary"
+            >
+              Voltar para o login
+            </button>
+          </form>
+        ) : forgotPasswordOpen ? (
           <form
             onSubmit={onForgotPasswordSubmit}
             noValidate

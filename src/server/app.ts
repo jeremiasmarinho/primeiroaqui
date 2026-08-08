@@ -1,5 +1,6 @@
 import { Hono } from 'hono'
 import { authRoutes } from './routes/auth'
+import { mfaRoutes } from './routes/mfa'
 import { storeRoutes } from './routes/stores'
 import { productRoutes } from './routes/products'
 import { productPhotoRoutes } from './routes/productPhotos'
@@ -14,6 +15,7 @@ import { paymentRoutes } from './routes/payments'
 export const app = new Hono()
 
 app.route('/', authRoutes)
+app.route('/', mfaRoutes)
 app.route('/', storeRoutes)
 app.route('/', productRoutes)
 app.route('/', productPhotoRoutes)
