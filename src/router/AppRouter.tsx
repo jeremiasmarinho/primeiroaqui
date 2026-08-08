@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Redirect, Route, Switch, useLocation } from 'wouter'
 
 import EmptyState from '../components/EmptyState'
+import { normalizeSearchTerm } from '../lib/normalizeSearch'
 import HomeScreen from '../screens/HomeScreen'
 import LoginScreen from '../screens/LoginScreen'
 
@@ -94,11 +95,11 @@ export default function AppRouter(props: AppRouterProps) {
     <HomeScreen
       products={props.products.filter((product) => {
         const matchesCategory = category === 'Tudo' || product.category === category
-        const query = props.searchQuery.trim().toLowerCase()
+        const query = normalizeSearchTerm(props.searchQuery.trim())
         const matchesQuery =
           !query ||
-          product.title.toLowerCase().includes(query) ||
-          product.seller.toLowerCase().includes(query)
+          normalizeSearchTerm(product.title).includes(query) ||
+          normalizeSearchTerm(product.seller).includes(query)
         return matchesCategory && matchesQuery
       })}
       allProducts={props.products}
@@ -270,6 +271,7 @@ export default function AppRouter(props: AppRouterProps) {
             onAddressSubmit={props.onAddressSubmit}
             isSubmitting={props.addressSubmitting}
             isCepLookupPending={props.cepLookupPending}
+            isCepNotFound={props.cepNotFound}
           />
         </Suspense>
       </Route>

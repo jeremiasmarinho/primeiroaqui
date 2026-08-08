@@ -68,6 +68,27 @@ describe('onboarding de lojista', () => {
     expect(await screen.findByRole('link', { name: /minha loja/i })).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /vender no primeiro aqui/i })).not.toBeInTheDocument()
   })
+
+  /**
+   * Regressão do bug "Minha loja não funciona" (Item 2, WU B-08): o teste
+   * acima só checava que o link existia, nunca que CLICAR nele realmente
+   * levava ao painel. Este cobre o fluxo ponta a ponta — clique, mudança de
+   * URL e o painel de verdade na tela (não a EmptyState "Área do lojista",
+   * que é o que aparece quando o guard de papel em StoreDashboardScreen
+   * ainda não viu o papel STORE_OWNER).
+   */
+  it('clicar em "Minha loja" navega para /minha-loja e mostra o painel do lojista', async () => {
+    seedStoreOwner()
+    seedLoggedInStorage()
+    renderAt('/perfil')
+
+    const link = await screen.findByRole('link', { name: /minha loja/i })
+    fireEvent.click(link)
+
+    await waitFor(() => expect(window.location.pathname).toBe('/minha-loja'))
+    expect(await screen.findByRole('heading', { name: /loja da ana/i })).toBeInTheDocument()
+    expect(screen.queryByText(/área do lojista/i)).not.toBeInTheDocument()
+  })
 })
 
 describe('painel /minha-loja', () => {

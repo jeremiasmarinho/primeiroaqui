@@ -1,4 +1,5 @@
 import { MapPin } from 'lucide-react'
+import { useEffect, useRef } from 'react'
 
 import {
   EmptyBlock,
@@ -7,7 +8,7 @@ import {
   ScreenHeader,
   itemsLabel,
 } from '../components/ScreenShell'
-import type { AddressDraft } from '../state/addresses'
+import { formatAddress, type AddressDraft } from '../state/addresses'
 import type { Address } from '../types'
 
 interface AddressesScreenProps {
@@ -21,11 +22,14 @@ interface AddressesScreenProps {
   isSubmitting?: boolean
   /** Busca de endereço por CEP (ViaCEP) em andamento — mostra o hint no campo. */
   isCepLookupPending?: boolean
+  /** CEP consultado e não encontrado — libera preenchimento manual. */
+  isCepNotFound?: boolean
 }
 
+// CEP é o primeiro campo: a busca automática preenche rua/cidade/UF, então o
+// número (o que o CEP não traz) vem logo em seguida, e o rótulo por último.
 const FIELDS = [
-  { id: 'endereco-rotulo', label: 'Nome do endereço', key: 'label', autoComplete: 'off' },
-  { id: 'endereco-rua', label: 'Rua e número', key: 'street', autoComplete: 'street-address' },
+  { id: 'endereco-rua', label: 'Rua', key: 'street', autoComplete: 'street-address' },
   { id: 'endereco-cidade', label: 'Cidade', key: 'city', autoComplete: 'address-level2' },
   { id: 'endereco-estado', label: 'Estado (UF)', key: 'state', autoComplete: 'address-level1' },
 ] as const
@@ -44,12 +48,51 @@ export default function AddressesScreen({
   error = '',
   isSubmitting = false,
   isCepLookupPending = false,
+  isCepNotFound = false,
 }: AddressesScreenProps) {
+  const numberInputRef = useRef<HTMLInputElement>(null)
+  const wasLookupPending = useRef(false)
+
+  // Foco pula para o número assim que a busca de CEP termina (achado ou não)
+  // — o número é o próximo dado que o CEP não traz.
+  useEffect(() => {
+    if (wasLookupPending.current && !isCepLookupPending) {
+      numberInputRef.current?.focus()
+    }
+    wasLookupPending.current = isCepLookupPending
+  }, [isCepLookupPending])
+
   const form = (
     <form onSubmit={onAddressSubmit} className="rounded-card bg-surface p-4 shadow-card">
       <h2 className="font-display text-base font-bold text-ink">Novo endereço</h2>
 
       <div className="mt-3 space-y-3">
+        <div>
+          <label htmlFor="endereco-cep" className="text-sm font-semibold text-ink-muted">
+            CEP
+          </label>
+          <input
+            id="endereco-cep"
+            value={addressForm.cep}
+            inputMode="numeric"
+            autoComplete="postal-code"
+            placeholder="00000-000"
+            aria-busy={isCepLookupPending}
+            onChange={(event) => onAddressFormChange({ cep: event.target.value })}
+            className={inputClass}
+          />
+          {isCepLookupPending ? (
+            <p role="status" className="mt-1 text-xs font-semibold text-ink-muted">
+              Buscando endereço pelo CEP…
+            </p>
+          ) : null}
+          {!isCepLookupPending && isCepNotFound ? (
+            <p role="status" className="mt-1 text-xs font-semibold text-promo">
+              CEP não encontrado. Preencha rua, cidade e estado manualmente.
+            </p>
+          ) : null}
+        </div>
+
         {FIELDS.map((field) => (
           <div key={field.id}>
             <label htmlFor={field.id} className="text-sm font-semibold text-ink-muted">
@@ -65,24 +108,53 @@ export default function AddressesScreen({
           </div>
         ))}
 
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="endereco-numero" className="text-sm font-semibold text-ink-muted">
+              Número
+            </label>
+            <input
+              id="endereco-numero"
+              ref={numberInputRef}
+              value={addressForm.number}
+              autoComplete="off"
+              inputMode="numeric"
+              placeholder="s/n"
+              onChange={(event) => onAddressFormChange({ number: event.target.value })}
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label htmlFor="endereco-complemento" className="text-sm font-semibold text-ink-muted">
+              Complemento
+            </label>
+            <input
+              id="endereco-complemento"
+              value={addressForm.complement}
+              autoComplete="off"
+              placeholder="Apto, bloco, referência…"
+              onChange={(event) => onAddressFormChange({ complement: event.target.value })}
+              className={inputClass}
+            />
+          </div>
+        </div>
+        {!addressForm.number.trim() ? (
+          <p className="text-xs text-ink-muted">
+            Sem número? Descreva um complemento/referência para o entregador achar o endereço.
+          </p>
+        ) : null}
+
         <div>
-          <label htmlFor="endereco-cep" className="text-sm font-semibold text-ink-muted">
-            CEP
+          <label htmlFor="endereco-rotulo" className="text-sm font-semibold text-ink-muted">
+            Nome do endereço
           </label>
           <input
-            id="endereco-cep"
-            value={addressForm.cep}
-            inputMode="numeric"
-            autoComplete="postal-code"
-            placeholder="00000-000"
-            onChange={(event) => onAddressFormChange({ cep: event.target.value })}
+            id="endereco-rotulo"
+            value={addressForm.label}
+            autoComplete="off"
+            onChange={(event) => onAddressFormChange({ label: event.target.value })}
             className={inputClass}
           />
-          {isCepLookupPending ? (
-            <p role="status" className="mt-1 text-xs font-semibold text-ink-muted">
-              Buscando endereço pelo CEP…
-            </p>
-          ) : null}
         </div>
       </div>
 
@@ -123,7 +195,7 @@ export default function AddressesScreen({
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 text-sm text-ink-muted">{address.street}</p>
+            <p className="mt-1 text-sm text-ink-muted">{formatAddress(address)}</p>
             <p className="text-sm text-ink-muted">{address.city}</p>
             <p className="tabular text-sm text-ink-faint">{address.cep}</p>
 

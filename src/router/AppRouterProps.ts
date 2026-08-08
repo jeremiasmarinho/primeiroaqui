@@ -103,4 +103,6 @@ export interface AppRouterProps {
   addressSubmitting: boolean
   /** Busca de endereço por CEP (ViaCEP) em andamento. */
   cepLookupPending: boolean
+  /** CEP consultado e não encontrado — libera preenchimento manual. */
+  cepNotFound: boolean
 }

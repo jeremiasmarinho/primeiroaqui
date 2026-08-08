@@ -131,6 +131,24 @@ describe('rotas de produto', () => {
       expect(body.products.some((p) => p.id === product.id)).toBe(true)
     }, 20_000)
 
+    it('busca fuzzy ignora pontuacao e caracteres especiais do termo (wildcards do LIKE inclusive)', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const store = await createStoreFixture(fixture.user.id)
+      createdStoreIds.push(store.id)
+      const token = unique('couvexyz')
+
+      const product = await prisma.product.create({
+        data: { storeId: store.id, title: `Couve ${token}`, category: unique('cat'), priceCents: 100 },
+      })
+      createdProductIds.push(product.id)
+
+      const res = await app.request(`/products?q=${encodeURIComponent(`couvê! ${token}`)}`)
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { products: Array<{ id: string }> }
+      expect(body.products.some((p) => p.id === product.id)).toBe(true)
+    }, 20_000)
+
     it('busca por raio: produto dentro aparece, fora nao aparece', async () => {
       const fixture = await createFixtureUser('STORE_OWNER')
       createdAuthUserIds.push(fixture.authUserId)

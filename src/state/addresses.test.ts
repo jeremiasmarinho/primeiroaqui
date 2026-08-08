@@ -4,12 +4,13 @@ import {
   addressToDeliveryPatch,
   createAddress,
   createAddressIdGenerator,
-  formatAddressLine,
+  formatAddress,
   formatCep,
   getDefaultAddress,
   isValidCep,
   removeAddress,
   setDefaultAddress,
+  validateAddressDraft,
 } from './addresses'
 import { makeAddress } from '../test/factories'
 
@@ -66,7 +67,15 @@ describe('gerador de id de endereco', () => {
 
 describe('cadastro de endereco', () => {
   const idGenerator = () => 'end-9'
-  const draft = { label: 'Casa', street: 'Avenida Guanabara, 148', city: 'Centro', state: 'SP', cep: '12345-678' }
+  const draft = {
+    label: 'Casa',
+    street: 'Avenida Guanabara',
+    number: '148',
+    complement: '',
+    city: 'Centro',
+    state: 'SP',
+    cep: '12345-678',
+  }
 
   it('o primeiro endereco cadastrado ja nasce como padrao', () => {
     const result = createAddress([], draft, { idGenerator })
@@ -127,7 +136,47 @@ describe('cadastro de endereco', () => {
   })
 
   it('o rascunho vazio nao tem campo preenchido', () => {
-    expect(EMPTY_ADDRESS).toEqual({ label: '', street: '', city: '', state: '', cep: '' })
+    expect(EMPTY_ADDRESS).toEqual({
+      label: '',
+      street: '',
+      number: '',
+      complement: '',
+      city: '',
+      state: '',
+      cep: '',
+    })
+  })
+})
+
+describe('numero e complemento', () => {
+  const base = {
+    label: 'Casa',
+    street: 'Avenida Guanabara',
+    city: 'Centro',
+    state: 'SP',
+    cep: '12345-678',
+  }
+
+  it('numero presente dispensa complemento', () => {
+    const result = validateAddressDraft({ ...base, number: '148', complement: '' })
+    expect(result.ok).toBe(true)
+  })
+
+  it('sem numero, complemento e obrigatorio', () => {
+    const result = validateAddressDraft({ ...base, number: '', complement: '' })
+    expect(result.ok).toBe(false)
+    if (result.ok) return
+    expect(result.reason).toBe('complemento-obrigatorio')
+    expect(result.message).toMatch(/complemento/i)
+  })
+
+  it('sem numero mas com complemento (casa s/n) passa', () => {
+    const result = validateAddressDraft({
+      ...base,
+      number: '',
+      complement: 'Casa amarela, ao lado do mercado',
+    })
+    expect(result.ok).toBe(true)
   })
 })
 
@@ -182,6 +231,23 @@ describe('endereco no checkout', () => {
 
   it('formata uma linha legivel para o cabecalho', () => {
     const address = makeAddress({ street: 'Avenida Guanabara, 148', city: 'Centro' })
-    expect(formatAddressLine(address)).toBe('Avenida Guanabara, 148, Centro')
+    expect(formatAddress(address)).toBe('Avenida Guanabara, 148')
+  })
+})
+
+describe('formatAddress', () => {
+  it('monta rua, numero e complemento', () => {
+    const address = makeAddress({ street: 'Avenida Guanabara', number: '148', complement: 'Apto 4' })
+    expect(formatAddress(address)).toBe('Avenida Guanabara, 148 - Apto 4')
+  })
+
+  it('sem complemento, so rua e numero', () => {
+    const address = makeAddress({ street: 'Avenida Guanabara', number: '148', complement: undefined })
+    expect(formatAddress(address)).toBe('Avenida Guanabara, 148')
+  })
+
+  it('endereco legado sem numero exibe como esta, sem quebrar', () => {
+    const address = makeAddress({ street: 'Avenida Guanabara, 148', number: undefined, complement: undefined })
+    expect(formatAddress(address)).toBe('Avenida Guanabara, 148')
   })
 })

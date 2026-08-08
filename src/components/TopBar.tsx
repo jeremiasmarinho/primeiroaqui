@@ -194,41 +194,29 @@ export default function TopBar({
       <div className="mx-auto max-w-6xl px-3 pb-2 pt-2">
         <div className="flex items-center gap-2">
           {/*
-            Link real para /perfil — igual ao padrão de navegação já usado nas
-            abas de categoria e no item "Mais" da barra inferior. Antes da
-            migração para roteamento por URL isto era um botão com callback
-            (`onOpenProfile`); o callback ficou órfão na migração e o avatar
-            parou de navegar. `profileHref` permite ao pai apontar para o
-            painel quando o papel for de operação, mesma regra do "Mais".
+            Marca à esquerda: pin sempre visível (mobile e desktop); o
+            wordmark completo só aparece a partir de md — no mobile o espaço
+            é curto demais para o nome por extenso ao lado da busca.
           */}
           <Link
-            href={profileHref ?? ROUTES.profile}
-            aria-label={isAuthenticated ? `Abrir perfil de ${userName || 'convidado'}` : 'Entrar ou criar conta'}
-            className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-surface
-                       text-sm font-extrabold text-ink shadow-card"
+            href={ROUTES.home}
+            aria-label="Primeiro Aqui"
+            className="flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5"
           >
-            {isAuthenticated && userAvatarUrl && !avatarFailed ? (
-              <img
-                src={userAvatarUrl}
-                alt=""
-                className="h-full w-full rounded-full object-cover"
-                onError={() => setAvatarFailed(true)}
-              />
-            ) : isAuthenticated ? (
-              userInitials
-            ) : (
-              <LogIn className="h-5 w-5" aria-hidden="true" />
-            )}
+            <img
+              src="/brand/pin.png"
+              alt=""
+              aria-hidden="true"
+              width={244}
+              height={321}
+              className="h-8 w-auto shrink-0"
+            />
+            <img
+              src="/brand/wordmark.png"
+              alt="Primeiro Aqui"
+              className="hidden h-6 w-auto shrink-0 md:block"
+            />
           </Link>
-
-          <img
-            src="/brand/pin.png"
-            alt=""
-            aria-hidden="true"
-            width={244}
-            height={321}
-            className="hidden h-8 w-auto shrink-0 md:block"
-          />
 
           <div ref={containerRef} onBlur={handleBlur} className="relative flex-1">
             <form
@@ -312,6 +300,34 @@ export default function TopBar({
               <NotificationsPanel notifications={notifications} onClose={() => setIsNotificationsOpen(false)} />
             )}
           </div>
+
+          {/*
+            Link real para /perfil — igual ao padrão de navegação já usado nas
+            abas de categoria e no item "Mais" da barra inferior. Antes da
+            migração para roteamento por URL isto era um botão com callback
+            (`onOpenProfile`); o callback ficou órfão na migração e o avatar
+            parou de navegar. `profileHref` permite ao pai apontar para o
+            painel quando o papel for de operação, mesma regra do "Mais".
+          */}
+          <Link
+            href={profileHref ?? ROUTES.profile}
+            aria-label={isAuthenticated ? `Abrir perfil de ${userName || 'convidado'}` : 'Entrar ou criar conta'}
+            className="grid h-11 w-11 shrink-0 place-items-center overflow-hidden rounded-full bg-surface
+                       text-sm font-extrabold text-ink shadow-card"
+          >
+            {isAuthenticated && userAvatarUrl && !avatarFailed ? (
+              <img
+                src={userAvatarUrl}
+                alt=""
+                className="h-full w-full rounded-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : isAuthenticated ? (
+              userInitials
+            ) : (
+              <LogIn className="h-5 w-5" aria-hidden="true" />
+            )}
+          </Link>
         </div>
 
         {/* Era texto fixo — "Avenida Guanabara, 148" fingia ser endereço da

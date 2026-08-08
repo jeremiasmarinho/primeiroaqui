@@ -13,6 +13,29 @@ export type ProductSearchParams = {
 }
 
 /**
+ * Sanitiza o termo de busca antes de interpolar no SQL de similaridade.
+ *
+ * Os valores ja vao parametrizados via `Prisma.sql` (sem risco de injecao),
+ * entao isto NAO e sanitizacao contra SQL injection — e sanitizacao de
+ * QUALIDADE do match de trigram: pontuacao/simbolos ("couvê!", "R$ 10,00")
+ * viram trigramas que nao existem no texto alvo e derrubam a similaridade
+ * (podendo cair abaixo do limiar de 0.2), entao removemos tudo que nao for
+ * letra/numero/espaco antes de comparar. `%` e `_` (wildcards do LIKE) caem
+ * nessa mesma regra — nao sao usados como LIKE aqui (a busca e via
+ * `similarity()`/pg_trgm, nao `ILIKE`), mas mesmo assim nao ajudam o match e
+ * sao removidos por serem simbolos, nao letras/numeros. Espacos multiplos
+ * colapsam em um so; acento fica por conta do `unaccent()` do lado do SQL
+ * (nao aqui) — a normalizacao completa (NFD) e so no cliente
+ * (`src/lib/normalizeSearch.ts`), pois o Postgres ja resolve acento nativamente.
+ */
+export function sanitizeSearchTerm(input: string): string {
+  return input
+    .replace(/[^\p{L}\p{N} ]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
  * Busca ids de produtos ativos (de lojas ativas) que atendem aos filtros
  * informados, via SQL raw (necessario para `pg_trgm`/`unaccent` e PostGIS,
  * que o query builder do Prisma nao expõe). Todos os parametros sao
@@ -37,8 +60,12 @@ export async function searchProductIds(params: ProductSearchParams): Promise<str
     conditions.push(Prisma.sql`p.category = ${params.category}`)
   }
 
-  if (params.q !== undefined) {
-    conditions.push(Prisma.sql`similarity(unaccent(p.title), unaccent(${params.q})) > 0.2`)
+  const sanitizedQ = params.q !== undefined ? sanitizeSearchTerm(params.q) : undefined
+
+  if (sanitizedQ) {
+    conditions.push(
+      Prisma.sql`similarity(lower(unaccent(p.title)), lower(unaccent(${sanitizedQ}))) > 0.2`,
+    )
   }
 
   if (params.lat !== undefined && params.lng !== undefined && params.radiusKm !== undefined) {
@@ -53,10 +80,9 @@ export async function searchProductIds(params: ProductSearchParams): Promise<str
 
   const whereClause = Prisma.join(conditions, ' AND ')
 
-  const orderClause =
-    params.q !== undefined
-      ? Prisma.sql`ORDER BY similarity(unaccent(p.title), unaccent(${params.q})) DESC`
-      : Prisma.sql`ORDER BY p."createdAt" DESC, p.id ASC`
+  const orderClause = sanitizedQ
+    ? Prisma.sql`ORDER BY similarity(lower(unaccent(p.title)), lower(unaccent(${sanitizedQ}))) DESC`
+    : Prisma.sql`ORDER BY p."createdAt" DESC, p.id ASC`
 
   const rows = await prisma.$queryRaw<Array<{ id: string }>>(Prisma.sql`
     SELECT p.id FROM products p

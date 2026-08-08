@@ -31,13 +31,23 @@ export const isValidCep = (raw: string): boolean =>
 export interface AddressDraft {
   label: string
   street: string
+  number: string
+  complement: string
   city: string
   /** UF — exigido pelo POST /api/addresses (zod `state` min 1). */
   state: string
   cep: string
 }
 
-export const EMPTY_ADDRESS: AddressDraft = { label: '', street: '', city: '', state: '', cep: '' }
+export const EMPTY_ADDRESS: AddressDraft = {
+  label: '',
+  street: '',
+  number: '',
+  complement: '',
+  city: '',
+  state: '',
+  cep: '',
+}
 
 export type AddressRejection =
   | 'rotulo-obrigatorio'
@@ -45,6 +55,7 @@ export type AddressRejection =
   | 'cidade-obrigatoria'
   | 'estado-obrigatorio'
   | 'cep-invalido'
+  | 'complemento-obrigatorio'
   | 'duplicado'
 
 export type AddressResult =
@@ -57,6 +68,7 @@ const MESSAGES: Record<AddressRejection, string> = {
   'cidade-obrigatoria': 'Informe a cidade da entrega.',
   'estado-obrigatorio': 'Informe o estado (UF) da entrega.',
   'cep-invalido': CEP_ERROR_MESSAGE,
+  'complemento-obrigatorio': 'Sem número? Descreva um complemento/referência para o entregador achar o endereço.',
   duplicado: 'Este endereço já está salvo na sua lista.',
 }
 
@@ -87,16 +99,32 @@ export interface CreateAddressOptions {
 }
 
 export type DraftValidation =
-  | { ok: true; label: string; street: string; city: string; state: string; cep: string }
+  | {
+      ok: true
+      label: string
+      street: string
+      number: string
+      complement: string
+      city: string
+      state: string
+      cep: string
+    }
   | { ok: false; reason: AddressRejection; message: string }
 
 /**
  * Validação pura do rascunho, compartilhada entre o fluxo local (testes,
  * fallback) e o POST real em `useAddressesState` — a regra é uma só.
+ *
+ * Regra de negócio pedida pelo usuário: número presente → complemento
+ * opcional; sem número (ex. casa s/n) → complemento obrigatório, para o
+ * entregador conseguir achar o endereço. Mesma regra do lado do servidor
+ * (zod `refine` em src/server/routes/addresses.ts).
  */
 export const validateAddressDraft = (draft: AddressDraft): DraftValidation => {
   const label = draft.label.trim()
   const street = draft.street.trim()
+  const number = draft.number.trim()
+  const complement = draft.complement.trim()
   const city = draft.city.trim()
   const state = draft.state.trim()
 
@@ -105,8 +133,9 @@ export const validateAddressDraft = (draft: AddressDraft): DraftValidation => {
   if (!city) return reject('cidade-obrigatoria')
   if (!state) return reject('estado-obrigatorio')
   if (!isValidCep(draft.cep)) return reject('cep-invalido')
+  if (!number && !complement) return reject('complemento-obrigatorio')
 
-  return { ok: true, label, street, city, state, cep: formatCep(draft.cep) }
+  return { ok: true, label, street, number, complement, city, state, cep: formatCep(draft.cep) }
 }
 
 export const createAddress = (
@@ -116,7 +145,7 @@ export const createAddress = (
 ): AddressResult => {
   const validated = validateAddressDraft(draft)
   if (!validated.ok) return validated
-  const { label, street, city, cep } = validated
+  const { label, street, number, complement, city, cep } = validated
   const alreadySaved = list.some(
     (item) =>
       item.street.toLowerCase() === street.toLowerCase() &&
@@ -131,6 +160,8 @@ export const createAddress = (
     id: idGenerator(),
     label,
     street,
+    number: number || undefined,
+    complement: complement || undefined,
     city,
     cep,
     isDefault: list.length === 0,
@@ -158,10 +189,23 @@ export const getDefaultAddress = (list: Address[]): Address | null =>
 export const addressToDeliveryPatch = (
   address: Address,
 ): Pick<DeliveryForm, 'address' | 'city' | 'cep'> => ({
-  address: address.street,
+  address: formatAddress(address),
   city: address.city,
   cep: address.cep,
 })
 
-export const formatAddressLine = (address: Address): string =>
-  `${address.street}, ${address.city}`
+/**
+ * "Rua X, 123 - Apto 4" a partir dos campos separados. Endereços legados
+ * (cadastrados antes do campo `number` existir) não têm número nem
+ * complemento — exibem como estavam, sem quebrar.
+ */
+export const formatAddress = (address: Address): string => {
+  const parts = [address.street]
+  if (address.number) parts.push(address.number)
+  let line = parts.join(', ')
+  if (address.complement) line += ` - ${address.complement}`
+  return line
+}
+
+/** @deprecated use `formatAddress` — mantido por compatibilidade de import. */
+export const formatAddressLine = (address: Address): string => formatAddress(address)

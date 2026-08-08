@@ -15,6 +15,7 @@ import type {
   ApiUser,
 } from '../../lib/api'
 import { isValidOrderTransition, orderStatusLabel, type ApiOrderStatus } from '../../lib/orderStatus'
+import { isValidCpf, isValidPhone } from '../../lib/paymentValidation'
 
 /**
  * Fake em memória da API real para a suíte de UI.
@@ -34,6 +35,8 @@ export const mockUser: ApiUser = {
   name: 'Cliente Primeiro Aqui',
   role: 'BUYER',
   avatarUrl: null,
+  phone: null,
+  document: null,
 }
 
 // Ids e títulos espelham o catálogo de demonstração antigo — os testes de
@@ -380,6 +383,31 @@ export const handlers = [
     return HttpResponse.json({ user: db.user })
   }),
 
+  // PATCH parcial do perfil (Item 3) — mesmo contrato de src/server/routes/me.ts.
+  http.patch('/api/me', async ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    const body = (await request.json().catch(() => undefined)) as
+      | { name?: string; phone?: string; document?: string }
+      | undefined
+    if (body === undefined) return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+
+    if (body.name !== undefined && !body.name.trim()) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    if (body.phone !== undefined && body.phone !== '' && !isValidPhone(body.phone)) {
+      return HttpResponse.json({ error: 'Telefone invalido' }, { status: 400 })
+    }
+    if (body.document !== undefined && body.document !== '' && !isValidCpf(body.document)) {
+      return HttpResponse.json({ error: 'CPF invalido' }, { status: 400 })
+    }
+
+    if (body.name !== undefined) db.user.name = body.name.trim()
+    if (body.phone !== undefined) db.user.phone = body.phone === '' ? null : body.phone
+    if (body.document !== undefined) db.user.document = body.document === '' ? null : body.document
+
+    return HttpResponse.json({ user: db.user })
+  }),
+
   // --------------------------------------------------------------- catálogo
   http.get('/api/products', ({ request }) => {
     const storeId = new URL(request.url).searchParams.get('storeId')
@@ -463,6 +491,8 @@ export const handlers = [
     const address = seedAddress({
       label: body.label ?? '',
       street: body.street ?? '',
+      number: body.number ?? null,
+      complement: body.complement ?? null,
       city: body.city ?? '',
       state: body.state ?? '',
       zipCode: body.zipCode ?? '',
@@ -475,6 +505,11 @@ export const handlers = [
     if (!requireAuth(request)) return unauthorized()
     return HttpResponse.json({ addresses: db.addresses })
   }),
+
+  // ViaCEP real (fora de /api) — mock genérico "não encontrado" para as
+  // suítes de UI que digitam CEP mas não testam o autofill em si (esse
+  // comportamento é coberto isoladamente em src/lib/cep.test.ts).
+  http.get('https://viacep.com.br/ws/:cep/json/', () => HttpResponse.json({ erro: true })),
 
   // ---------------------------------------------------------------- pedidos
   http.post('/api/orders', async ({ request }) => {

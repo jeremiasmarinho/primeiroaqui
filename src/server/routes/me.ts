@@ -1,4 +1,5 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
+import { z } from 'zod'
 import { prisma } from '../lib/prismaClient'
 import { supabaseAdmin } from '../lib/supabaseClient'
 import { requireUser, type AuthEnv } from '../middleware/auth'
@@ -10,13 +11,85 @@ import {
   StorageValidationError,
   AVATARS_BUCKET,
 } from '../lib/avatarStorage'
+// Reaproveita a validação de CPF/telefone já usada no formulário de
+// pagamento (`src/lib/paymentValidation.ts`) em vez de duplicar o algoritmo
+// de dígitos verificadores no servidor — mesmo arquivo, sem dependência de
+// browser, importável direto pelo Node (ver CLAUDE.md, "reuso antes de
+// reconstruir").
+import { isValidCpf, isValidPhone } from '../../lib/paymentValidation'
 
 /**
- * Rotas de `/api/me/avatar` — arquivo separado (nao `routes/auth.ts`) para
- * evitar conflito com outro agente que adiciona rotas novas naquele mesmo
- * arquivo em paralelo.
+ * Rotas de `/api/me/avatar` e `/api/me` — arquivo separado (nao
+ * `routes/auth.ts`) para evitar conflito com outro agente que adiciona
+ * rotas novas naquele mesmo arquivo em paralelo.
  */
 export const meRoutes = new Hono<AuthEnv>()
+
+/** Mesmo padrao de `parseJsonBody` em `src/server/routes/addresses.ts`. */
+async function parseJsonBody(c: Context<AuthEnv>): Promise<unknown> {
+  try {
+    return await c.req.json()
+  } catch {
+    return undefined
+  }
+}
+
+const updateMeSchema = z.object({
+  name: z.string().trim().min(1, 'Nome nao pode ser vazio').optional(),
+  phone: z
+    .string()
+    .trim()
+    .refine((value) => value === '' || isValidPhone(value), 'Telefone invalido')
+    .optional(),
+  document: z
+    .string()
+    .trim()
+    .refine((value) => value === '' || isValidCpf(value), 'CPF invalido')
+    .optional(),
+})
+
+/**
+ * Atualiza dados do proprio perfil (nome, telefone, CPF). Distinto de
+ * `/me/avatar` (upload de arquivo) — aqui e so JSON. `phone`/`document`
+ * vazios (`''`) limpam o campo (viram `null` no banco); `undefined` mantem o
+ * valor atual (PATCH parcial).
+ */
+meRoutes.patch('/me', requireUser, async (c) => {
+  const authedUser = c.get('authedUser')
+
+  const body = await parseJsonBody(c)
+  if (body === undefined) {
+    return c.json({ error: 'Body invalido ou ausente' }, 400)
+  }
+  const parsed = updateMeSchema.safeParse(body)
+  if (!parsed.success) {
+    return c.json({ error: 'Dados invalidos', details: parsed.error.flatten() }, 400)
+  }
+
+  const { name, phone, document } = parsed.data
+  const data: { name?: string; phone?: string | null; document?: string | null } = {}
+  if (name !== undefined) data.name = name
+  if (phone !== undefined) data.phone = phone === '' ? null : phone
+  if (document !== undefined) data.document = document === '' ? null : document
+
+  const user = await prisma.user.update({
+    where: { id: authedUser.id },
+    data,
+  })
+
+  return c.json({
+    user: {
+      id: user.id,
+      authUserId: user.authUserId,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatarUrl: user.avatarUrl,
+      phone: user.phone,
+      document: user.document,
+    },
+  })
+})
 
 /**
  * Deriva o path de storage a partir de uma URL publica do bucket `avatars`

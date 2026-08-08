@@ -1,7 +1,7 @@
 import { Link } from 'wouter'
 
 import { ROUTES } from '../../router/routes'
-import { formatAddressLine } from '../../state/addresses'
+import { formatAddress } from '../../state/addresses'
 import type { Address } from '../../types'
 
 interface AddressPickerProps {
@@ -65,7 +65,7 @@ export default function AddressPicker({
             <span className="min-w-0">
               <span className="block text-sm font-bold text-ink">{address.label}</span>
               <span className="block truncate text-xs text-ink-muted">
-                {formatAddressLine(address)}
+                {formatAddress(address)}
               </span>
             </span>
           </label>

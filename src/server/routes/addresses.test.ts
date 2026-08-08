@@ -39,7 +39,8 @@ describe('rotas de enderecos', () => {
 
   const validAddressBody = (overrides: Record<string, unknown> = {}) => ({
     label: 'Casa',
-    street: 'Rua Teste, 123',
+    street: 'Rua Teste',
+    number: '123',
     city: 'Sao Paulo',
     state: 'SP',
     zipCode: '01000-000',
@@ -90,6 +91,39 @@ describe('rotas de enderecos', () => {
         body: JSON.stringify({ label: 'Casa' }),
       })
       expect(res.status).toBe(400)
+    }, 20_000)
+
+    it('numero presente dispensa complemento', async () => {
+      const res = await app.request('/addresses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify(validAddressBody({ number: '148', complement: undefined })),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { address: { id: string } }
+      createdAddressIds.push(body.address.id)
+    }, 20_000)
+
+    it('sem numero, sem complemento recebe 400', async () => {
+      const res = await app.request('/addresses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify(validAddressBody({ number: undefined })),
+      })
+      expect(res.status).toBe(400)
+    }, 20_000)
+
+    it('sem numero mas com complemento (casa s/n) passa', async () => {
+      const res = await app.request('/addresses', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify(
+          validAddressBody({ number: undefined, complement: 'Casa amarela, ao lado do mercado' }),
+        ),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { address: { id: string } }
+      createdAddressIds.push(body.address.id)
     }, 20_000)
   })
 

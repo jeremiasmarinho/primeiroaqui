@@ -5,6 +5,7 @@ import { formatCurrency } from '../lib/format'
 import { ROUTES } from '../router/routes'
 import { api, ApiError } from '../lib/api'
 import { pushToast } from '../state/useToasts'
+import { formatCpf, formatPhone, isValidCpf, isValidPhone } from '../lib/paymentValidation'
 import type { BusinessProfile, Order, Product, Role, User } from '../types'
 
 const SHORTCUTS = [
@@ -55,6 +56,68 @@ export default function ProfileScreen({
   // anterior volta a aparecer.
   const [avatarPreview, setAvatarPreview] = useState('')
 
+  // Edição de nome/telefone/CPF (Item 3). Formulário fica escondido até a
+  // pessoa clicar "Editar perfil" — o valor inicial vem sempre do usuário
+  // autenticado, então reabrir depois de salvar já mostra o dado atualizado.
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [profileForm, setProfileForm] = useState({
+    name: authUser?.name ?? '',
+    phone: authUser?.phone ? formatPhone(authUser.phone) : '',
+    document: authUser?.document ? formatCpf(authUser.document) : '',
+  })
+  const [profileFieldErrors, setProfileFieldErrors] = useState<Record<string, string>>({})
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileError, setProfileError] = useState('')
+
+  const openEditProfile = () => {
+    setProfileForm({
+      name: authUser?.name ?? '',
+      phone: authUser?.phone ? formatPhone(authUser.phone) : '',
+      document: authUser?.document ? formatCpf(authUser.document) : '',
+    })
+    setProfileFieldErrors({})
+    setProfileError('')
+    setIsEditingProfile(true)
+  }
+
+  const handleProfileSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    const errors: Record<string, string> = {}
+    if (!profileForm.name.trim()) errors.name = 'Nome não pode ser vazio.'
+    if (profileForm.phone.trim() && !isValidPhone(profileForm.phone)) errors.phone = 'Telefone inválido.'
+    if (profileForm.document.trim() && !isValidCpf(profileForm.document)) errors.document = 'CPF inválido.'
+    setProfileFieldErrors(errors)
+    if (Object.keys(errors).length > 0) return
+
+    setProfileError('')
+    setProfileSaving(true)
+    try {
+      const { user } = await api.updateMe({
+        name: profileForm.name.trim(),
+        phone: profileForm.phone.trim(),
+        document: profileForm.document.trim(),
+      })
+      onAuthUserChange({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+        phone: user.phone ?? null,
+        document: user.document ?? null,
+      })
+      pushToast('Perfil atualizado', 'success')
+      setIsEditingProfile(false)
+    } catch (error) {
+      setProfileError(
+        error instanceof ApiError ? error.message : 'Não foi possível salvar o perfil. Tente novamente.',
+      )
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
   const handleAvatarPick = () => fileInputRef.current?.click()
 
   const handleAvatarFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -74,7 +137,17 @@ export default function ProfileScreen({
     setAvatarPending(true)
     try {
       const { user } = await api.uploadAvatar(file)
-      onAuthUserChange({ id: user.id, name: user.name, email: user.email, role: user.role, avatarUrl: user.avatarUrl })
+      // /me/avatar não devolve phone/document — preserva o que já estava na
+      // sessão (senão o upload de foto apagaria o telefone/CPF salvos).
+      onAuthUserChange({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+        phone: authUser?.phone ?? null,
+        document: authUser?.document ?? null,
+      })
       pushToast('Foto de perfil atualizada', 'success')
     } catch (error) {
       setAvatarError(
@@ -92,7 +165,17 @@ export default function ProfileScreen({
     setAvatarPending(true)
     try {
       const { user } = await api.removeAvatar()
-      onAuthUserChange({ id: user.id, name: user.name, email: user.email, role: user.role, avatarUrl: user.avatarUrl })
+      // /me/avatar não devolve phone/document — preserva o que já estava na
+      // sessão (senão o upload de foto apagaria o telefone/CPF salvos).
+      onAuthUserChange({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        avatarUrl: user.avatarUrl,
+        phone: authUser?.phone ?? null,
+        document: authUser?.document ?? null,
+      })
       pushToast('Foto de perfil removida', 'success')
     } catch (error) {
       setAvatarError(
@@ -167,13 +250,83 @@ export default function ProfileScreen({
         </div>
         <div className="mt-6 grid gap-4 md:grid-cols-[1fr_0.9fr]">
           <div className="rounded-[24px] bg-surface-page p-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Dados da conta</p>
-                <div className="mt-4 space-y-3 text-sm text-ink-muted">
-              <div className="flex justify-between"><span>E-mail</span><span className="font-semibold">{authUser?.email || 'cliente@primeiroaqui.com'}</span></div>
-              <div className="flex justify-between"><span>Tipo</span><span className="font-semibold">{userRole === 'ADMIN' ? 'Operação' : 'Cliente'}</span></div>
-              <div className="flex justify-between"><span>Negócio</span><span className="font-semibold">{businessProfile?.name || 'Ainda não cadastrado'}</span></div>
-              <div className="flex justify-between"><span>Endereço</span><span className="font-semibold">{businessProfile?.address || 'Rua da Esperança, 123'}</span></div>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Dados da conta</p>
+              {!isEditingProfile && (
+                <button type="button" onClick={openEditProfile} className="text-xs font-semibold text-primary">
+                  Editar perfil
+                </button>
+              )}
             </div>
+
+            {isEditingProfile ? (
+              <form onSubmit={handleProfileSubmit} className="mt-4 space-y-3">
+                <div>
+                  <label htmlFor="profile-name" className="text-xs font-semibold text-ink-muted">Nome</label>
+                  <input
+                    id="profile-name"
+                    type="text"
+                    value={profileForm.name}
+                    onChange={(event) => setProfileForm((prev) => ({ ...prev, name: event.target.value }))}
+                    className="mt-1 h-11 w-full rounded-[14px] border border-line px-3 text-sm text-ink"
+                  />
+                  {profileFieldErrors.name && <p className="mt-1 text-xs text-error">{profileFieldErrors.name}</p>}
+                </div>
+                <div>
+                  <label htmlFor="profile-phone" className="text-xs font-semibold text-ink-muted">Telefone</label>
+                  <input
+                    id="profile-phone"
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={(event) =>
+                      setProfileForm((prev) => ({ ...prev, phone: formatPhone(event.target.value) }))
+                    }
+                    placeholder="(00) 00000-0000"
+                    className="mt-1 h-11 w-full rounded-[14px] border border-line px-3 text-sm text-ink"
+                  />
+                  {profileFieldErrors.phone && <p className="mt-1 text-xs text-error">{profileFieldErrors.phone}</p>}
+                </div>
+                <div>
+                  <label htmlFor="profile-document" className="text-xs font-semibold text-ink-muted">CPF</label>
+                  <input
+                    id="profile-document"
+                    type="text"
+                    value={profileForm.document}
+                    onChange={(event) =>
+                      setProfileForm((prev) => ({ ...prev, document: formatCpf(event.target.value) }))
+                    }
+                    placeholder="000.000.000-00"
+                    className="mt-1 h-11 w-full rounded-[14px] border border-line px-3 text-sm text-ink"
+                  />
+                  {profileFieldErrors.document && (
+                    <p className="mt-1 text-xs text-error">{profileFieldErrors.document}</p>
+                  )}
+                </div>
+                {profileError && <p className="text-xs font-semibold text-error">{profileError}</p>}
+                <div className="flex gap-2">
+                  <button type="submit" disabled={profileSaving} className="btn-primary min-h-[44px] flex-1 px-4 disabled:opacity-50">
+                    {profileSaving ? 'Salvando…' : 'Salvar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingProfile(false)}
+                    disabled={profileSaving}
+                    className="min-h-[44px] flex-1 rounded-[14px] border border-line px-4 text-sm font-semibold text-ink-muted disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="mt-4 space-y-3 text-sm text-ink-muted">
+                <div className="flex justify-between"><span>E-mail</span><span className="font-semibold">{authUser?.email || 'cliente@primeiroaqui.com'}</span></div>
+                <div className="flex justify-between"><span>Telefone</span><span className="font-semibold">{authUser?.phone ? formatPhone(authUser.phone) : 'Não informado'}</span></div>
+                <div className="flex justify-between"><span>CPF</span><span className="font-semibold">{authUser?.document ? formatCpf(authUser.document) : 'Não informado'}</span></div>
+                <div className="flex justify-between"><span>Tipo</span><span className="font-semibold">{userRole === 'ADMIN' ? 'Operação' : 'Cliente'}</span></div>
+                <div className="flex justify-between"><span>Negócio</span><span className="font-semibold">{businessProfile?.name || 'Ainda não cadastrado'}</span></div>
+                <div className="flex justify-between"><span>Endereço</span><span className="font-semibold">{businessProfile?.address || 'Rua da Esperança, 123'}</span></div>
+              </div>
+            )}
           </div>
           <div className="rounded-[24px] border border-line p-4">
             <p className="text-sm font-semibold uppercase tracking-[0.2em] text-ink-muted">Ações</p>

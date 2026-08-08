@@ -17,6 +17,8 @@ const toViewUser = (dto: ApiUser): User => ({
   email: dto.email,
   role: dto.role,
   avatarUrl: dto.avatarUrl,
+  phone: dto.phone ?? null,
+  document: dto.document ?? null,
 })
 
 /**

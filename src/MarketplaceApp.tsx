@@ -77,6 +77,7 @@ export default function MarketplaceApp() {
         onAddressSubmit={state.onAddressSubmit}
         addressSubmitting={state.addressSubmitting}
         cepLookupPending={state.cepLookupPending}
+        cepNotFound={state.cepNotFound}
       />
 
       <BusinessSetupModal

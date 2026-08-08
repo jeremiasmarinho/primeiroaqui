@@ -146,7 +146,10 @@ paymentRoutes.post('/orders/:id/pay', requireUser, async (c) => {
             // e-commerce). O comprador pode sobrescrever mandando
             // `billingAddress` explicito no body.
             billingAddress: parsed.data.billingAddress ?? {
-              line1: order.address.street,
+              line1: order.address.number
+                ? `${order.address.street}, ${order.address.number}`
+                : order.address.street,
+              line2: order.address.complement ?? undefined,
               zipCode: order.address.zipCode,
               city: order.address.city,
               state: order.address.state,

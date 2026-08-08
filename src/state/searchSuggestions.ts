@@ -1,3 +1,4 @@
+import { normalizeSearchTerm } from '../lib/normalizeSearch'
 import type { Category, Product, Store } from '../types'
 
 export type SearchSuggestionKind = 'produto' | 'categoria' | 'loja'
@@ -34,7 +35,7 @@ export const buildSearchSuggestions = (
   { products, categories, stores }: CatalogSource,
   limit: number = MAX_SUGGESTIONS,
 ): SearchSuggestion[] => {
-  const query = term.trim().toLowerCase()
+  const query = normalizeSearchTerm(term.trim())
   if (!query) return []
 
   const seen = new Set<string>()
@@ -49,15 +50,15 @@ export const buildSearchSuggestions = (
   }
 
   categories
-    .filter((category) => category !== 'Tudo' && category.toLowerCase().includes(query))
+    .filter((category) => category !== 'Tudo' && normalizeSearchTerm(category).includes(query))
     .forEach((category) => tryAdd(category, 'categoria'))
 
   stores
-    .filter((store) => store.name.toLowerCase().includes(query))
+    .filter((store) => normalizeSearchTerm(store.name).includes(query))
     .forEach((store) => tryAdd(store.name, 'loja'))
 
   products
-    .filter((product) => product.title.toLowerCase().includes(query))
+    .filter((product) => normalizeSearchTerm(product.title).includes(query))
     .forEach((product) => tryAdd(product.title, 'produto'))
 
   return suggestions

@@ -112,6 +112,9 @@ export interface User {
   role: Role
   /** Foto de perfil (URL publica do bucket `avatars`); null/ausente mostra iniciais. */
   avatarUrl?: string | null
+  /** Telefone e CPF cadastrados no perfil (Item 3) — pré-preenchem o checkout. */
+  phone?: string | null
+  document?: string | null
 }
 
 export interface Store {
@@ -150,6 +153,9 @@ export interface Address {
   id: string
   label: string
   street: string
+  /** Ausente em endereços legados cadastrados antes do campo existir. */
+  number?: string
+  complement?: string
   city: string
   cep: string
   isDefault: boolean

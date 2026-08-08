@@ -66,8 +66,10 @@ export function useAddressesState(hasSession: boolean) {
   const retry = useCallback(() => setReloadKey((key) => key + 1), [])
 
   const [isCepLookupPending, setIsCepLookupPending] = useState(false)
+  const [isCepNotFound, setIsCepNotFound] = useState(false)
 
   const onAddressFormChange = (patch: Partial<AddressDraft>) => {
+    if (patch.cep !== undefined) setIsCepNotFound(false)
     setAddressForm((prev) => ({
       ...prev,
       ...patch,
@@ -87,9 +89,14 @@ export function useAddressesState(hasSession: boolean) {
     if (!isCompleteCep(lookupCepDigits)) return
     let cancelled = false
     setIsCepLookupPending(true)
+    setIsCepNotFound(false)
     void lookupCep(lookupCepDigits)
       .then((found) => {
-        if (cancelled || !found) return
+        if (cancelled) return
+        if (!found) {
+          setIsCepNotFound(true)
+          return
+        }
         setAddressForm((prev) => ({
           ...prev,
           city: found.city || prev.city,
@@ -120,6 +127,8 @@ export function useAddressesState(hasSession: boolean) {
       const { address } = await api.createAddress({
         label: validated.label,
         street: validated.street,
+        number: validated.number || undefined,
+        complement: validated.complement || undefined,
         city: validated.city,
         state: validated.state,
         zipCode: validated.cep,
@@ -153,6 +162,7 @@ export function useAddressesState(hasSession: boolean) {
     addressError,
     setAddressError,
     isCepLookupPending,
+    isCepNotFound,
     isLoading,
     loadError,
     retry,

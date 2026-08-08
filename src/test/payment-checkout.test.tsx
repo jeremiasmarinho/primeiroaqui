@@ -1,7 +1,9 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
-import { enterAsClient, waitForCatalog } from './authTestHelpers'
-import { seedAddress, setPaymentScenario, setPaymentsEnabled } from './mocks/handlers'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { enterAsClient, seedLoggedInStorage, waitForCatalog } from './authTestHelpers'
+import { db, seedAddress, setPaymentScenario, setPaymentsEnabled } from './mocks/handlers'
 import { ROUTES } from '../router/routes'
+import { STORAGE_KEYS } from '../state/session'
+import MarketplaceApp from '../MarketplaceApp'
 
 /**
  * Etapa de pagamento (Fase 2): cartão tokenizado no navegador, Pix e os
@@ -45,6 +47,59 @@ describe('etapa de pagamento', () => {
     fireEvent.change(screen.getByLabelText('CVV'), { target: { value: '123' } })
     fillValidCustomerFields()
   }
+
+  /**
+   * Item 3: CPF/telefone cadastrados no perfil pré-preenchem o checkout.
+   * Precedência é `user > localStorage` (ver comentário em
+   * usePaymentCheckoutState.ts `initialCustomerForm`) — grava um valor
+   * DIFERENTE no localStorage para provar que o dado do perfil vence.
+   */
+  it('perfil com telefone/CPF salvos pré-preenche o checkout, sobrepondo o localStorage', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.paymentCustomer,
+      JSON.stringify({ cpf: '999.999.999-99', phone: '(11) 90000-0000' }),
+    )
+    db.user.phone = '(31) 98888-7777'
+    db.user.document = '111.444.777-35'
+    seedAddress()
+    // Diferente de `enterAsClient` (atalho dev que nunca chama GET /me),
+    // sessão persistida dispara a revalidação real — é o único caminho para
+    // o perfil (com telefone/CPF) chegar ao formulário.
+    seedLoggedInStorage()
+    render(<MarketplaceApp />)
+    await waitForCatalog()
+    addFirstProduct()
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cartão' }))
+    fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
+    expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText(/número do cartão/i)).not.toBeDisabled())
+
+    expect(screen.getByLabelText('CPF')).toHaveValue('111.444.777-35')
+    expect(screen.getByLabelText(/telefone/i)).toHaveValue('(31) 98888-7777')
+  })
+
+  it('sem telefone/CPF no perfil, cai para o que já estava salvo no localStorage', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.paymentCustomer,
+      JSON.stringify({ cpf: '529.982.247-25', phone: '(11) 98765-4321' }),
+    )
+    seedAddress()
+    seedLoggedInStorage()
+    render(<MarketplaceApp />)
+    await waitForCatalog()
+    addFirstProduct()
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cartão' }))
+    fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
+    expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByLabelText(/número do cartão/i)).not.toBeDisabled())
+
+    expect(screen.getByLabelText('CPF')).toHaveValue('529.982.247-25')
+    expect(screen.getByLabelText(/telefone/i)).toHaveValue('(11) 98765-4321')
+  })
 
   it('cartão feliz: tokeniza, paga e conclui até a tela de pedidos', async () => {
     await goToPaymentStep('Cartão')

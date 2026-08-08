@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { api, ApiError, type ApiOrder, type ApiPaymentCustomer, type ApiPaymentStatus } from '../lib/api'
 import { readStoredJSON, writeStoredJSON } from '../lib/storage'
 import { CardTokenizeError, tokenizeCard } from '../lib/pagarmeTokenize'
 import {
   cardExpiryParts,
+  formatCpf,
+  formatPhone,
   isValidCardExpiry,
   isValidCardNumber,
   isValidCpf,
@@ -13,6 +15,7 @@ import {
   splitPhone,
 } from '../lib/paymentValidation'
 import { STORAGE_KEYS } from './session'
+import type { User } from '../types'
 
 /** Mensagem pt-BR do backend quando houver (erro de rede/status 0 cai no fallback local). */
 const apiErrorMessage = (err: unknown, fallback: string): string =>
@@ -51,6 +54,21 @@ const loadStoredCustomer = (): CustomerFormState =>
   readStoredJSON<CustomerFormState>(STORAGE_KEYS.paymentCustomer, EMPTY_CUSTOMER_FORM, isCustomerFormState)
 
 /**
+ * Precedência do CPF/telefone que pré-preenche o checkout: perfil cadastrado
+ * (`user.document`/`user.phone`, Item 3) primeiro; sem perfil ou sem esses
+ * campos, cai para o que já estava salvo no localStorage (comportamento
+ * anterior, mantido para quem preencheu o formulário de pagamento antes de
+ * editar o perfil).
+ */
+const initialCustomerForm = (user: User | null | undefined): CustomerFormState => {
+  const stored = loadStoredCustomer()
+  return {
+    cpf: user?.document ? formatCpf(user.document) : stored.cpf,
+    phone: user?.phone ? formatPhone(user.phone) : stored.phone,
+  }
+}
+
+/**
  * Etapa de pagamento do checkout: cartão tokenizado no navegador ou Pix.
  *
  * `pendingOrders` cobre a Fase 6 (um pedido por loja): a etapa cobra um por
@@ -58,7 +76,7 @@ const loadStoredCustomer = (): CustomerFormState =>
  * `holderName`/CPF/telefone da PESSOA são os mesmos entre pedidos — só o
  * `orderId`/valor mudam a cada iteração.
  */
-export function usePaymentCheckoutState() {
+export function usePaymentCheckoutState(user?: User | null) {
   const [pendingOrders, setPendingOrders] = useState<ApiOrder[]>([])
   const [paymentIndex, setPaymentIndex] = useState(0)
   const [publicKey, setPublicKey] = useState<string | null>(null)
@@ -74,7 +92,24 @@ export function usePaymentCheckoutState() {
   const [paymentsEnabled, setPaymentsEnabled] = useState<boolean | null>(null)
   const [configError, setConfigError] = useState('')
   const [cardForm, setCardForm] = useState<CardFormState>(EMPTY_CARD_FORM)
-  const [customerForm, setCustomerForm] = useState<CustomerFormState>(loadStoredCustomer)
+  const [customerForm, setCustomerForm] = useState<CustomerFormState>(() => initialCustomerForm(user))
+  // Aplica a precedência `user > localStorage` uma ÚNICA vez, na primeira vez
+  // que o perfil chega com telefone/CPF preenchidos — o mount inicial roda
+  // antes do GET /me (assíncrono) responder, então o estado inicial some com
+  // o localStorage; este efeito corrige assim que o perfil real chega. Depois
+  // disso nunca mais mexe: senão editar o campo durante o checkout e o
+  // perfil re-renderizar apagaria o que a pessoa acabou de digitar.
+  const appliedUserPrefillRef = useRef(false)
+
+  useEffect(() => {
+    if (appliedUserPrefillRef.current) return
+    if (!user?.document && !user?.phone) return
+    appliedUserPrefillRef.current = true
+    setCustomerForm((prev) => ({
+      cpf: user.document ? formatCpf(user.document) : prev.cpf,
+      phone: user.phone ? formatPhone(user.phone) : prev.phone,
+    }))
+  }, [user?.document, user?.phone])
   const [status, setStatus] = useState<PaymentStatus>('idle')
   const [errorMessage, setErrorMessage] = useState('')
   const [pixData, setPixData] = useState<PixData | null>(null)

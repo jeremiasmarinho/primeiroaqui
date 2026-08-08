@@ -227,6 +227,30 @@ describe('TopBar', () => {
     // para visitante e o AppRouter (moreHref = ROUTES.login quando !authUser).
     expect(entrar).toHaveAttribute('href', '/perfil')
   })
+
+  it('a marca (pin + wordmark) aponta para a home', () => {
+    render(<TopBar {...baseProps} />)
+    const brand = screen.getByRole('link', { name: 'Primeiro Aqui' })
+    expect(brand).toHaveAttribute('href', '/')
+  })
+
+  it('a direita fica na ordem busca -> notificacoes -> avatar', () => {
+    render(<TopBar {...baseProps} />)
+    const search = screen.getByLabelText(/buscar produtos, lojas ou categorias/i)
+    const bell = screen.getByRole('button', { name: /^notificações$/i })
+    const avatar = screen.getByRole('link', { name: /abrir perfil/i })
+
+    // DOCUMENT_POSITION_FOLLOWING (4) = o segundo argumento vem depois do no.
+    expect(search.compareDocumentPosition(bell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(bell.compareDocumentPosition(avatar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('visitante: o icone de entrar tambem fica ao lado do sino, na direita', () => {
+    render(<TopBar {...baseProps} isAuthenticated={false} />)
+    const bell = screen.getByRole('button', { name: /^notificações$/i })
+    const entrar = screen.getByRole('link', { name: /entrar ou criar conta/i })
+    expect(bell.compareDocumentPosition(entrar) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
 })
 
 describe('BottomNav', () => {

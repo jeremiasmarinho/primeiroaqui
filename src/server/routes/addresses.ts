@@ -14,16 +14,29 @@ async function parseJsonBody(c: Context<AuthEnv>): Promise<unknown> {
   }
 }
 
-const createAddressSchema = z.object({
-  label: z.string().trim().min(1, 'Label nao pode ser vazio'),
-  street: z.string().trim().min(1, 'Rua nao pode ser vazia'),
-  city: z.string().trim().min(1, 'Cidade nao pode ser vazia'),
-  state: z.string().trim().min(1, 'Estado nao pode ser vazio'),
-  zipCode: z.string().trim().min(1, 'CEP nao pode ser vazio'),
-  latitude: z.number(),
-  longitude: z.number(),
-  isDefault: z.boolean().optional().default(false),
-})
+/**
+ * Regra de negocio pedida pelo usuario: numero presente -> complemento
+ * opcional; sem numero (ex. casa s/n) -> complemento obrigatorio, para o
+ * entregador conseguir achar o endereco. Mesma regra em
+ * `validateAddressDraft` (src/state/addresses.ts), do lado do cliente.
+ */
+const createAddressSchema = z
+  .object({
+    label: z.string().trim().min(1, 'Label nao pode ser vazio'),
+    street: z.string().trim().min(1, 'Rua nao pode ser vazia'),
+    number: z.string().trim().optional(),
+    complement: z.string().trim().optional(),
+    city: z.string().trim().min(1, 'Cidade nao pode ser vazia'),
+    state: z.string().trim().min(1, 'Estado nao pode ser vazio'),
+    zipCode: z.string().trim().min(1, 'CEP nao pode ser vazio'),
+    latitude: z.number(),
+    longitude: z.number(),
+    isDefault: z.boolean().optional().default(false),
+  })
+  .refine((data) => Boolean(data.number?.trim()) || Boolean(data.complement?.trim()), {
+    message: 'Sem numero? Descreva um complemento/referencia para o entregador achar o endereco.',
+    path: ['complement'],
+  })
 
 addressRoutes.post('/addresses', requireUser, async (c) => {
   const body = await parseJsonBody(c)
@@ -36,7 +49,8 @@ addressRoutes.post('/addresses', requireUser, async (c) => {
   }
 
   const authedUser = c.get('authedUser')
-  const { label, street, city, state, zipCode, latitude, longitude, isDefault } = parsed.data
+  const { label, street, number, complement, city, state, zipCode, latitude, longitude, isDefault } =
+    parsed.data
 
   // `userId` sempre vem do contexto autenticado, nunca do body.
   const address = await prisma.$transaction(async (tx) => {
@@ -51,6 +65,8 @@ addressRoutes.post('/addresses', requireUser, async (c) => {
         userId: authedUser.id,
         label,
         street,
+        number: number?.trim() || null,
+        complement: complement?.trim() || null,
         city,
         state,
         zipCode,

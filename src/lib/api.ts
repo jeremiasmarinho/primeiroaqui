@@ -29,6 +29,9 @@ export interface ApiUser {
   name: string
   role: ApiRole
   avatarUrl: string | null
+  /** Presentes só nas respostas que incluem o perfil completo (ex.: PATCH /me). */
+  phone?: string | null
+  document?: string | null
 }
 
 export interface ApiSession {
@@ -103,6 +106,8 @@ export interface ApiAddress {
   userId: string
   label: string
   street: string
+  number?: string | null
+  complement?: string | null
   city: string
   state: string
   zipCode: string
@@ -502,6 +507,8 @@ export const api = {
   createAddress: (input: {
     label: string
     street: string
+    number?: string
+    complement?: string
     city: string
     state: string
     zipCode: string
@@ -585,6 +592,14 @@ export const api = {
   },
 
   removeAvatar: () => request<{ user: ApiUser }>('/me/avatar', { method: 'DELETE' }),
+
+  /**
+   * PATCH parcial do próprio perfil (nome, telefone, CPF). Campos ausentes
+   * mantêm o valor atual; `''` explícito limpa telefone/CPF (mesmo contrato
+   * do servidor, ver src/server/routes/me.ts).
+   */
+  updateMe: (input: { name?: string; phone?: string; document?: string }) =>
+    request<{ user: ApiUser }>('/me', { method: 'PATCH', body: input }),
 
   uploadStoreLogo: (storeId: string, file: File) => {
     const form = new FormData()

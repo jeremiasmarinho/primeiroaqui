@@ -1,3 +1,4 @@
+import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fireEvent, render, screen, within } from '@testing-library/react'
 
@@ -7,6 +8,7 @@ import { ROUTES } from '../router/routes'
 import { EMPTY_ADDRESS } from '../state/addresses'
 import { makeAddress } from './factories'
 import { seedLoggedInStorage, waitForCatalog } from './authTestHelpers'
+import { server } from './mocks/server'
 
 /**
  * WU-48 → fase de integração — endereços agora vêm de POST/GET reais
@@ -46,7 +48,14 @@ describe('AddressesScreen — os tres estados', () => {
 
     expect(screen.getByText(/nenhum endereço salvo/i)).toBeInTheDocument()
     expect(screen.getByRole('link', { name: /explorar ofertas/i })).toBeInTheDocument()
-    expect(screen.getByLabelText('Rua e número')).toBeInTheDocument()
+    expect(screen.getByLabelText('Rua')).toBeInTheDocument()
+  })
+
+  it('o cep e o primeiro campo do formulario', () => {
+    render(<AddressesScreen {...baseProps} />)
+
+    const inputs = screen.getAllByRole('textbox')
+    expect(inputs[0]).toHaveAttribute('id', 'endereco-cep')
   })
 
   it('todo campo do formulario tem label associado', () => {
@@ -81,19 +90,27 @@ describe('enderecos ponta a ponta', () => {
   const fillAddress = async (values: {
     label: string
     street: string
+    number?: string
+    complement?: string
     city: string
     state?: string
     cep: string
   }) => {
-    fireEvent.change(await screen.findByLabelText('Nome do endereço'), { target: { value: values.label } })
-    fireEvent.change(screen.getByLabelText('Rua e número'), { target: { value: values.street } })
+    fireEvent.change(await screen.findByLabelText('CEP'), { target: { value: values.cep } })
+    fireEvent.change(screen.getByLabelText('Rua'), { target: { value: values.street } })
     fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: values.city } })
     fireEvent.change(screen.getByLabelText('Estado (UF)'), { target: { value: values.state ?? 'SP' } })
-    fireEvent.change(screen.getByLabelText('CEP'), { target: { value: values.cep } })
+    if (values.number !== undefined) {
+      fireEvent.change(screen.getByLabelText('Número'), { target: { value: values.number } })
+    }
+    if (values.complement !== undefined) {
+      fireEvent.change(screen.getByLabelText('Complemento'), { target: { value: values.complement } })
+    }
+    fireEvent.change(screen.getByLabelText('Nome do endereço'), { target: { value: values.label } })
     fireEvent.click(screen.getByRole('button', { name: /salvar endereço/i }))
   }
 
-  const casa = { label: 'Casa', street: 'Rua das Flores, 45', city: 'Centro', cep: '12345678' }
+  const casa = { label: 'Casa', street: 'Rua das Flores', number: '45', city: 'Centro', cep: '12345678' }
 
   it('cadastra via POST real, mascara o cep e marca o primeiro como padrao', async () => {
     seedLoggedInStorage()
@@ -216,6 +233,35 @@ describe('enderecos ponta a ponta', () => {
     render(<MarketplaceApp />)
 
     expect(await screen.findByText(/rua das flores, 45/i)).toBeInTheDocument()
+  })
+
+  it('cep valido preenche rua/cidade/uf automaticamente (autofill ViaCEP)', async () => {
+    server.use(
+      http.get('https://viacep.com.br/ws/:cep/json/', () =>
+        HttpResponse.json({ logradouro: 'Avenida Paulista', localidade: 'São Paulo', uf: 'SP' }),
+      ),
+    )
+    seedLoggedInStorage()
+    goTo(ROUTES.addresses)
+    render(<MarketplaceApp />)
+
+    fireEvent.change(await screen.findByLabelText('CEP'), { target: { value: '01310100' } })
+
+    expect(await screen.findByLabelText('Rua')).toHaveValue('Avenida Paulista')
+    expect(screen.getByLabelText('Cidade')).toHaveValue('São Paulo')
+    expect(screen.getByLabelText('Estado (UF)')).toHaveValue('SP')
+  })
+
+  it('cep nao encontrado avisa e libera preenchimento manual', async () => {
+    server.use(http.get('https://viacep.com.br/ws/:cep/json/', () => HttpResponse.json({ erro: true })))
+    seedLoggedInStorage()
+    goTo(ROUTES.addresses)
+    render(<MarketplaceApp />)
+
+    fireEvent.change(await screen.findByLabelText('CEP'), { target: { value: '99999999' } })
+
+    expect(await screen.findByText(/cep não encontrado/i)).toBeInTheDocument()
+    expect(screen.getByLabelText('Rua')).not.toBeDisabled()
   })
 
   it('deep link em /enderecos sem sessao volta para /entrar', () => {

@@ -20,7 +20,7 @@ import { useCartCheckoutState } from './useCartCheckoutState'
 import { usePaymentCheckoutState } from './usePaymentCheckoutState'
 import { useBusinessSetupState } from './useBusinessSetupState'
 import { useAddressesState } from './useAddressesState'
-import { CEP_ERROR_MESSAGE, formatAddressLine, isValidCep } from './addresses'
+import { CEP_ERROR_MESSAGE, addressToDeliveryPatch, formatAddress, isValidCep } from './addresses'
 import type { Order, Product, Role } from '../types'
 
 /**
@@ -42,10 +42,13 @@ export function useMarketplaceState() {
   const catalog = useCatalogState()
   const remoteCatalog = useRemoteCatalog()
   const cartCheckout = useCartCheckoutState()
-  const payment = usePaymentCheckoutState()
   // Fecha a gaveta do carrinho antes de qualquer redirecionamento para
   // /entrar: veja o comentário de `onBeforeRedirect` em useSessionState.
   const session = useSessionState(navigate, () => cartCheckout.setIsCartOpen(false))
+  // `session.authUser` precisa existir ANTES de montar o pagamento: telefone
+  // e CPF salvos no perfil pré-preenchem o checkout (ver precedência em
+  // usePaymentCheckoutState.ts).
+  const payment = usePaymentCheckoutState(session.authUser)
   const admin = useBusinessSetupState()
   const addresses = useAddressesState(!!session.authUser)
   const [repeatError, setRepeatError] = useState('')
@@ -254,9 +257,7 @@ export function useMarketplaceState() {
     addresses.setSelectedAddressId(id)
     cartCheckout.setDeliveryForm((prev) => ({
       ...prev,
-      address: address.street,
-      city: address.city,
-      cep: address.cep,
+      ...addressToDeliveryPatch(address),
     }))
   }
 
@@ -833,7 +834,7 @@ export function useMarketplaceState() {
     addressesLoading: addresses.isLoading,
     addressesError: addresses.loadError,
     onRetryAddresses: addresses.retry,
-    addressLine: addresses.defaultAddress ? formatAddressLine(addresses.defaultAddress) : '',
+    addressLine: addresses.defaultAddress ? formatAddress(addresses.defaultAddress) : '',
     addressForm: addresses.addressForm,
     addressError: addresses.addressError,
     onAddressFormChange: addresses.onAddressFormChange,
@@ -842,6 +843,7 @@ export function useMarketplaceState() {
     },
     addressSubmitting: addresses.isSubmitting,
     cepLookupPending: addresses.isCepLookupPending,
+    cepNotFound: addresses.isCepNotFound,
     selectedAddressId: addresses.selectedAddressId,
     onSelectAddress: handleSelectAddress,
   }
