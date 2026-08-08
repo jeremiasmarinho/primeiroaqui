@@ -17,9 +17,11 @@ import { api, ApiError, type ApiUser } from '../lib/api'
  * shape esperado e cobrir qualquer chamada feita fora deste arquivo.
  */
 describe('avatar de perfil', () => {
-  const goToProfile = () => {
+  // ProfileScreen é lazy (WU perf/B-BUDGET): quem chama precisa aguardar (await).
+  const goToProfile = async () => {
     const nav = screen.getByRole('navigation', { name: /navegação principal/i })
     fireEvent.click(within(nav).getByRole('link', { name: /^mais$/i }))
+    await screen.findByLabelText(/selecionar foto de perfil/i)
   }
 
   const jpegFile = (name = 'foto.jpg') => new File(['fake-image-bytes'], name, { type: 'image/jpeg' })
@@ -42,7 +44,7 @@ describe('avatar de perfil', () => {
       user: { ...baseUser, avatarUrl: 'https://example.com/avatar.jpg' },
     })
     enterAsClient()
-    goToProfile()
+    await goToProfile()
 
     const input = screen.getByLabelText(/selecionar foto de perfil/i) as HTMLInputElement
     fireEvent.change(input, { target: { files: [jpegFile()] } })
@@ -61,7 +63,7 @@ describe('avatar de perfil', () => {
       new ApiError('Tipo de arquivo nao suportado: text/plain', 400),
     )
     enterAsClient()
-    goToProfile()
+    await goToProfile()
 
     const input = screen.getByLabelText(/selecionar foto de perfil/i) as HTMLInputElement
     const badFile = new File(['nao e imagem'], 'arquivo.txt', { type: 'text/plain' })
@@ -80,7 +82,7 @@ describe('avatar de perfil', () => {
     })
     vi.spyOn(api, 'removeAvatar').mockResolvedValue({ user: { ...baseUser, avatarUrl: null } })
     enterAsClient()
-    goToProfile()
+    await goToProfile()
 
     const input = screen.getByLabelText(/selecionar foto de perfil/i) as HTMLInputElement
     fireEvent.change(input, { target: { files: [jpegFile()] } })

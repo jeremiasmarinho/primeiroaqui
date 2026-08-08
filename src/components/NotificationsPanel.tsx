@@ -1,6 +1,11 @@
 import { BellOff, CheckCircle2, ChevronRight, Info, TriangleAlert } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link } from 'wouter'
+import { formatRelativeTime } from '../lib/relativeTime'
 import type { Notification } from '../types'
+
+/** Intervalo do "tick" que reavalia o tempo relativo enquanto o painel está aberto. */
+const TICK_INTERVAL_MS = 30_000
 
 const icons: Record<Notification['type'], typeof Info> = {
   info: Info,
@@ -21,6 +26,16 @@ interface NotificationsPanelProps {
 
 /** Painel de notificações reais (checkout, cadastro de loja, erros de ação) — sem mock. */
 export default function NotificationsPanel({ notifications, onClose }: NotificationsPanelProps) {
+  // Painel fica aberto e o tempo relativo precisa se atualizar sozinho (ex.:
+  // "agora" -> "há 1 min") sem exigir reabrir. Re-render a cada 30s é barato:
+  // a lista tem no máximo 4 itens.
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), TICK_INTERVAL_MS)
+    return () => clearInterval(timer)
+  }, [])
+
   return (
     <div
       role="dialog"
@@ -48,12 +63,21 @@ export default function NotificationsPanel({ notifications, onClose }: Notificat
         <ul className="max-h-80 divide-y divide-line overflow-y-auto">
           {notifications.map((notification) => {
             const Icon = icons[notification.type]
+            const relativeTime = formatRelativeTime(notification.createdAt, now)
             const body = (
               <>
                 <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${tones[notification.type]}`} aria-hidden="true" />
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-ink">{notification.title}</p>
-                  <p className="mt-0.5 text-sm text-ink-muted">{notification.message}</p>
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-sm font-bold text-ink">{notification.title}</p>
+                    <span className="shrink-0 text-micro text-ink-faint" aria-hidden="true">
+                      {relativeTime}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-sm text-ink-muted">
+                    {notification.message}
+                    <span className="sr-only">, {relativeTime}</span>
+                  </p>
                 </div>
               </>
             )

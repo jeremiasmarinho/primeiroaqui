@@ -95,7 +95,8 @@ describe('favoritos ponta a ponta', () => {
     fireEvent.click(within(bottomNav()).getByRole('link', { name: /favoritos/i }))
     expect(window.location.pathname).toBe(ROUTES.favorites)
 
-    const main = screen.getByRole('main')
+    // FavoritesScreen é lazy (WU perf/B-BUDGET): aguarda o chunk resolver.
+    const main = await screen.findByRole('main')
     expect(within(main).getByRole('link', { name: title })).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`remover ${title} dos favoritos`, 'i') }))

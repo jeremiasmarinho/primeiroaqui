@@ -3,15 +3,10 @@ import { lazy, Suspense, useEffect } from 'react'
 import { Redirect, Route, Switch, useLocation } from 'wouter'
 
 import EmptyState from '../components/EmptyState'
-import AddressesScreen from '../screens/AddressesScreen'
-import CategoriesScreen from '../screens/CategoriesScreen'
-import FavoritesScreen from '../screens/FavoritesScreen'
 import HomeScreen from '../screens/HomeScreen'
 import LoginScreen from '../screens/LoginScreen'
 
-import OrdersScreen from '../screens/OrdersScreen'
 import ProductScreen from '../screens/ProductScreen'
-import ProfileScreen from '../screens/ProfileScreen'
 
 import StoreScreen from '../screens/StoreScreen'
 import type { AdminTab } from '../screens/admin/AdminScreen'
@@ -38,6 +33,17 @@ const OAuthCallbackScreen = lazy(() => import('../screens/OAuthCallbackScreen'))
  * de quem só compra.
  */
 const StoreDashboardScreen = lazy(() => import('../screens/store/StoreDashboardScreen'))
+
+/**
+ * WU perf/B-BUDGET: telas fora do caminho crítico da primeira dobra (Home /
+ * Product / Store / Login ficam eager). Code splitting libera espaço no
+ * orçamento de bundle inicial para a feature de notificações.
+ */
+const CategoriesScreen = lazy(() => import('../screens/CategoriesScreen'))
+const FavoritesScreen = lazy(() => import('../screens/FavoritesScreen'))
+const AddressesScreen = lazy(() => import('../screens/AddressesScreen'))
+const OrdersScreen = lazy(() => import('../screens/OrdersScreen'))
+const ProfileScreen = lazy(() => import('../screens/ProfileScreen'))
 
 /** Fallback acessível enquanto o chunk do painel admin carrega. */
 const AdminScreenFallback = () => (
@@ -180,12 +186,14 @@ export default function AppRouter(props: AppRouterProps) {
       </Route>
 
       <Route path={ROUTE_PATTERNS.categories}>
-        <CategoriesScreen
-          categories={props.categories}
-          products={props.products}
-          isLoading={props.productsLoading}
-          error={props.productsError}
-        />
+        <Suspense fallback={<AdminScreenFallback />}>
+          <CategoriesScreen
+            categories={props.categories}
+            products={props.products}
+            isLoading={props.productsLoading}
+            error={props.productsError}
+          />
+        </Suspense>
       </Route>
 
       <Route path={ROUTE_PATTERNS.product}>
@@ -221,58 +229,66 @@ export default function AppRouter(props: AppRouterProps) {
       </Route>
 
       <Route path={ROUTE_PATTERNS.favorites}>
-        <FavoritesScreen
-          favorites={props.favorites}
-          onToggleFavorite={props.onToggleFavorite}
-          onAddToCart={props.onAddToCart}
-          onOpenCart={props.onOpenCart}
-          cartCount={props.cartCount}
-          moreHref={moreHref}
-        />
+        <Suspense fallback={<AdminScreenFallback />}>
+          <FavoritesScreen
+            favorites={props.favorites}
+            onToggleFavorite={props.onToggleFavorite}
+            onAddToCart={props.onAddToCart}
+            onOpenCart={props.onOpenCart}
+            cartCount={props.cartCount}
+            moreHref={moreHref}
+          />
+        </Suspense>
       </Route>
 
       <Route path={ROUTE_PATTERNS.orders}>
-        <OrdersScreen
-          orders={props.orders}
-          isLoading={props.ordersLoading}
-          error={props.ordersError}
-          onRetry={props.onRetryOrders}
-          onRepeatOrder={props.onRepeatOrder}
-          repeatError={props.repeatError}
-          onOpenCart={props.onOpenCart}
-          cartCount={props.cartCount}
-          favoritesCount={props.favorites.length}
-          moreHref={moreHref}
-        />
+        <Suspense fallback={<AdminScreenFallback />}>
+          <OrdersScreen
+            orders={props.orders}
+            isLoading={props.ordersLoading}
+            error={props.ordersError}
+            onRetry={props.onRetryOrders}
+            onRepeatOrder={props.onRepeatOrder}
+            repeatError={props.repeatError}
+            onOpenCart={props.onOpenCart}
+            cartCount={props.cartCount}
+            favoritesCount={props.favorites.length}
+            moreHref={moreHref}
+          />
+        </Suspense>
       </Route>
 
       <Route path={ROUTE_PATTERNS.addresses}>
-        <AddressesScreen
-          addresses={props.addresses}
-          isLoading={props.addressesLoading}
-          error={props.addressesError}
-          addressForm={props.addressForm}
-          addressError={props.addressError}
-          onAddressFormChange={props.onAddressFormChange}
-          onAddressSubmit={props.onAddressSubmit}
-          isSubmitting={props.addressSubmitting}
-          isCepLookupPending={props.cepLookupPending}
-        />
+        <Suspense fallback={<AdminScreenFallback />}>
+          <AddressesScreen
+            addresses={props.addresses}
+            isLoading={props.addressesLoading}
+            error={props.addressesError}
+            addressForm={props.addressForm}
+            addressError={props.addressError}
+            onAddressFormChange={props.onAddressFormChange}
+            onAddressSubmit={props.onAddressSubmit}
+            isSubmitting={props.addressSubmitting}
+            isCepLookupPending={props.cepLookupPending}
+          />
+        </Suspense>
       </Route>
 
       <Route path={ROUTE_PATTERNS.profile}>
-        <ProfileScreen
-          authUser={authUser}
-          onAuthUserChange={props.onAuthUserChange}
-          userRole={userRole}
-          businessProfile={props.businessProfile}
-          favorites={props.favorites}
-          orders={props.orders}
-          onBack={() => navigate(ROUTES.home)}
-          onLogout={props.onLogout}
-          onToggleFavorite={props.onToggleFavorite}
-          onBecomeStoreOwner={props.onBecomeStoreOwner}
-        />
+        <Suspense fallback={<AdminScreenFallback />}>
+          <ProfileScreen
+            authUser={authUser}
+            onAuthUserChange={props.onAuthUserChange}
+            userRole={userRole}
+            businessProfile={props.businessProfile}
+            favorites={props.favorites}
+            orders={props.orders}
+            onBack={() => navigate(ROUTES.home)}
+            onLogout={props.onLogout}
+            onToggleFavorite={props.onToggleFavorite}
+            onBecomeStoreOwner={props.onBecomeStoreOwner}
+          />
+        </Suspense>
       </Route>
 
       <Route path={ROUTE_PATTERNS.myStore}>

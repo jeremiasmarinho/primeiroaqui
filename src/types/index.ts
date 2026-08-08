@@ -174,6 +174,8 @@ export interface Notification {
   type: 'info' | 'success' | 'warning'
   /** Destino ao clicar (rota interna). Sem href, o item não é clicável. */
   href?: string
+  /** Epoch ms de criação, usado pelo cronômetro do painel. */
+  createdAt: number
 }
 
 export interface ThreadMessage {

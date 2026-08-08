@@ -73,7 +73,8 @@ const MAX_TOTAL_BYTES = MAX_TOTAL_KB * 1024
 // Chunks lazy conhecidos (nome do arquivo gerado pelo Vite = nome da tela).
 // Qualquer chunk cujo nome NÃO case aqui conta como inicial — o padrão seguro:
 // um chunk novo desconhecido pesa no orçamento apertado até ser classificado.
-const LAZY_CHUNK_PATTERN = /^(AdminScreen|StoreDashboardScreen|ResetPasswordScreen|OAuthCallbackScreen)-/
+const LAZY_CHUNK_PATTERN =
+  /^(AdminScreen|StoreDashboardScreen|ResetPasswordScreen|OAuthCallbackScreen|CategoriesScreen|FavoritesScreen|AddressesScreen|OrdersScreen|ProfileScreen)-/
 
 const main = () => {
   if (!fs.existsSync(assetsDir)) {

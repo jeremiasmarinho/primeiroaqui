@@ -145,7 +145,7 @@ describe('rotas', () => {
       expect(screen.getByLabelText('Senha')).toBeInTheDocument()
     })
 
-    it('apos login, retoma a rota protegida de origem (nao a vitrine)', () => {
+    it('apos login, retoma a rota protegida de origem (nao a vitrine)', async () => {
       goTo(ROUTES.orders)
       render(<MarketplaceApp />)
 
@@ -153,7 +153,8 @@ describe('rotas', () => {
       fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
 
       expect(window.location.pathname).toBe(ROUTES.orders)
-      expect(screen.getByRole('heading', { name: /minhas compras/i })).toBeInTheDocument()
+      // OrdersScreen é lazy (WU perf/B-BUDGET): aguarda o chunk resolver.
+      expect(await screen.findByRole('heading', { name: /minhas compras/i })).toBeInTheDocument()
     })
   })
 

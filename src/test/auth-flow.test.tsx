@@ -45,14 +45,15 @@ describe('auth flow', () => {
     expect(screen.queryByRole('button', { name: 'Painel' })).not.toBeInTheDocument()
   })
 
-  it('logout faz navegação dura para a home e limpa sessao', () => {
+  it('logout faz navegação dura para a home e limpa sessao', async () => {
     localStorage.setItem('primeiroaqui_user', JSON.stringify({ name: 'Ana', email: 'ana@teste.com', role: 'client' }))
     localStorage.setItem('primeiroaqui_cart', JSON.stringify({ items: [{ product: { id: 1, title: 'Produto', price: 10 }, quantity: 1 }] }))
 
     render(<MarketplaceApp />)
 
     fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
-    fireEvent.click(screen.getByRole('button', { name: /sair da conta/i }))
+    // ProfileScreen é lazy (WU perf/B-BUDGET): aguarda o chunk resolver.
+    fireEvent.click(await screen.findByRole('button', { name: /sair da conta/i }))
 
     // Logout agora faz hardNavigate(ROUTES.home) — não mais SPA para /entrar.
     // O mock padrão de teste (setup.ts) reescreve a URL e simula o popstate;

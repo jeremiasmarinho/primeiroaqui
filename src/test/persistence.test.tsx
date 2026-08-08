@@ -134,7 +134,8 @@ describe('persistencia', () => {
       fireEvent.click(screen.getByRole('button', { name: /fechar carrinho/i }))
 
       fireEvent.click(screen.getByRole('link', { name: /^mais$/i }))
-      fireEvent.click(screen.getByRole('button', { name: /sair da conta/i }))
+      // ProfileScreen é lazy (WU perf/B-BUDGET): aguarda o chunk resolver.
+      fireEvent.click(await screen.findByRole('button', { name: /sair da conta/i }))
 
       // O carrinho passou a persistir sempre (Task 4 — visitante também
       // precisa sobreviver a reload), então logout não some com a chave;

@@ -29,9 +29,16 @@ export function useCatalogState() {
   const [favorites, setFavorites] = useState<Product[]>(() =>
     readStoredJSON<Product[]>(STORAGE_KEYS.favorites, []),
   )
-  const [notifications, setNotifications] = useState<Notification[]>(() =>
-    readStoredJSON(STORAGE_KEYS.notifications, initialNotifications),
-  )
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const stored = readStoredJSON(STORAGE_KEYS.notifications, initialNotifications)
+    // Migração: notificações persistidas antes do cronômetro não tem
+    // `createdAt`. Storage velho ganha o momento da migração em vez de
+    // quebrar a leitura ou virar "agora" para sempre.
+    const migratedAt = Date.now()
+    return stored.map((notification) =>
+      typeof notification.createdAt === 'number' ? notification : { ...notification, createdAt: migratedAt },
+    )
+  })
   // Nao lidas: quantas notificacoes existem desde a ultima vez que o sino foi
   // aberto. Nao precisa persistir — reabrir o app com o sino fechado e ok
   // mostrar tudo como nao lido de novo, e evita mais uma chave de storage.
@@ -54,7 +61,9 @@ export function useCatalogState() {
     type: Notification['type'] = 'info',
     href?: string,
   ) => {
-    setNotifications((prev) => [{ id: prev.length + 1, title, message, type, href }, ...prev].slice(0, 4))
+    setNotifications((prev) =>
+      [{ id: prev.length + 1, title, message, type, href, createdAt: Date.now() }, ...prev].slice(0, 4),
+    )
     setUnreadCount((prev) => prev + 1)
     // Notificação persiste no sino; o toast é só o flash imediato da mesma ação.
     pushToast(message, toastTypeByNotification[type])
