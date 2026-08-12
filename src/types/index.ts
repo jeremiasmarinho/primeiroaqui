@@ -202,7 +202,7 @@ export interface Coupon {
 }
 
 export interface Notification {
-  id: number
+  id: string
   title: string
   message: string
   type: 'info' | 'success' | 'warning'
