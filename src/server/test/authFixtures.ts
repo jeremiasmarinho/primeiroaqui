@@ -37,8 +37,18 @@ export const createFixtureUser = async (role: UserRole) => {
   return { email, password, authUserId: data.user.id, user }
 }
 
-/** Remove o usuario fixture do Prisma e do Supabase Auth (ordem importa: FK aponta para authUserId). */
+/**
+ * Remove o usuario fixture do Prisma e do Supabase Auth (ordem importa: FK
+ * aponta para authUserId). Apaga antes as Notification do usuario — a FK
+ * `notifications_userId_fkey` e RESTRICT, entao qualquer teste que exercite
+ * um fluxo real que gera notificação (checkout, criação de loja, webhook de
+ * pagamento) para este usuário faria este delete falhar sem isso.
+ */
 export const deleteFixtureUser = async (authUserId: string) => {
+  const user = await prisma.user.findUnique({ where: { authUserId } })
+  if (user) {
+    await prisma.notification.deleteMany({ where: { userId: user.id } })
+  }
   await prisma.user.deleteMany({ where: { authUserId } })
   await supabaseAdmin.auth.admin.deleteUser(authUserId).catch(() => undefined)
 }
