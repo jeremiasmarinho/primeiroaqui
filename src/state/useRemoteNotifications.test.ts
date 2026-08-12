@@ -55,4 +55,30 @@ describe('useRemoteNotifications', () => {
     expect(result.current.unreadCount).toBe(0)
     await waitFor(() => expect(markNotificationsReadMock).toHaveBeenCalledTimes(1))
   })
+
+  it('nao resurrecta notificacoes apos enabled virar false em pleno voo', async () => {
+    let resolveFetch: (value: { notifications: never[]; unreadCount: number }) => void
+    listNotificationsMock.mockImplementation(
+      () => new Promise((resolve) => { resolveFetch = resolve }),
+    )
+
+    const { result, rerender } = renderHook(({ enabled }) => useRemoteNotifications(enabled), {
+      initialProps: { enabled: true },
+    })
+
+    rerender({ enabled: false })
+
+    await act(async () => {
+      resolveFetch!({
+        notifications: [
+          { id: '1', title: 'T', message: 'M', type: 'info', href: null, isRead: false, createdAt: 1000 },
+        ] as never,
+        unreadCount: 1,
+      })
+      await Promise.resolve()
+    })
+
+    expect(result.current.notifications).toHaveLength(0)
+    expect(result.current.unreadCount).toBe(0)
+  })
 })

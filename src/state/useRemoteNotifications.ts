@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '../lib/api'
 import type { Notification } from '../types'
 
@@ -14,10 +14,16 @@ export function useRemoteNotifications(enabled: boolean) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
 
+  const enabledRef = useRef(enabled)
+  useEffect(() => {
+    enabledRef.current = enabled
+  }, [enabled])
+
   const fetchNotifications = useCallback(async () => {
-    if (!enabled) return
+    if (!enabledRef.current) return
     try {
       const { notifications: dtos, unreadCount: count } = await api.listNotifications()
+      if (!enabledRef.current) return
       setNotifications(
         dtos.map((dto) => ({
           id: dto.id,
@@ -32,7 +38,7 @@ export function useRemoteNotifications(enabled: boolean) {
     } catch {
       // Silencioso: notificações são conveniência, não bloqueiam o app.
     }
-  }, [enabled])
+  }, [])
 
   useEffect(() => {
     if (!enabled) {
