@@ -6,7 +6,7 @@ import NotificationsPanel from './NotificationsPanel'
 import type { Notification } from '../types'
 
 const notification = (overrides: Partial<Notification> = {}): Notification => ({
-  id: 1,
+  id: '1',
   title: 'Compra confirmada',
   message: 'Pedido confirmado! Acompanhe em Meus pedidos.',
   type: 'success',

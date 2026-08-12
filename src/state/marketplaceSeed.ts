@@ -2,16 +2,10 @@ import type {
   BusinessProfile,
   CartItem,
   DeliveryForm,
-  Notification,
   Product,
   Thread,
   User,
 } from '../types'
-
-// Sem notificação fake de largada: a lista só ganha itens quando uma ação
-// real acontece (checkout, cadastro de loja, erro de favoritos etc. — ver
-// catalog.addNotification em useMarketplaceState.ts).
-export const initialNotifications: Notification[] = []
 
 export const initialThreads: Thread[] = [
   {

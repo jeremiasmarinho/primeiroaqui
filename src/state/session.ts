@@ -9,7 +9,6 @@ export const STORAGE_KEYS = {
   messages: 'primeiroaqui_messages',
   currentOrder: 'primeiroaqui_current_order',
   business: 'primeiroaqui_business',
-  notifications: 'primeiroaqui_notifications',
   addresses: 'primeiroaqui_addresses',
   searchHistory: 'primeiroaqui_search_history',
   /**

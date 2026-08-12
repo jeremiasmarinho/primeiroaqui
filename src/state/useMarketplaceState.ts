@@ -20,6 +20,7 @@ import { useCartCheckoutState } from './useCartCheckoutState'
 import { usePaymentCheckoutState } from './usePaymentCheckoutState'
 import { useBusinessSetupState } from './useBusinessSetupState'
 import { useAddressesState } from './useAddressesState'
+import { useRemoteNotifications } from './useRemoteNotifications'
 import { CEP_ERROR_MESSAGE, addressToDeliveryPatch, formatAddress, isValidCep } from './addresses'
 import type { Order, Product, Role } from '../types'
 
@@ -51,6 +52,7 @@ export function useMarketplaceState() {
   const payment = usePaymentCheckoutState(session.authUser)
   const admin = useBusinessSetupState()
   const addresses = useAddressesState(!!session.authUser)
+  const remoteNotifications = useRemoteNotifications(!!session.authUser)
   const [repeatError, setRepeatError] = useState('')
   const [isConfirmingOrder, setIsConfirmingOrder] = useState(false)
 
@@ -204,9 +206,6 @@ export function useMarketplaceState() {
   }, [dropLocalSession])
 
   useEffect(() => {
-    writeStoredJSON(STORAGE_KEYS.notifications, catalog.notifications)
-  }, [catalog.notifications])
-  useEffect(() => {
     writeStoredJSON(STORAGE_KEYS.user, session.authUser)
   }, [session.authUser])
 
@@ -275,11 +274,7 @@ export function useMarketplaceState() {
   }
 
   const notifyFavoriteError = (err: unknown) =>
-    catalog.addNotification(
-      'Favoritos',
-      apiErrorMessage(err, 'Não foi possível atualizar seus favoritos.'),
-      'warning',
-    )
+    pushToast(apiErrorMessage(err, 'Não foi possível atualizar seus favoritos.'), 'error')
 
   /**
    * Otimista: a UI muda na hora e a API confirma atrás. Se a chamada falhar,
@@ -488,12 +483,7 @@ export function useMarketplaceState() {
       session.setUserRole(user.role)
       admin.setIsSetupOpen(true)
     } catch (err) {
-      catalog.addNotification(
-        'Cadastro de lojista',
-        apiErrorMessage(err, 'Não foi possível iniciar seu cadastro de lojista. Tente novamente.'),
-        'warning',
-        ROUTES.profile,
-      )
+      pushToast(apiErrorMessage(err, 'Não foi possível iniciar seu cadastro de lojista. Tente novamente.'), 'error')
     }
   }
 
@@ -534,19 +524,10 @@ export function useMarketplaceState() {
       }
       admin.setBusinessProfile({ ...admin.setupForm, name: created.store.name })
       admin.setIsSetupOpen(false)
-      catalog.addNotification(
-        'Loja criada',
-        `${created.store.name} já está no Primeiro Aqui. Publique seus produtos!`,
-        'success',
-        ROUTES.myStore,
-      )
+      pushToast(`${created.store.name} já está no Primeiro Aqui. Publique seus produtos!`, 'success')
       navigate(ROUTES.myStore)
     } catch (err) {
-      catalog.addNotification(
-        'Cadastro do negócio',
-        apiErrorMessage(err, 'Não foi possível criar sua loja. Tente novamente.'),
-        'warning',
-      )
+      pushToast(apiErrorMessage(err, 'Não foi possível criar sua loja. Tente novamente.'), 'error')
     }
   }
 
@@ -652,13 +633,11 @@ export function useMarketplaceState() {
         // Comportamento PRE-FASE 2: sem chaves no ambiente, o pedido fica
         // PENDING de pagamento (paymentStatus NONE, sem tentativa) e o
         // checkout encerra na hora — igual ao fluxo anterior a esta feature.
-        catalog.addNotification(
-          'Compra confirmada',
+        pushToast(
           orders.length > 1
             ? `Seus ${orders.length} pedidos foram confirmados (um por loja).`
             : 'Pedido confirmado! Acompanhe em Meus pedidos.',
           'success',
-          ROUTES.orders,
         )
         closeCheckoutDrawer()
       }
@@ -688,14 +667,6 @@ export function useMarketplaceState() {
 
   /** Roda quando o ÚLTIMO pedido pendente termina de ser pago: fecha o loop do checkout. */
   const finishCheckoutAfterPayment = () => {
-    catalog.addNotification(
-      'Compra confirmada',
-      payment.totalPayments > 1
-        ? `Seus ${payment.totalPayments} pedidos foram pagos (um por loja).`
-        : 'Pagamento confirmado! Acompanhe em Meus pedidos.',
-      'success',
-      ROUTES.orders,
-    )
     pushToast('Pagamento confirmado!', 'success')
     payment.resetPayment()
     closeCheckoutDrawer()
@@ -776,9 +747,9 @@ export function useMarketplaceState() {
     onAddToCart: cartCheckout.handleAddToCart,
     onBuyNow: guardedBuyNow,
     cartCount: cartCheckout.cartItemsCount,
-    notifications: catalog.notifications,
-    notificationCount: catalog.unreadCount,
-    onNotificationsOpen: catalog.markNotificationsRead,
+    notifications: remoteNotifications.notifications,
+    notificationCount: remoteNotifications.unreadCount,
+    onNotificationsOpen: remoteNotifications.markRead,
     onOpenCart: () => cartCheckout.setIsCartOpen(true),
 
     // pedidos reais da pessoa
