@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { prisma } from '../lib/prismaClient'
 import { requireUser, requireStoreOwner, type AuthEnv } from '../middleware/auth'
 import { API_ORDER_STATUSES, isValidOrderTransition, orderStatusLabel } from '../../lib/orderStatus'
+import { createNotification } from '../lib/notifications'
+import { formatCents } from '../../lib/money'
 
 export const orderRoutes = new Hono<AuthEnv>()
 
@@ -177,6 +179,36 @@ orderRoutes.post('/orders', requireUser, async (c) => {
       }
       return createdOrders
     })
+
+    // Notificacoes best-effort: nunca bloqueiam nem revertem a resposta —
+    // o pedido ja foi criado com sucesso quando chegamos aqui.
+    await createNotification(authedUser.id, {
+      title: 'Pedido confirmado',
+      message:
+        orders.length > 1
+          ? `Seus ${orders.length} pedidos foram confirmados (um por loja).`
+          : 'Pedido confirmado! Acompanhe em Meus pedidos.',
+      type: 'SUCCESS',
+      href: '/pedidos',
+    })
+
+    const stores = await prisma.store.findMany({
+      where: { id: { in: orders.map((order) => order.storeId) } },
+      select: { id: true, ownerId: true },
+    })
+    const ownerIdByStoreId = new Map(stores.map((store) => [store.id, store.ownerId]))
+    await Promise.all(
+      orders.map((order) => {
+        const ownerId = ownerIdByStoreId.get(order.storeId)
+        if (!ownerId) return Promise.resolve()
+        return createNotification(ownerId, {
+          title: 'Novo pedido recebido',
+          message: `Novo pedido de ${formatCents(order.totalCents)}.`,
+          type: 'INFO',
+          href: '/minha-loja',
+        })
+      }),
+    )
 
     return c.json({ orders }, 201)
   } catch (err) {

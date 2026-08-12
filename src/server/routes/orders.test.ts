@@ -37,6 +37,9 @@ describe('rotas de pedidos (checkout)', () => {
   })
 
   afterEach(async () => {
+    await prisma.notification.deleteMany({
+      where: { userId: { in: [buyerFixture.user.id, otherBuyerFixture.user.id, ownerFixture.user.id] } },
+    })
     await prisma.orderItem.deleteMany({ where: { orderId: { in: createdOrderIds } } })
     await prisma.order.deleteMany({ where: { id: { in: createdOrderIds } } })
     createdOrderIds.length = 0
@@ -290,6 +293,51 @@ describe('rotas de pedidos (checkout)', () => {
         body: JSON.stringify({ items: [], addressId: address.id }),
       })
       expect(res.status).toBe(400)
+    }, 20_000)
+
+    it('notifica o comprador e o dono da loja apos criar o pedido', async () => {
+      const store = await createStoreFixture()
+      createdStoreIds.push(store.id)
+      const product = await createProductFixture(store.id, { priceCents: 5000, stock: 10 })
+      createdProductIds.push(product.id)
+      const address = await createAddressFixture(buyerFixture.user.id)
+      createdAddressIds.push(address.id)
+
+      const res = await app.request('/orders', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${buyerToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: [{ productId: product.id, quantity: 2 }],
+          addressId: address.id,
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { orders: Array<{ id: string }> }
+      createdOrderIds.push(...body.orders.map((o) => o.id))
+
+      const buyerNotification = await prisma.notification.findFirst({
+        where: { userId: buyerFixture.user.id, title: 'Pedido confirmado' },
+        orderBy: { createdAt: 'desc' },
+      })
+      expect(buyerNotification).not.toBeNull()
+      expect(buyerNotification?.type).toBe('SUCCESS')
+      expect(buyerNotification?.href).toBe('/pedidos')
+
+      const ownerNotification = await prisma.notification.findFirst({
+        where: { userId: ownerFixture.user.id, title: 'Novo pedido recebido' },
+        orderBy: { createdAt: 'desc' },
+      })
+      expect(ownerNotification).not.toBeNull()
+      // `formatCents` usa Intl.NumberFormat pt-BR, que insere um espaço NBSP
+      // (não um espaço comum) antes do valor — ver o mesmo cuidado em
+      // `src/lib/money.test.ts`. Checar só o valor numérico evita depender
+      // desse detalhe de encoding.
+      expect(ownerNotification?.message).toContain('100,00')
+      expect(ownerNotification?.href).toBe('/minha-loja')
+
+      await prisma.notification.deleteMany({
+        where: { userId: { in: [buyerFixture.user.id, ownerFixture.user.id] } },
+      })
     }, 20_000)
   })
 
