@@ -17,6 +17,15 @@ describe('rotas de loja', () => {
   afterEach(async () => {
     await prisma.store.deleteMany({ where: { id: { in: createdStoreIds } } })
     createdStoreIds.length = 0
+    // Limpar notificacoes antes de deletar usuarios (FK constraint)
+    await Promise.all(
+      createdAuthUserIds.map(async (authUserId) => {
+        const user = await prisma.user.findUnique({ where: { authUserId } })
+        if (user) {
+          await prisma.notification.deleteMany({ where: { userId: user.id } })
+        }
+      }),
+    )
     await Promise.all(createdAuthUserIds.map((id) => deleteFixtureUser(id)))
     createdAuthUserIds.length = 0
   })
@@ -141,6 +150,36 @@ describe('rotas de loja', () => {
 
       const dbStore = await prisma.store.findFirst({ where: { slug } })
       expect(dbStore).toBeNull()
+    }, 20_000)
+
+    it('notifica o dono apos criar a loja', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+      const slug = uniqueSlug('notificacao')
+
+      const res = await app.request('/stores', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Loja Notificacao Teste',
+          slug,
+          latitude: -19.92,
+          longitude: -43.94,
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { store: { id: string } }
+      createdStoreIds.push(body.store.id)
+
+      const notification = await prisma.notification.findFirst({
+        where: { userId: fixture.user.id, title: 'Loja criada' },
+      })
+      expect(notification).not.toBeNull()
+      expect(notification?.type).toBe('SUCCESS')
+      expect(notification?.href).toBe('/minha-loja')
+
+      await prisma.notification.deleteMany({ where: { userId: fixture.user.id } })
     }, 20_000)
   })
 

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../lib/prismaClient'
 import { supabaseAdmin } from '../lib/supabaseClient'
 import { requireUser, requireStoreOwner, type AuthEnv } from '../middleware/auth'
+import { createNotification } from '../lib/notifications'
 import {
   validateStoreLogo,
   buildStoreLogoStoragePath,
@@ -144,6 +145,14 @@ storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
         ...(giftWrapAvailable !== undefined ? { giftWrapAvailable } : {}),
       },
     })
+
+    await createNotification(authedUser.id, {
+      title: 'Loja criada',
+      message: `${store.name} já está no Primeiro Aqui. Publique seus produtos!`,
+      type: 'SUCCESS',
+      href: '/minha-loja',
+    })
+
     return c.json({ store: toPublicStore(store) }, 201)
   } catch {
     // Corrida entre o `findUnique` acima e o `create` (constraint unica de
