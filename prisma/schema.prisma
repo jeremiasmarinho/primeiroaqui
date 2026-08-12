@@ -34,6 +34,12 @@ enum StoreCategory {
   OUTROS
 }
 
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+}
+
 model User {
   id           String    @id @default(uuid())
   authUserId   String    @unique
@@ -51,6 +57,7 @@ model User {
   favorites    Favorite[]
   orders       Order[]
   reviews      Review[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -217,4 +224,19 @@ model Review {
 
   @@index([productId])
   @@map("reviews")
+}
+
+model Notification {
+  id        String            @id @default(uuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  type      NotificationType  @default(INFO)
+  href      String?
+  isRead    Boolean           @default(false)
+  createdAt DateTime          @default(now())
+
+  @@index([userId, createdAt])
+  @@map("notifications")
 }
