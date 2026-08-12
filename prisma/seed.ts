@@ -139,18 +139,6 @@ const STORE_SEEDS: StoreSeed[] = [
     longitude: -43.9502,
     giftWrapAvailable: true,
   },
-  {
-    slug: 'hortifruti-flor-do-campo',
-    name: 'Hortifruti Flor do Campo',
-    description: 'Frutas, verduras e legumes selecionados direto do produtor, todos os dias.',
-    category: 'Hortifruti',
-    storeCategory: StoreCategory.HORTIFRUTI,
-    ownerName: 'Marcos Paulo Andrade',
-    ownerEmail: 'marcos.andrade@exemplo-primeiroaqui.com.br',
-    latitude: -19.9263,
-    longitude: -43.9309,
-    giftWrapAvailable: false,
-  },
 ]
 
 // Catalogo de produtos por categoria de loja — ~10 itens plausiveis cada.
