@@ -88,6 +88,17 @@ export interface ApiStore {
   updatedAt: string
 }
 
+export interface ApiNotification {
+  id: string
+  title: string
+  message: string
+  type: 'info' | 'success' | 'warning'
+  href: string | null
+  isRead: boolean
+  /** Epoch ms. */
+  createdAt: number
+}
+
 /** Loja de GET /stores — listagem pública (rail "Lojas da cidade"). */
 export interface ApiPublicStore {
   id: string
@@ -553,6 +564,11 @@ export const api = {
     request<{ ok: true }>(`/favorites/${productId}`, { method: 'DELETE' }),
 
   listFavorites: () => request<{ products: ApiFavoriteProduct[] }>('/me/favorites'),
+
+  listNotifications: () =>
+    request<{ notifications: ApiNotification[]; unreadCount: number }>('/me/notifications'),
+
+  markNotificationsRead: () => request<{ ok: true }>('/me/notifications/read', { method: 'POST' }),
 
   createAddress: (input: {
     label: string
