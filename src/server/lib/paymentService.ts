@@ -1,4 +1,5 @@
 import { prisma } from './prismaClient'
+import { createNotification } from './notifications'
 import {
   pagarmeRequest,
   getPlatformRecipientId,
@@ -450,8 +451,28 @@ export const handleWebhook = async (event: PagarmeWebhookEvent): Promise<void> =
   const pagarmeOrderId = event.data.order?.id ?? event.data.id
   if (!pagarmeOrderId) return
 
-  await prisma.order.updateMany({
+  // Le o pedido ANTES de atualizar para saber se essa e a PRIMEIRA vez que
+  // ele vira PAID — reaplicar o mesmo webhook (idempotencia, ver comentario
+  // da funcao) nao pode notificar o comprador de novo a cada replay.
+  const before =
+    nextStatus === 'PAID'
+      ? await prisma.order.findFirst({
+          where: { pagarmeOrderId },
+          select: { buyerId: true, paymentStatus: true },
+        })
+      : null
+
+  const result = await prisma.order.updateMany({
     where: { pagarmeOrderId },
     data: { paymentStatus: nextStatus },
   })
+
+  if (nextStatus === 'PAID' && result.count > 0 && before && before.paymentStatus !== 'PAID') {
+    await createNotification(before.buyerId, {
+      title: 'Pagamento confirmado',
+      message: 'Pagamento confirmado! Acompanhe em Meus pedidos.',
+      type: 'SUCCESS',
+      href: '/pedidos',
+    })
+  }
 }

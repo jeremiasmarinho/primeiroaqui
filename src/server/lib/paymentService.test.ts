@@ -8,12 +8,15 @@ vi.mock('./pagarmeClient', async () => {
 vi.mock('./prismaClient', () => ({
   prisma: {
     store: { update: vi.fn(), updateMany: vi.fn() },
-    order: { update: vi.fn(), updateMany: vi.fn() },
+    order: { update: vi.fn(), updateMany: vi.fn(), findFirst: vi.fn() },
   },
 }))
 
+vi.mock('./notifications', () => ({ createNotification: vi.fn() }))
+
 import { pagarmeRequest, PagarmeApiError } from './pagarmeClient'
 import { prisma } from './prismaClient'
+import { createNotification } from './notifications'
 import {
   buildRecipientPayload,
   buildSplitRules,
@@ -471,7 +474,9 @@ describe('createPaymentOrder', () => {
 describe('handleWebhook', () => {
   beforeEach(() => {
     vi.mocked(prisma.order.updateMany).mockReset()
+    vi.mocked(prisma.order.findFirst).mockReset()
     vi.mocked(prisma.store.updateMany).mockReset()
+    vi.mocked(createNotification).mockReset()
   })
 
   it('order.paid -> paymentStatus PAID', async () => {
@@ -481,6 +486,50 @@ describe('handleWebhook', () => {
       where: { pagarmeOrderId: 'ord_1' },
       data: { paymentStatus: 'PAID' },
     })
+  })
+
+  it('order.paid notifica o comprador na primeira confirmacao', async () => {
+    vi.mocked(prisma.order.findFirst).mockResolvedValue({
+      buyerId: 'buyer_1',
+      paymentStatus: 'PENDING',
+    } as never)
+    vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 })
+
+    await handleWebhook({ type: 'order.paid', data: { order: { id: 'ord_1' } } })
+
+    expect(createNotification).toHaveBeenCalledWith('buyer_1', {
+      title: 'Pagamento confirmado',
+      message: 'Pagamento confirmado! Acompanhe em Meus pedidos.',
+      type: 'SUCCESS',
+      href: '/pedidos',
+    })
+  })
+
+  it('order.paid reaplicado (ja estava PAID) nao notifica de novo', async () => {
+    vi.mocked(prisma.order.findFirst).mockResolvedValue({
+      buyerId: 'buyer_1',
+      paymentStatus: 'PAID',
+    } as never)
+    vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 })
+
+    await handleWebhook({ type: 'order.paid', data: { order: { id: 'ord_1' } } })
+
+    expect(createNotification).not.toHaveBeenCalled()
+  })
+
+  it('order.paid sem pedido correspondente nao notifica', async () => {
+    vi.mocked(prisma.order.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 0 })
+
+    await handleWebhook({ type: 'order.paid', data: { order: { id: 'ord_inexistente' } } })
+
+    expect(createNotification).not.toHaveBeenCalled()
+  })
+
+  it('order.payment_failed nao notifica (so PAID notifica)', async () => {
+    vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 })
+    await handleWebhook({ type: 'order.payment_failed', data: { order: { id: 'ord_1' } } })
+    expect(createNotification).not.toHaveBeenCalled()
   })
 
   it('order.payment_failed -> FAILED', async () => {
