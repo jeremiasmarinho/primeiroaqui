@@ -36,18 +36,23 @@ entrega, opt-in por loja.
 
 ## Modelo de dados
 
+**Nota de descoberta durante o planejamento:** o formulário de cadastro da
+loja (`BusinessProfile.address` em `src/types/index.ts:234`) já tem um campo
+de endereço em texto livre — hoje só guardado no cliente porque o backend
+não tinha coluna para ele (comentário em `useMarketplaceState.ts`:
+"endereço/telefone do modal ficam só no perfil local... até o backend ter
+esses campos"). Em vez de introduzir 6 colunas estruturadas (que exigiriam
+substituir esse campo por um formulário novo), a `Store` ganha um único
+campo de texto livre — reaproveita a UI existente, sem perda real de
+funcionalidade (a loja não precisa de busca por CEP nem filtro por
+cidade/estado, só exibir "retire em: ...").
+
 ```prisma
 model Store {
   // ...campos existentes...
 
-  /** Endereço físico da loja — usado para exibir "retire em: ..." quando pickupAvailable. */
-  street       String?
-  number       String?
-  complement   String?
-  neighborhood String?
-  city         String?
-  state        String?
-  zipCode      String?
+  /** Endereço físico da loja, texto livre — usado para exibir "retire em: ..." quando pickupAvailable. */
+  address String?
 
   /** Loja aceita retirada presencial do pedido. */
   pickupAvailable Boolean @default(false)
@@ -69,19 +74,18 @@ racional de por que essa abordagem evita o drift-check do `migrate dev`
 contra o banco real de dev, que hoje ainda carrega tabelas órfãs não
 rastreadas).
 
-Os campos de endereço da `Store` são todos opcionais (`String?`) — uma loja
-sem `pickupAvailable=true` não precisa deles preenchidos. Quando o lojista
-liga `pickupAvailable`, o formulário de cadastro exige os campos de
-endereço (validação no cliente e no servidor).
+`Store.address` é opcional (`String?`) — uma loja sem `pickupAvailable=true`
+não precisa dele preenchido. Quando o lojista liga `pickupAvailable`, o
+formulário exige o endereço (validação no cliente e no servidor).
 
 ## Backend
 
 ### `POST /stores` e `PATCH /stores/:id` (`src/server/routes/stores.ts`)
 
-Aceitam os novos campos de endereço e `pickupAvailable` no body, mesmo
-padrão de `giftWrapAvailable` hoje. Validação: se `pickupAvailable=true`,
-`street`/`city`/`state`/`zipCode` são obrigatórios (400 se ausentes) — não
-faz sentido habilitar retirada sem endereço.
+Aceitam `address` e `pickupAvailable` no body, mesmo padrão de
+`giftWrapAvailable` hoje. Validação: se `pickupAvailable=true`, `address`
+é obrigatório e não-vazio (400 se ausente) — não faz sentido habilitar
+retirada sem endereço.
 
 ### `POST /orders` (`src/server/routes/orders.ts`)
 
