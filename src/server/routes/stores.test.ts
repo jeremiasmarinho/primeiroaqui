@@ -181,6 +181,50 @@ describe('rotas de loja', () => {
 
       await prisma.notification.deleteMany({ where: { userId: fixture.user.id } })
     }, 20_000)
+
+    it('rejeita pickupAvailable=true sem endereco (400)', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+
+      const res = await app.request('/stores', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Loja Sem Endereco',
+          slug: uniqueSlug('sem-endereco'),
+          latitude: -19.92,
+          longitude: -43.94,
+          pickupAvailable: true,
+        }),
+      })
+      expect(res.status).toBe(400)
+    }, 20_000)
+
+    it('aceita address e pickupAvailable=true juntos (201)', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+      const slug = uniqueSlug('com-retirada')
+
+      const res = await app.request('/stores', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Loja Com Retirada',
+          slug,
+          latitude: -19.92,
+          longitude: -43.94,
+          address: 'Rua das Lojas, 100',
+          pickupAvailable: true,
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { store: { id: string; address: string | null; pickupAvailable: boolean } }
+      expect(body.store.address).toBe('Rua das Lojas, 100')
+      expect(body.store.pickupAvailable).toBe(true)
+      createdStoreIds.push(body.store.id)
+    }, 20_000)
   })
 
   describe('GET /stores/:id', () => {
@@ -312,6 +356,49 @@ describe('rotas de loja', () => {
       expect(res.status).toBe(200)
       const body = (await res.json()) as { store: { name: string } }
       expect(body.store.name).toBe('Editado Pelo Admin')
+    }, 20_000)
+
+    it('PATCH liga pickupAvailable sem endereco previo e sem address no body (400)', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+      const createRes = await app.request('/stores', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Loja X', slug: uniqueSlug('loja-x'), latitude: -19.92, longitude: -43.94 }),
+      })
+      const created = (await createRes.json()) as { store: { id: string } }
+      createdStoreIds.push(created.store.id)
+
+      const res = await app.request(`/stores/${created.store.id}`, {
+        method: 'PATCH',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ pickupAvailable: true }),
+      })
+      expect(res.status).toBe(400)
+    }, 20_000)
+
+    it('PATCH liga pickupAvailable enviando address junto (200)', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+      const createRes = await app.request('/stores', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Loja Y', slug: uniqueSlug('loja-y'), latitude: -19.92, longitude: -43.94 }),
+      })
+      const created = (await createRes.json()) as { store: { id: string } }
+      createdStoreIds.push(created.store.id)
+
+      const res = await app.request(`/stores/${created.store.id}`, {
+        method: 'PATCH',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ address: 'Av. Central, 50', pickupAvailable: true }),
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { store: { address: string | null; pickupAvailable: boolean } }
+      expect(body.store.address).toBe('Av. Central, 50')
+      expect(body.store.pickupAvailable).toBe(true)
     }, 20_000)
   })
 

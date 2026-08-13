@@ -53,6 +53,8 @@ const createStoreSchema = z.object({
   longitude: z.number(),
   category: storeCategorySchema.optional(),
   giftWrapAvailable: z.boolean().optional(),
+  address: z.string().trim().optional(),
+  pickupAvailable: z.boolean().optional(),
 })
 
 const updateStoreSchema = z
@@ -64,6 +66,8 @@ const updateStoreSchema = z
     longitude: z.number(),
     category: storeCategorySchema,
     giftWrapAvailable: z.boolean(),
+    address: z.string().trim(),
+    pickupAvailable: z.boolean(),
   })
   .partial()
   .refine((data) => Object.keys(data).length > 0, {
@@ -82,6 +86,8 @@ function toPublicStore(store: {
   logoUrl: string | null
   isActive: boolean
   giftWrapAvailable: boolean
+  address: string | null
+  pickupAvailable: boolean
   createdAt: Date
   updatedAt: Date
 }) {
@@ -96,6 +102,8 @@ function toPublicStore(store: {
     logoUrl: store.logoUrl,
     isActive: store.isActive,
     giftWrapAvailable: store.giftWrapAvailable,
+    address: store.address,
+    pickupAvailable: store.pickupAvailable,
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,
   }
@@ -125,7 +133,11 @@ storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
   }
 
   const authedUser = c.get('authedUser')
-  const { name, slug, description, latitude, longitude, category, giftWrapAvailable } = parsed.data
+  const { name, slug, description, latitude, longitude, category, giftWrapAvailable, address, pickupAvailable } = parsed.data
+
+  if (pickupAvailable && !address) {
+    return c.json({ error: 'Dados invalidos', details: { address: 'Endereço é obrigatório para habilitar retirada' } }, 400)
+  }
 
   const existing = await prisma.store.findUnique({ where: { slug } })
   if (existing) {
@@ -143,6 +155,8 @@ storeRoutes.post('/stores', requireUser, requireStoreOwner, async (c) => {
         longitude,
         ...(category !== undefined ? { category } : {}),
         ...(giftWrapAvailable !== undefined ? { giftWrapAvailable } : {}),
+        ...(address !== undefined ? { address } : {}),
+        ...(pickupAvailable !== undefined ? { pickupAvailable } : {}),
       },
     })
 
@@ -226,7 +240,16 @@ storeRoutes.patch('/stores/:id', requireUser, requireStoreOwner, async (c) => {
     return c.json({ error: 'Voce nao tem permissao para editar esta loja' }, 403)
   }
 
-  const { name, slug, description, latitude, longitude, category, giftWrapAvailable } = parsed.data
+  const { name, slug, description, latitude, longitude, category, giftWrapAvailable, address, pickupAvailable } = parsed.data
+
+  // pickupAvailable resultante (novo valor ou o que já estava salvo) precisa
+  // ter um endereço resultante (novo ou já salvo) — não dá pra ligar retirada
+  // sem endereço, nem apagar o endereço de uma loja com retirada ligada.
+  const resultingPickupAvailable = pickupAvailable ?? store.pickupAvailable
+  const resultingAddress = address ?? store.address
+  if (resultingPickupAvailable && !resultingAddress) {
+    return c.json({ error: 'Dados invalidos', details: { address: 'Endereço é obrigatório para habilitar retirada' } }, 400)
+  }
 
   if (slug && slug !== store.slug) {
     const existing = await prisma.store.findUnique({ where: { slug } })
@@ -238,7 +261,7 @@ storeRoutes.patch('/stores/:id', requireUser, requireStoreOwner, async (c) => {
   try {
     const updated = await prisma.store.update({
       where: { id },
-      data: { name, slug, description, latitude, longitude, category, giftWrapAvailable },
+      data: { name, slug, description, latitude, longitude, category, giftWrapAvailable, address, pickupAvailable },
     })
     return c.json({ store: toPublicStore(updated) })
   } catch {
