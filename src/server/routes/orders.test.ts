@@ -376,6 +376,11 @@ describe('rotas de pedidos (checkout)', () => {
         // notificacao — prova de que o commit anterior nao foi afetado.
         const persisted = await prisma.order.findUnique({ where: { id: body.orders[0]!.id } })
         expect(persisted).not.toBeNull()
+
+        // Garante que o teste realmente exercitou a falha simulada — sem
+        // isso, um refactor que mova a busca do dono da loja para fora de
+        // `prisma.store.findMany` deixaria este teste verde sem testar nada.
+        expect(findManySpy).toHaveBeenCalled()
       } finally {
         findManySpy.mockRestore()
       }
