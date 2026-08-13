@@ -400,6 +400,64 @@ describe('rotas de loja', () => {
       expect(body.store.address).toBe('Av. Central, 50')
       expect(body.store.pickupAvailable).toBe(true)
     }, 20_000)
+
+    it('PATCH so muda campo nao relacionado com pickupAvailable e address ja salvos (200)', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+      const createRes = await app.request('/stores', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Loja Z', slug: uniqueSlug('loja-z'), latitude: -19.92, longitude: -43.94 }),
+      })
+      const created = (await createRes.json()) as { store: { id: string } }
+      createdStoreIds.push(created.store.id)
+
+      const setupRes = await app.request(`/stores/${created.store.id}`, {
+        method: 'PATCH',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ address: 'Rua Z, 10', pickupAvailable: true }),
+      })
+      expect(setupRes.status).toBe(200)
+
+      const res = await app.request(`/stores/${created.store.id}`, {
+        method: 'PATCH',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Loja Z Renomeada' }),
+      })
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { store: { name: string; address: string | null; pickupAvailable: boolean } }
+      expect(body.store.name).toBe('Loja Z Renomeada')
+      expect(body.store.address).toBe('Rua Z, 10')
+      expect(body.store.pickupAvailable).toBe(true)
+    }, 20_000)
+
+    it('PATCH limpa address sem tocar pickupAvailable, que ja estava true (400)', async () => {
+      const fixture = await createFixtureUser('STORE_OWNER')
+      createdAuthUserIds.push(fixture.authUserId)
+      const token = await loginToken(fixture.email, fixture.password)
+      const createRes = await app.request('/stores', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Loja W', slug: uniqueSlug('loja-w'), latitude: -19.92, longitude: -43.94 }),
+      })
+      const created = (await createRes.json()) as { store: { id: string } }
+      createdStoreIds.push(created.store.id)
+
+      const setupRes = await app.request(`/stores/${created.store.id}`, {
+        method: 'PATCH',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ address: 'Rua W, 20', pickupAvailable: true }),
+      })
+      expect(setupRes.status).toBe(200)
+
+      const res = await app.request(`/stores/${created.store.id}`, {
+        method: 'PATCH',
+        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+        body: JSON.stringify({ address: '' }),
+      })
+      expect(res.status).toBe(400)
+    }, 20_000)
   })
 
   describe('logo da loja', () => {
