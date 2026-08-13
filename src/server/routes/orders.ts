@@ -40,10 +40,11 @@ const createOrderSchema = z.object({
       }),
     )
     .nonempty('O carrinho precisa ter ao menos um item'),
-  addressId: z.string().min(1),
+  addressId: z.string().min(1).optional(),
   isGift: z.boolean().optional(),
   giftRecipientName: z.string().trim().min(1).optional(),
   giftMessage: z.string().optional(),
+  pickupStoreIds: z.array(z.string().min(1)).optional(),
 })
 
 orderRoutes.post('/orders', requireUser, async (c) => {
@@ -57,7 +58,8 @@ orderRoutes.post('/orders', requireUser, async (c) => {
   }
 
   const authedUser = c.get('authedUser')
-  const { addressId, isGift, giftRecipientName, giftMessage } = parsed.data
+  const { addressId, isGift, giftRecipientName, giftMessage, pickupStoreIds } = parsed.data
+  const pickupStoreIdSet = new Set(pickupStoreIds ?? [])
 
   // isGift=true exige giftRecipientName (nome de quem vai receber o presente)
   // — checagem manual pois o schema acima trata o campo como opcional para
@@ -76,14 +78,6 @@ orderRoutes.post('/orders', requireUser, async (c) => {
     quantityByProductId.set(item.productId, (quantityByProductId.get(item.productId) ?? 0) + item.quantity)
   }
   const items = Array.from(quantityByProductId, ([productId, quantity]) => ({ productId, quantity }))
-
-  // Endereco precisa pertencer ao usuario autenticado. 404 tanto se nao
-  // existir quanto se for de outro usuario, para nao vazar existencia de
-  // endereco alheio.
-  const address = await prisma.address.findUnique({ where: { id: addressId } })
-  if (!address || address.userId !== authedUser.id) {
-    return c.json({ error: 'Endereco nao encontrado' }, 404)
-  }
 
   const productIds = items.map((item) => item.productId)
   const products = await prisma.product.findMany({ where: { id: { in: productIds } } })
@@ -127,6 +121,38 @@ orderRoutes.post('/orders', requireUser, async (c) => {
     itemsByStore.set(product.storeId, existing)
   }
 
+  // Retirada (Item 14): valida que toda loja em pickupStoreIds realmente
+  // oferece retirada, e que toda loja FORA de pickupStoreIds (que exige
+  // entrega) tem um addressId valido do comprador.
+  const storeIdsInCart = Array.from(itemsByStore.keys())
+  const storesInCart = await prisma.store.findMany({
+    where: { id: { in: storeIdsInCart } },
+    select: { id: true, pickupAvailable: true },
+  })
+  const pickupAvailableByStoreId = new Map(storesInCart.map((store) => [store.id, store.pickupAvailable]))
+
+  for (const storeId of pickupStoreIdSet) {
+    if (!pickupAvailableByStoreId.get(storeId)) {
+      return c.json({ error: 'Uma das lojas selecionadas para retirada nao oferece essa opcao' }, 400)
+    }
+  }
+
+  const deliveryStoreIds = storeIdsInCart.filter((storeId) => !pickupStoreIdSet.has(storeId))
+  if (deliveryStoreIds.length > 0 && !addressId) {
+    return c.json({ error: 'Endereco de entrega e obrigatorio para as lojas sem retirada no carrinho' }, 400)
+  }
+
+  // Endereco precisa pertencer ao usuario autenticado. 404 tanto se nao
+  // existir quanto se for de outro usuario, para nao vazar existencia de
+  // endereco alheio. So valida se foi informado — carrinho 100% retirada
+  // pode nao mandar addressId.
+  if (addressId) {
+    const address = await prisma.address.findUnique({ where: { id: addressId } })
+    if (!address || address.userId !== authedUser.id) {
+      return c.json({ error: 'Endereco nao encontrado' }, 404)
+    }
+  }
+
   // Ordem de lock deterministica: achata todos os itens (de todas as lojas)
   // em um unico array ordenado por productId. Sem isso, dois carrinhos
   // concorrentes com os mesmos produtos em ordem oposta no array `items` do
@@ -156,11 +182,13 @@ orderRoutes.post('/orders', requireUser, async (c) => {
       const createdOrders = []
       for (const [storeId, storeItems] of itemsByStore) {
         const totalCents = storeItems.reduce((sum, item) => sum + item.unitPriceCents * item.quantity, 0)
+        const isPickup = pickupStoreIdSet.has(storeId)
         const order = await tx.order.create({
           data: {
             buyerId: authedUser.id,
             storeId,
-            addressId,
+            addressId: isPickup ? null : addressId,
+            isPickup,
             totalCents,
             isGift: isGift ?? false,
             giftRecipientName: isGift ? giftRecipientName : undefined,

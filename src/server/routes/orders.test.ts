@@ -349,6 +349,11 @@ describe('rotas de pedidos (checkout)', () => {
       // (nao `vi.mock` do modulo inteiro, que quebraria as outras queries
       // reais deste arquivo) e restauramos o comportamento original logo
       // depois, garantindo isolamento do resto da suite.
+      //
+      // O handler agora tambem chama `prisma.store.findMany` ANTES da
+      // transacao (validacao de pickup, selecionando `pickupAvailable`), entao
+      // a falha simulada precisa mirar especificamente a chamada pos-commit
+      // (que seleciona `ownerId`) para nao quebrar o checkout antes da hora.
       const store = await createStoreFixture()
       createdStoreIds.push(store.id)
       const product = await createProductFixture(store.id, { priceCents: 5000, stock: 10 })
@@ -356,7 +361,14 @@ describe('rotas de pedidos (checkout)', () => {
       const address = await createAddressFixture(buyerFixture.user.id)
       createdAddressIds.push(address.id)
 
-      const findManySpy = vi.spyOn(prisma.store, 'findMany').mockRejectedValueOnce(new Error('DB indisponivel'))
+      const originalFindMany = prisma.store.findMany.bind(prisma.store)
+      const findManySpy = vi.spyOn(prisma.store, 'findMany').mockImplementation(((args?: { select?: Record<string, unknown> }) => {
+        const selectsOwnerId = Boolean(args?.select?.ownerId)
+        if (selectsOwnerId) {
+          return Promise.reject(new Error('DB indisponivel'))
+        }
+        return originalFindMany(args as never)
+      }) as typeof prisma.store.findMany)
 
       try {
         const res = await app.request('/orders', {
@@ -388,6 +400,101 @@ describe('rotas de pedidos (checkout)', () => {
       await prisma.notification.deleteMany({
         where: { userId: { in: [buyerFixture.user.id, ownerFixture.user.id] } },
       })
+    }, 20_000)
+
+    it('pickupStoreIds cria Order com isPickup=true e addressId nulo (sem exigir endereco)', async () => {
+      const store = await createStoreFixture()
+      createdStoreIds.push(store.id)
+      await prisma.store.update({ where: { id: store.id }, data: { pickupAvailable: true, address: 'Rua Teste, 1' } })
+      const product = await createProductFixture(store.id, { stock: 5, priceCents: 1000 })
+      createdProductIds.push(product.id)
+
+      const res = await app.request('/orders', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${buyerToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: [{ productId: product.id, quantity: 1 }],
+          pickupStoreIds: [store.id],
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { orders: Array<{ id: string; isPickup: boolean; addressId: string | null }> }
+      createdOrderIds.push(...body.orders.map((o) => o.id))
+      expect(body.orders).toHaveLength(1)
+      expect(body.orders[0]!.isPickup).toBe(true)
+      expect(body.orders[0]!.addressId).toBeNull()
+    }, 20_000)
+
+    it('pickupStoreIds numa loja sem pickupAvailable retorna 400', async () => {
+      const store = await createStoreFixture()
+      createdStoreIds.push(store.id)
+      const product = await createProductFixture(store.id, { stock: 5, priceCents: 1000 })
+      createdProductIds.push(product.id)
+
+      const res = await app.request('/orders', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${buyerToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: [{ productId: product.id, quantity: 1 }],
+          pickupStoreIds: [store.id],
+        }),
+      })
+      expect(res.status).toBe(400)
+    }, 20_000)
+
+    it('loja fora de pickupStoreIds sem addressId retorna 400 (endereco obrigatorio)', async () => {
+      const store = await createStoreFixture()
+      createdStoreIds.push(store.id)
+      const product = await createProductFixture(store.id, { stock: 5, priceCents: 1000 })
+      createdProductIds.push(product.id)
+
+      const res = await app.request('/orders', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${buyerToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: [{ productId: product.id, quantity: 1 }],
+        }),
+      })
+      expect(res.status).toBe(400)
+    }, 20_000)
+
+    it('carrinho misto: uma loja com pickup e outra com entrega cria 1 Order de cada tipo', async () => {
+      const pickupStore = await createStoreFixture()
+      createdStoreIds.push(pickupStore.id)
+      await prisma.store.update({ where: { id: pickupStore.id }, data: { pickupAvailable: true, address: 'Rua Teste, 2' } })
+      const pickupProduct = await createProductFixture(pickupStore.id, { stock: 5, priceCents: 1000 })
+      createdProductIds.push(pickupProduct.id)
+
+      const deliveryStore = await createStoreFixture()
+      createdStoreIds.push(deliveryStore.id)
+      const deliveryProduct = await createProductFixture(deliveryStore.id, { stock: 5, priceCents: 2000 })
+      createdProductIds.push(deliveryProduct.id)
+
+      const address = await createAddressFixture(buyerFixture.user.id)
+      createdAddressIds.push(address.id)
+
+      const res = await app.request('/orders', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${buyerToken}`, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          items: [
+            { productId: pickupProduct.id, quantity: 1 },
+            { productId: deliveryProduct.id, quantity: 1 },
+          ],
+          addressId: address.id,
+          pickupStoreIds: [pickupStore.id],
+        }),
+      })
+      expect(res.status).toBe(201)
+      const body = (await res.json()) as { orders: Array<{ id: string; storeId: string; isPickup: boolean; addressId: string | null }> }
+      createdOrderIds.push(...body.orders.map((o) => o.id))
+      expect(body.orders).toHaveLength(2)
+      const pickupOrder = body.orders.find((o) => o.storeId === pickupStore.id)!
+      const deliveryOrder = body.orders.find((o) => o.storeId === deliveryStore.id)!
+      expect(pickupOrder.isPickup).toBe(true)
+      expect(pickupOrder.addressId).toBeNull()
+      expect(deliveryOrder.isPickup).toBe(false)
+      expect(deliveryOrder.addressId).toBe(address.id)
     }, 20_000)
   })
 
