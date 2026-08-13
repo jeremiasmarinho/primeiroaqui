@@ -59,15 +59,15 @@ E adicionar, junto dos outros campos do Item 8 (`isGift`, `giftRecipientName`, `
 - [ ] **Step 2: Gerar a migration via diff schema-a-schema**
 
 ```bash
-git show HEAD:prisma/schema.prisma > /tmp/schema-before.prisma
-npx prisma migrate diff --from-schema /tmp/schema-before.prisma --to-schema prisma/schema.prisma --script > /tmp/add-pickup.sql
+git show HEAD:prisma/schema.prisma > prisma/schema-before.prisma
+npx prisma migrate diff --from-schema prisma/schema-before.prisma --to-schema prisma/schema.prisma --script > prisma/add-pickup.sql
 ```
 
 Remover a primeira linha (`Loaded Prisma config...`) do arquivo antes de aplicar:
 
 ```bash
-sed -n '2,$p' /tmp/add-pickup.sql > /tmp/add-pickup.clean.sql
-cat /tmp/add-pickup.clean.sql
+sed -n '2,$p' prisma/add-pickup.sql > prisma/add-pickup.clean.sql
+cat prisma/add-pickup.clean.sql
 ```
 
 Expected: SQL contendo `ALTER TABLE "stores" ADD COLUMN "address" ..., ADD COLUMN "pickupAvailable" ...`, `ALTER TABLE "orders" ADD COLUMN "isPickup" ..., ALTER COLUMN "addressId" DROP NOT NULL`. Nenhum `DROP`/`CREATE TABLE` — é só uma alteração incremental.
@@ -75,9 +75,9 @@ Expected: SQL contendo `ALTER TABLE "stores" ADD COLUMN "address" ..., ADD COLUM
 - [ ] **Step 3: Aplicar e registrar**
 
 ```bash
-npx prisma db execute --file /tmp/add-pickup.clean.sql
+npx prisma db execute --file prisma/add-pickup.clean.sql
 mkdir -p prisma/migrations/20260813120000_add_store_pickup
-cp /tmp/add-pickup.clean.sql prisma/migrations/20260813120000_add_store_pickup/migration.sql
+cp prisma/add-pickup.clean.sql prisma/migrations/20260813120000_add_store_pickup/migration.sql
 npx prisma migrate resolve --applied 20260813120000_add_store_pickup
 npx prisma migrate status
 ```
@@ -89,7 +89,7 @@ Expected: `Database schema is up to date!`. Se o `migrate status` acusar drift n
 ```bash
 npx prisma generate
 npx tsc --noEmit
-rm /tmp/schema-before.prisma /tmp/add-pickup.sql /tmp/add-pickup.clean.sql
+rm prisma/schema-before.prisma prisma/add-pickup.sql prisma/add-pickup.clean.sql
 ```
 
 Expected: `tsc` limpo (nada usa os campos novos ainda).
