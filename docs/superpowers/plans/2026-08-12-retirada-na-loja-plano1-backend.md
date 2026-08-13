@@ -743,14 +743,32 @@ git commit -m "feat(pickup): cliente HTTP aceita address/pickupAvailable e picku
 
 - [ ] **Step 1: Atualizar o mock MSW — `ApiStore` ganhou campos obrigatórios**
 
-`ApiStore` (Task 4) agora exige `address`/`pickupAvailable` — sem isso, `seedStoreOwner` (`src/test/mocks/handlers.ts:193-212`) quebra o typecheck (faltam propriedades obrigatórias no objeto literal). Em `src/test/mocks/handlers.ts`, no objeto retornado por `seedStoreOwner` (depois de `giftWrapAvailable: false,`, linha 205), adicionar:
+`ApiStore` (Task 4) agora exige `address`/`pickupAvailable` — sem isso, TODO objeto literal `ApiStore` neste arquivo quebra o typecheck (faltam propriedades obrigatórias). Rodar `npx tsc --noEmit` primeiro para confirmar a lista atual de erros antes de editar — a lista abaixo é a esperada, mas se algo mais aparecer (arquivo mudou desde este plano), tratar da mesma forma (adicionar os dois campos).
+
+Em `src/test/mocks/handlers.ts`, no array `mockStores` (linhas ~45-49, 4 objetos literais `ApiStore`), adicionar `address: null, pickupAvailable: false,` a cada um dos 4 objetos (depois de `giftWrapAvailable: ...`).
+
+No objeto retornado por `seedStoreOwner` (depois de `giftWrapAvailable: false,`, linha ~205), adicionar:
 
 ```ts
     address: null,
     pickupAvailable: false,
 ```
 
-No handler `http.patch('/api/stores/:id', ...)` (linhas 816-825), trocar o tipo do `Pick<...>` (linha 821):
+No handler `http.post('/api/stores', ...)` (por volta da linha 780-810 — buscar `const store: ApiStore = {` para achar o ponto exato), adicionar ao tipo do body parseado (perto de `giftWrapAvailable?: boolean` no tipo inline do body):
+
+```ts
+      address?: string
+      pickupAvailable?: boolean
+```
+
+E no objeto `store: ApiStore` construído logo abaixo (perto de `giftWrapAvailable: body.giftWrapAvailable ?? false,` ou equivalente), adicionar:
+
+```ts
+      address: body.address ?? null,
+      pickupAvailable: body.pickupAvailable ?? false,
+```
+
+No handler `http.patch('/api/stores/:id', ...)` (buscar `Object.assign(store, body` para achar o ponto exato), trocar o tipo do `Pick<...>` do body parseado:
 
 ```ts
     const body = (await request.json()) as Partial<
@@ -761,7 +779,7 @@ No handler `http.patch('/api/stores/:id', ...)` (linhas 816-825), trocar o tipo 
     >
 ```
 
-- [ ] **Step 2: Rodar o typecheck e confirmar que `seedStoreOwner`/o handler compilam**
+- [ ] **Step 2: Rodar o typecheck e confirmar que tudo compila**
 
 ```bash
 npx tsc --noEmit
