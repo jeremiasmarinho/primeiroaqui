@@ -1,5 +1,6 @@
 import { prisma } from './prismaClient'
 import { createNotification } from './notifications'
+import { formatCents } from '../../lib/money'
 import {
   pagarmeRequest,
   getPlatformRecipientId,
@@ -458,7 +459,7 @@ export const handleWebhook = async (event: PagarmeWebhookEvent): Promise<void> =
     nextStatus === 'PAID'
       ? await prisma.order.findFirst({
           where: { pagarmeOrderId },
-          select: { buyerId: true, paymentStatus: true },
+          select: { buyerId: true, paymentStatus: true, totalCents: true },
         })
       : null
 
@@ -470,7 +471,7 @@ export const handleWebhook = async (event: PagarmeWebhookEvent): Promise<void> =
   if (nextStatus === 'PAID' && result.count > 0 && before && before.paymentStatus !== 'PAID') {
     await createNotification(before.buyerId, {
       title: 'Pagamento confirmado',
-      message: 'Pagamento confirmado! Acompanhe em Meus pedidos.',
+      message: `Pagamento de ${formatCents(before.totalCents)} confirmado! Acompanhe em Meus pedidos.`,
       type: 'SUCCESS',
       href: '/pedidos',
     })

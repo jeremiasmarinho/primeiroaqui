@@ -181,34 +181,43 @@ orderRoutes.post('/orders', requireUser, async (c) => {
     })
 
     // Notificacoes best-effort: nunca bloqueiam nem revertem a resposta —
-    // o pedido ja foi criado com sucesso quando chegamos aqui.
-    await createNotification(authedUser.id, {
-      title: 'Pedido confirmado',
-      message:
-        orders.length > 1
-          ? `Seus ${orders.length} pedidos foram confirmados (um por loja).`
-          : 'Pedido confirmado! Acompanhe em Meus pedidos.',
-      type: 'SUCCESS',
-      href: '/pedidos',
-    })
+    // o pedido ja foi criado com sucesso quando chegamos aqui. Todo o bloco
+    // roda em seu proprio try/catch: qualquer falha aqui (incluindo erro real
+    // de banco no findMany abaixo, nao so falha interna do createNotification)
+    // e apenas logada, nunca propagada — senao cairia no catch externo e
+    // responderia 500 para um checkout que ja foi commitado com sucesso,
+    // levando o cliente a tratar a compra como falha e tentar de novo.
+    try {
+      await createNotification(authedUser.id, {
+        title: 'Pedido confirmado',
+        message:
+          orders.length > 1
+            ? `Seus ${orders.length} pedidos foram confirmados (um por loja).`
+            : 'Pedido confirmado! Acompanhe em Meus pedidos.',
+        type: 'SUCCESS',
+        href: '/pedidos',
+      })
 
-    const stores = await prisma.store.findMany({
-      where: { id: { in: orders.map((order) => order.storeId) } },
-      select: { id: true, ownerId: true },
-    })
-    const ownerIdByStoreId = new Map(stores.map((store) => [store.id, store.ownerId]))
-    await Promise.all(
-      orders.map((order) => {
-        const ownerId = ownerIdByStoreId.get(order.storeId)
-        if (!ownerId) return Promise.resolve()
-        return createNotification(ownerId, {
-          title: 'Novo pedido recebido',
-          message: `Novo pedido de ${formatCents(order.totalCents)}.`,
-          type: 'INFO',
-          href: '/minha-loja',
-        })
-      }),
-    )
+      const stores = await prisma.store.findMany({
+        where: { id: { in: orders.map((order) => order.storeId) } },
+        select: { id: true, ownerId: true },
+      })
+      const ownerIdByStoreId = new Map(stores.map((store) => [store.id, store.ownerId]))
+      await Promise.all(
+        orders.map((order) => {
+          const ownerId = ownerIdByStoreId.get(order.storeId)
+          if (!ownerId) return Promise.resolve()
+          return createNotification(ownerId, {
+            title: 'Novo pedido recebido',
+            message: `Novo pedido de ${formatCents(order.totalCents)}.`,
+            type: 'INFO',
+            href: '/minha-loja',
+          })
+        }),
+      )
+    } catch (notifyErr) {
+      console.error('Checkout: erro ao notificar comprador/lojista (pedido ja criado)', notifyErr)
+    }
 
     return c.json({ orders }, 201)
   } catch (err) {

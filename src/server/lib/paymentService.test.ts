@@ -492,23 +492,32 @@ describe('handleWebhook', () => {
     vi.mocked(prisma.order.findFirst).mockResolvedValue({
       buyerId: 'buyer_1',
       paymentStatus: 'PENDING',
+      totalCents: 10000,
     } as never)
     vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 })
 
     await handleWebhook({ type: 'order.paid', data: { order: { id: 'ord_1' } } })
 
-    expect(createNotification).toHaveBeenCalledWith('buyer_1', {
-      title: 'Pagamento confirmado',
-      message: 'Pagamento confirmado! Acompanhe em Meus pedidos.',
-      type: 'SUCCESS',
-      href: '/pedidos',
-    })
+    // `formatCents` usa Intl.NumberFormat pt-BR, que insere um NBSP (não um
+    // espaço comum) entre "R$" e o valor — ver o mesmo cuidado em
+    // `src/server/routes/orders.test.ts` e `src/lib/money.test.ts`.
+    expect(createNotification).toHaveBeenCalledWith(
+      'buyer_1',
+      expect.objectContaining({
+        title: 'Pagamento confirmado',
+        message: expect.stringContaining('100,00'),
+        type: 'SUCCESS',
+        href: '/pedidos',
+      }),
+    )
+    expect(vi.mocked(createNotification).mock.calls[0]?.[1].message).toMatch(/^Pagamento de R\$ 100,00 confirmado!/)
   })
 
   it('order.paid reaplicado (ja estava PAID) nao notifica de novo', async () => {
     vi.mocked(prisma.order.findFirst).mockResolvedValue({
       buyerId: 'buyer_1',
       paymentStatus: 'PAID',
+      totalCents: 10000,
     } as never)
     vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 })
 

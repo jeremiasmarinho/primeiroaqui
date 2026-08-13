@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { app } from '../app'
 import { prisma } from '../lib/prismaClient'
 import { createFixtureUser, deleteFixtureUser } from '../test/authFixtures'
@@ -334,6 +334,51 @@ describe('rotas de pedidos (checkout)', () => {
       // desse detalhe de encoding.
       expect(ownerNotification?.message).toContain('100,00')
       expect(ownerNotification?.href).toBe('/minha-loja')
+
+      await prisma.notification.deleteMany({
+        where: { userId: { in: [buyerFixture.user.id, ownerFixture.user.id] } },
+      })
+    }, 20_000)
+
+    it('pedido ainda retorna 201 mesmo se a etapa de notificacao pos-commit falhar (findMany de lojas quebra)', async () => {
+      // Este e um teste de integracao (sem mocks de Prisma no resto do
+      // arquivo), mas simular a falha exata descrita no bug — uma query real
+      // de banco (`prisma.store.findMany`) lancando apos a transacao ja ter
+      // commitado — exige interceptar essa unica chamada. Usamos
+      // `vi.spyOn` apontando para a instancia real do Prisma Client
+      // (nao `vi.mock` do modulo inteiro, que quebraria as outras queries
+      // reais deste arquivo) e restauramos o comportamento original logo
+      // depois, garantindo isolamento do resto da suite.
+      const store = await createStoreFixture()
+      createdStoreIds.push(store.id)
+      const product = await createProductFixture(store.id, { priceCents: 5000, stock: 10 })
+      createdProductIds.push(product.id)
+      const address = await createAddressFixture(buyerFixture.user.id)
+      createdAddressIds.push(address.id)
+
+      const findManySpy = vi.spyOn(prisma.store, 'findMany').mockRejectedValueOnce(new Error('DB indisponivel'))
+
+      try {
+        const res = await app.request('/orders', {
+          method: 'POST',
+          headers: { authorization: `Bearer ${buyerToken}`, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            items: [{ productId: product.id, quantity: 1 }],
+            addressId: address.id,
+          }),
+        })
+        expect(res.status).toBe(201)
+        const body = (await res.json()) as { orders: Array<{ id: string }> }
+        createdOrderIds.push(...body.orders.map((o) => o.id))
+        expect(body.orders).toHaveLength(1)
+
+        // O Order foi mesmo persistido no banco, apesar da falha na etapa de
+        // notificacao — prova de que o commit anterior nao foi afetado.
+        const persisted = await prisma.order.findUnique({ where: { id: body.orders[0]!.id } })
+        expect(persisted).not.toBeNull()
+      } finally {
+        findManySpy.mockRestore()
+      }
 
       await prisma.notification.deleteMany({
         where: { userId: { in: [buyerFixture.user.id, ownerFixture.user.id] } },
