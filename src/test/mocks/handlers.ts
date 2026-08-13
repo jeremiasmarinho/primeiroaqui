@@ -6,6 +6,7 @@ import type {
   ApiAdminOrder,
   ApiAdminStore,
   ApiFavoriteProduct,
+  ApiNotification,
   ApiOrder,
   ApiPayOrderInput,
   ApiProduct,
@@ -64,6 +65,8 @@ interface MockDb {
   favorites: Set<string>
   addresses: ApiAddress[]
   orders: ApiOrder[]
+  /** Notificações persistidas do usuário logado (GET /me/notifications). */
+  notifications: ApiNotification[]
   /** Lojas do usuário logado (GET /me/stores, POST /stores). */
   myStores: ApiStore[]
   /** Pedidos recebidos pelas lojas do usuário (GET /me/store-orders). */
@@ -120,6 +123,7 @@ const createDb = (): MockDb => ({
   favorites: new Set<string>(),
   addresses: [],
   orders: [],
+  notifications: [],
   myStores: [],
   storeOrders: [],
   storeCustomers: [],
@@ -740,6 +744,20 @@ export const handlers = [
   http.get('/api/me/orders', ({ request }) => {
     if (!requireAuth(request)) return unauthorized()
     return HttpResponse.json({ orders: db.orders })
+  }),
+
+  http.get('/api/me/notifications', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    return HttpResponse.json({
+      notifications: db.notifications,
+      unreadCount: db.notifications.filter((n) => !n.isRead).length,
+    })
+  }),
+
+  http.post('/api/me/notifications/read', ({ request }) => {
+    if (!requireAuth(request)) return unauthorized()
+    db.notifications = db.notifications.map((n) => ({ ...n, isRead: true }))
+    return HttpResponse.json({ ok: true })
   }),
 
   // ---------------------------------------------------------------- lojista
