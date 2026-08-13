@@ -89,6 +89,16 @@ test('lojista cadastra negócio, publica produto e recebe pedido', async ({ brow
   const orderItem = merchantPage.getByText(buyerName).first()
   await expect(orderItem).toBeVisible({ timeout: 15000 })
 
+  // Sino de notificações: o dono da loja é avisado do pedido novo assim que
+  // ele é criado (POST /orders, ver src/server/routes/orders.ts). O sino vive
+  // no TopBar, que só é renderizado na home ("/") — não em /minha-loja.
+  await merchantPage.goto('/')
+  await merchantPage.getByRole('button', { name: /notifica/i }).click()
+  await expect(merchantPage.getByText('Novo pedido recebido')).toBeVisible({ timeout: 10000 })
+  await merchantPage.getByRole('button', { name: /fechar/i }).click()
+  await merchantPage.goto('/minha-loja')
+  await merchantPage.getByRole('tab', { name: /^pedidos$/i }).click()
+
   // Avança o status do pedido.
   const advanceButton = merchantPage.getByRole('button', { name: /confirmar pedido/i }).first()
   await expect(advanceButton).toBeVisible({ timeout: 10000 })
