@@ -83,6 +83,12 @@ model Store {
   pagarmeRecipientId String?
   recipientStatus    String?
 
+  /** Endereço físico da loja, texto livre — exibido quando pickupAvailable. */
+  address String?
+
+  /** Loja aceita retirada presencial do pedido. */
+  pickupAvailable Boolean @default(false)
+
   /** Item 9 — loja embala o pedido como presente e entrega no endereço do presenteado. */
   giftWrapAvailable Boolean @default(false)
 
@@ -170,8 +176,8 @@ model Order {
   buyer       User        @relation(fields: [buyerId], references: [id])
   storeId     String
   store       Store       @relation(fields: [storeId], references: [id])
-  addressId   String
-  address     Address     @relation(fields: [addressId], references: [id])
+  addressId   String?
+  address     Address?    @relation(fields: [addressId], references: [id])
   status      OrderStatus @default(PENDING)
   totalCents  Int
   createdAt   DateTime    @default(now())
@@ -191,6 +197,9 @@ model Order {
   isGift            Boolean @default(false)
   giftRecipientName String?
   giftMessage       String?
+
+  /** Pedido retirado na loja em vez de entregue — addressId fica nulo quando true. */
+  isPickup Boolean @default(false)
 
   items       OrderItem[]
 
