@@ -86,6 +86,10 @@ export interface ApiStore {
   giftWrapAvailable: boolean
   createdAt: string
   updatedAt: string
+  /** Endereço físico da loja, texto livre — presente quando a loja preencheu. */
+  address: string | null
+  /** Item 14 — loja aceita retirada presencial do pedido. */
+  pickupAvailable: boolean
 }
 
 export interface ApiNotification {
@@ -608,10 +612,12 @@ export const api = {
 
   createOrder: (input: {
     items: Array<{ productId: string; quantity: number }>
-    addressId: string
+    addressId?: string
     isGift?: boolean
     giftRecipientName?: string
     giftMessage?: string
+    /** Item 14 — ids das lojas do carrinho escolhidas para retirada; as demais exigem addressId. */
+    pickupStoreIds?: string[]
   }) => request<{ orders: ApiOrder[] }>('/orders', { method: 'POST', body: input }),
 
   listMyOrders: () => request<{ orders: ApiOrder[] }>('/me/orders'),
@@ -643,6 +649,8 @@ export const api = {
       longitude: number
       category: string
       giftWrapAvailable: boolean
+      address: string
+      pickupAvailable: boolean
     }>,
   ) => request<{ store: ApiStore }>(`/stores/${storeId}`, { method: 'PATCH', body: input }),
 
