@@ -345,6 +345,40 @@ describe('rotas de pagamento (Pagar.me, sandbox)', () => {
 
       expect(res.status).toBe(200)
     })
+
+    it('pedido de retirada na loja (addressId null, isPickup true): credit_card sem billingAddress explicito nao quebra (order.address null)', async () => {
+      const store = await createStoreFixture()
+      const product = await createProductFixture(store.id)
+      const order = await prisma.order.create({
+        data: {
+          buyerId: buyerFixture.user.id,
+          storeId: store.id,
+          addressId: null,
+          isPickup: true,
+          totalCents: 10000,
+          items: { create: [{ productId: product.id, quantity: 2, unitPriceCents: 5000 }] },
+        },
+        include: { items: true },
+      })
+      createdOrderIds.push(order.id)
+
+      mockPagarmeFetch(
+        new Response(JSON.stringify({ id: 'ord_pagarme_pickup_1', status: 'paid', charges: [] }), { status: 200 }),
+      )
+
+      const res = await app.request(`/orders/${order.id}/pay`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${buyerToken}` },
+        body: JSON.stringify({ method: 'credit_card', customer: validCustomer, cardToken: 'card_token_teste' }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { order: { paymentStatus: string } }
+      expect(body.order.paymentStatus).toBe('PENDING')
+
+      const updated = await prisma.order.findUnique({ where: { id: order.id } })
+      expect(updated?.pagarmeOrderId).toBe('ord_pagarme_pickup_1')
+    })
   })
 
   describe('POST /orders/:id/pay — google_pay', () => {

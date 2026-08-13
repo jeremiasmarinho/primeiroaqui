@@ -185,14 +185,16 @@ paymentRoutes.post('/orders/:id/pay', requireUser, async (c) => {
   // Default: cobranca = endereco de ENTREGA do pedido (padrao de
   // e-commerce). O comprador pode sobrescrever mandando `billingAddress`
   // explicito no body. Compartilhado por cartao e Google Pay.
-  const defaultBillingAddress = {
-    line1: order.address.number ? `${order.address.street}, ${order.address.number}` : order.address.street,
-    line2: order.address.complement ?? undefined,
-    zipCode: order.address.zipCode,
-    city: order.address.city,
-    state: order.address.state,
-    country: 'BR',
-  }
+  const defaultBillingAddress = order.address
+    ? {
+        line1: order.address.number ? `${order.address.street}, ${order.address.number}` : order.address.street,
+        line2: order.address.complement ?? undefined,
+        zipCode: order.address.zipCode,
+        city: order.address.city,
+        state: order.address.state,
+        country: 'BR',
+      }
+    : undefined
 
   try {
     const { customer } = parsed.data
