@@ -22,6 +22,7 @@
     "dev:server": "tsx watch src/server/index.ts",
     "start:server": "tsx src/server/index.ts",
     "gate": "npm run lint && npm run typecheck && npm run test:unit && npm run build && npm run check:bundle",
+    "stress": "node scripts/stress-test.mjs",
     "docker:build": "docker build -t primeiro-aqui ."
   },
   "dependencies": {
@@ -55,6 +56,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.4",
     "@vitest/coverage-v8": "^4.1.10",
+    "autocannon": "^8.0.0",
     "autoprefixer": "^10.5.4",
     "axe-core": "^4.12.1",
     "eslint": "^10.8.0",

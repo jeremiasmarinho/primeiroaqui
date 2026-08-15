@@ -147,12 +147,32 @@ productRoutes.post('/stores/:storeId/products', requireUser, requireStoreOwner, 
   return c.json({ product: toPublicProduct(product) }, 201)
 })
 
+/**
+ * Cache TTL em memória da vitrine pública (baseline do stress test, ADR 0004:
+ * cada listagem custava uma ida ao Supabase e o pool saturava em ~90 req/s
+ * sob 1000 conexões). A vitrine anônima (sem storeId/q/lat) é idêntica para
+ * todo mundo — 10s de staleness é imperceptível no MVP e transforma a rota
+ * mais quente em resposta de RAM. Sem Redis de propósito (portabilidade):
+ * processo único, um Map basta.
+ */
+const CATALOG_CACHE_TTL_MS = 10_000
+const catalogCache = new Map<string, { expiresAt: number; body: unknown }>()
+
 productRoutes.get('/products', async (c) => {
   const parsed = listProductsQuerySchema.safeParse(c.req.query())
   if (!parsed.success) {
     return c.json({ error: 'Parametros invalidos', details: parsed.error.flatten() }, 400)
   }
   const { storeId, category, q, lat, lng, radiusKm, limit, offset } = parsed.data
+
+  const cacheKey =
+    storeId === undefined && q === undefined && lat === undefined
+      ? `${category ?? ''}|${limit}|${offset}`
+      : null
+  if (cacheKey) {
+    const hit = catalogCache.get(cacheKey)
+    if (hit && hit.expiresAt > Date.now()) return c.json(hit.body as object)
+  }
 
   if (q === undefined && lat === undefined) {
     // Filtro por loja: publico ve so produtos ativos de loja ativa (mesma
@@ -179,7 +199,14 @@ productRoutes.get('/products', async (c) => {
       skip: offset,
       include: firstPhotoInclude,
     })
-    return c.json({ products: products.map(toPublicProduct) })
+    const body = { products: products.map(toPublicProduct) }
+    if (cacheKey) {
+      // Teto de entradas: chave é category|limit|offset — cardinalidade baixa,
+      // mas um clear barato protege contra crescimento patológico.
+      if (catalogCache.size > 100) catalogCache.clear()
+      catalogCache.set(cacheKey, { expiresAt: Date.now() + CATALOG_CACHE_TTL_MS, body })
+    }
+    return c.json(body)
   }
 
   const ids = await searchProductIds({ category, q, lat, lng, radiusKm, limit, offset })

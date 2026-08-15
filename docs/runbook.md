@@ -101,32 +101,34 @@ Arquivos que compõem o deploy: `Dockerfile`, `.dockerignore`,
 
 ### Pré-requisitos na VPS
 
-1. Coolify instalado na VPS Hostinger.
-2. Domínio do cliente apontando (registro A) para o IP da VPS. O Traefik do
-   Coolify emite o certificado Let's Encrypt sozinho — **não** adicionar
-   Caddy/Nginx próprio, os dois brigariam pelas portas 80/443.
+1. Docker instalado (o deploy é `docker build` + `docker run` direto — **não
+   há Coolify nesta VPS**; verificado em 15/08/2026 via `docker ps`).
+2. Domínio do cliente apontando (registro A) para o IP da VPS, com o proxy
+   reverso que já serve o container (ver a seção "Acesso ao servidor").
 
-### Configurar o recurso no Coolify
+### Variáveis de ambiente na VPS
 
-- **Build Pack:** Dockerfile.
-- **Port Exposes:** `3333`.
-- **Health Check Path:** `/api/health`.
-- Variáveis de ambiente (aba Environment Variables — nunca em arquivo no
-  repositório; ver `.env.production.example`):
+As env vars de produção vivem em `/opt/primeiroaqui/.env` (permissão `0600`,
+fora do git — o `.dockerignore` bloqueia `.env*` de entrar na imagem) e são
+injetadas via `docker run --env-file`. Referência de nomes:
+`.env.production.example`.
 
 | Variável | Observação |
 | --- | --- |
-| `NODE_ENV` | `production` — precisa vir daqui, não de arquivo (ver seção do `NODE_ENV` acima) |
+| `NODE_ENV` | `production` |
 | `PORT` | `3333` |
 | `DATABASE_URL` | pooler do Supabase, **modo transaction** (porta 6543) |
 | `DIRECT_URL` | conexão de sessão (porta 5432), usada só por migrations |
 | `SUPABASE_URL` | |
 | `SUPABASE_ANON_KEY` | |
-| `SUPABASE_SERVICE_ROLE` | marcar como secret/oculta no painel |
+| `SUPABASE_SERVICE_ROLE` | secret |
+| `PAGARME_SECRET_KEY` | `sk_test_` até o go-live de pagamento real |
+| `PAGARME_PUBLIC_KEY` / `PAGARME_ACCOUNT_ID` / `PAGARME_PLATFORM_RECIPIENT_ID` | ver `.env.production.example` |
+| `PAGARME_WEBHOOK_SECRET` | **obrigatório** — sem ele o webhook aceita qualquer payload |
+| `GOOGLE_PAY_GATEWAY_MERCHANT_ID` / `GOOGLE_PAY_ENV` | `TEST` até o merchant ser aprovado |
 
-Nenhum `.env` entra na imagem — o `.dockerignore` bloqueia `.env*`. Se o
-container subir e morrer com `DATABASE_URL ausente`, é variável não
-cadastrada no painel, não bug de código.
+Se o container subir e morrer com `DATABASE_URL ausente`, é variável faltando
+no `.env` da VPS, não bug de código.
 
 ### Migrations: passo humano, nunca no CMD
 
@@ -146,7 +148,8 @@ deste runbook.
 
 1. `npm run gate` local (lint + typecheck + testes + build + bundle).
 2. `npx prisma migrate deploy` se houver migration nova.
-3. Push na branch acompanhada pelo Coolify → build e troca do container.
+3. Push em `main` → na VPS: comando de deploy da seção "Acesso ao servidor"
+   (git pull + docker build + docker run com `--env-file`).
 4. Verificar `https://<dominio>/api/health` → `{"status":"ok"}` e uma rota
    funda da SPA (ex.: `/produto/1`) devolvendo o app, não 404.
 
