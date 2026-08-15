@@ -210,6 +210,28 @@ export function useStoreDashboard(enabled: boolean) {
     }
   }, [store])
 
+  /** Item 14 — liga/desliga retirada na loja. Ligar exige `address`; desligar não. */
+  const updatePickupAvailable = useCallback(async (pickupAvailable: boolean, address?: string) => {
+    if (!store) return false
+    setActionError('')
+    try {
+      const { store: updated } = await api.updateStore(store.id, {
+        pickupAvailable,
+        ...(address !== undefined ? { address } : {}),
+      })
+      setStore(updated)
+      pushToast(pickupAvailable ? 'Retirada na loja ativada' : 'Retirada na loja desativada', 'success')
+      return true
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError && err.status > 0
+          ? err.message
+          : 'Não foi possível salvar a preferência. Tente novamente.',
+      )
+      return false
+    }
+  }, [store])
+
   const removeLogo = useCallback(async () => {
     if (!store) return false
     setActionError('')
@@ -267,5 +289,6 @@ export function useStoreDashboard(enabled: boolean) {
     uploadLogo,
     removeLogo,
     updateGiftWrapAvailable,
+    updatePickupAvailable,
   }
 }

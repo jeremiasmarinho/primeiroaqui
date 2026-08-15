@@ -226,6 +226,42 @@ describe('embalagem para presente no painel /minha-loja (Item 9)', () => {
   })
 })
 
+describe('retirada na loja no painel /minha-loja (Item 14)', () => {
+  it('habilita retirada preenchendo o endereço e clicando em "Habilitar retirada"', async () => {
+    const store = seedStoreOwner({ pickupAvailable: false, address: null })
+    seedLoggedInStorage()
+    renderAt('/minha-loja')
+
+    await screen.findByRole('heading', { name: store.name })
+    const addressInput = screen.getByLabelText(/endereço para retirada/i)
+    fireEvent.change(addressInput, { target: { value: 'Rua Teste, 1' } })
+    fireEvent.click(screen.getByRole('button', { name: /habilitar retirada/i }))
+
+    await waitFor(() => expect(db.myStores[0]?.pickupAvailable).toBe(true))
+    expect(db.myStores[0]?.address).toBe('Rua Teste, 1')
+  })
+
+  it('não deixa habilitar retirada com o endereço vazio', async () => {
+    const store = seedStoreOwner({ pickupAvailable: false, address: null })
+    seedLoggedInStorage()
+    renderAt('/minha-loja')
+
+    await screen.findByRole('heading', { name: store.name })
+    expect(screen.getByRole('button', { name: /habilitar retirada/i })).toBeDisabled()
+  })
+
+  it('desativa retirada sem exigir endereço', async () => {
+    const store = seedStoreOwner({ pickupAvailable: true, address: 'Rua Já Salva, 5' })
+    seedLoggedInStorage()
+    renderAt('/minha-loja')
+
+    await screen.findByRole('heading', { name: store.name })
+    fireEvent.click(screen.getByRole('button', { name: /desativar retirada/i }))
+
+    await waitFor(() => expect(db.myStores[0]?.pickupAvailable).toBe(false))
+  })
+})
+
 describe('logo da loja no painel /minha-loja', () => {
   // `api.uploadStoreLogo` é mockado diretamente em vez de ir até o MSW via
   // fetch real — mesmo motivo documentado em profile-avatar.test.tsx: um

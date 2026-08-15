@@ -43,10 +43,10 @@ export const mockUser: ApiUser = {
 // Ids e títulos espelham o catálogo de demonstração antigo — os testes de
 // tela citam esses nomes/urls (ex.: /produto/1, /loja/mercado-central).
 export const mockStores: ApiStore[] = [
-  { id: 'loja-vizinhanca', name: 'Loja Vizinhança', slug: 'loja-vizinhanca', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, giftWrapAvailable: true, createdAt: now, updatedAt: now },
-  { id: 'mercado-central', name: 'Mercado Central', slug: 'mercado-central', description: 'Zona Norte', latitude: 0, longitude: 0, category: 'MERCADO', logoUrl: null, isActive: true, giftWrapAvailable: false, createdAt: now, updatedAt: now },
-  { id: 'tech-shop', name: 'Tech Shop', slug: 'tech-shop', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, giftWrapAvailable: false, createdAt: now, updatedAt: now },
-  { id: 'farmacia-local', name: 'Farmácia Local', slug: 'farmacia-local', description: 'Zona Sul', latitude: 0, longitude: 0, category: 'FARMACIA', logoUrl: null, isActive: true, giftWrapAvailable: false, createdAt: now, updatedAt: now },
+  { id: 'loja-vizinhanca', name: 'Loja Vizinhança', slug: 'loja-vizinhanca', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, giftWrapAvailable: true, address: null, pickupAvailable: false, createdAt: now, updatedAt: now },
+  { id: 'mercado-central', name: 'Mercado Central', slug: 'mercado-central', description: 'Zona Norte', latitude: 0, longitude: 0, category: 'MERCADO', logoUrl: null, isActive: true, giftWrapAvailable: false, address: null, pickupAvailable: false, createdAt: now, updatedAt: now },
+  { id: 'tech-shop', name: 'Tech Shop', slug: 'tech-shop', description: 'Centro', latitude: 0, longitude: 0, category: 'OUTROS', logoUrl: null, isActive: true, giftWrapAvailable: false, address: null, pickupAvailable: false, createdAt: now, updatedAt: now },
+  { id: 'farmacia-local', name: 'Farmácia Local', slug: 'farmacia-local', description: 'Zona Sul', latitude: 0, longitude: 0, category: 'FARMACIA', logoUrl: null, isActive: true, giftWrapAvailable: false, address: null, pickupAvailable: false, createdAt: now, updatedAt: now },
 ]
 
 const baseProducts: ApiProduct[] = [
@@ -203,6 +203,8 @@ export const seedStoreOwner = (overrides: Partial<ApiStore> = {}): ApiStore => {
     logoUrl: null,
     isActive: true,
     giftWrapAvailable: false,
+    address: null,
+    pickupAvailable: false,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -788,6 +790,8 @@ export const handlers = [
       longitude?: number
       category?: string
       giftWrapAvailable?: boolean
+      address?: string
+      pickupAvailable?: boolean
     }
     if (!body?.name || !body?.slug) {
       return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
@@ -806,6 +810,8 @@ export const handlers = [
       logoUrl: null,
       isActive: true,
       giftWrapAvailable: body.giftWrapAvailable ?? false,
+      address: body.address ?? null,
+      pickupAvailable: body.pickupAvailable ?? false,
       createdAt: now,
       updatedAt: now,
     }
@@ -818,7 +824,10 @@ export const handlers = [
     const store = db.myStores.find((item) => item.id === params.id)
     if (!store) return HttpResponse.json({ error: 'Loja nao encontrada' }, { status: 404 })
     const body = (await request.json()) as Partial<
-      Pick<ApiStore, 'name' | 'slug' | 'description' | 'latitude' | 'longitude' | 'category' | 'giftWrapAvailable'>
+      Pick<
+        ApiStore,
+        'name' | 'slug' | 'description' | 'latitude' | 'longitude' | 'category' | 'giftWrapAvailable' | 'address' | 'pickupAvailable'
+      >
     >
     Object.assign(store, body, { updatedAt: new Date().toISOString() })
     return HttpResponse.json({ store })

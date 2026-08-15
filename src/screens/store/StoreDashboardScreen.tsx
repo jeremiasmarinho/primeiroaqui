@@ -1,4 +1,4 @@
-import { Gift, Store as StoreIcon } from 'lucide-react'
+import { Gift, MapPin, Store as StoreIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { Link } from 'wouter'
 
@@ -40,6 +40,8 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
   const [logoPending, setLogoPending] = useState(false)
   const [logoError, setLogoError] = useState('')
   const [giftWrapPending, setGiftWrapPending] = useState(false)
+  const [pickupAddressDraft, setPickupAddressDraft] = useState('')
+  const [pickupPending, setPickupPending] = useState(false)
 
   const handleLogoPick = () => logoInputRef.current?.click()
 
@@ -48,6 +50,21 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
     setGiftWrapPending(true)
     await dashboard.updateGiftWrapAvailable(!dashboard.store.giftWrapAvailable)
     setGiftWrapPending(false)
+  }
+
+  const handleEnablePickup = async () => {
+    if (!dashboard.store || !pickupAddressDraft.trim()) return
+    setPickupPending(true)
+    const ok = await dashboard.updatePickupAvailable(true, pickupAddressDraft.trim())
+    if (ok) setPickupAddressDraft('')
+    setPickupPending(false)
+  }
+
+  const handleDisablePickup = async () => {
+    if (!dashboard.store) return
+    setPickupPending(true)
+    await dashboard.updatePickupAvailable(false)
+    setPickupPending(false)
   }
 
   const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,6 +231,47 @@ export default function StoreDashboardScreen({ userRole }: StoreDashboardScreenP
               }`}
             />
           </button>
+        </div>
+
+        <div className="mt-4 rounded-card border border-line p-4">
+          <p className="flex items-center gap-2 text-sm font-semibold text-ink">
+            <MapPin className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden="true" />
+            Retirada na loja
+          </p>
+          {dashboard.store.pickupAvailable ? (
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="text-sm text-ink-muted">Retire em: {dashboard.store.address}</p>
+              <button
+                type="button"
+                onClick={() => void handleDisablePickup()}
+                disabled={pickupPending}
+                className="min-h-[36px] shrink-0 rounded-[14px] border border-line px-3 text-xs font-semibold text-ink-muted disabled:opacity-60"
+              >
+                Desativar retirada
+              </button>
+            </div>
+          ) : (
+            <div className="mt-2 space-y-2">
+              <label htmlFor="pickup-address" className="sr-only">
+                Endereço para retirada
+              </label>
+              <input
+                id="pickup-address"
+                value={pickupAddressDraft}
+                onChange={(event) => setPickupAddressDraft(event.target.value)}
+                placeholder="Endereço da loja"
+                className="field-input"
+              />
+              <button
+                type="button"
+                onClick={() => void handleEnablePickup()}
+                disabled={pickupPending || !pickupAddressDraft.trim()}
+                className="min-h-[36px] w-full rounded-[14px] bg-primary px-3 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Habilitar retirada
+              </button>
+            </div>
+          )}
         </div>
 
         {dashboard.actionError ? (
