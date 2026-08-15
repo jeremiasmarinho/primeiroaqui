@@ -10,12 +10,22 @@ interface DeliveryFieldsProps {
 
 /** Campos de nome, endereço, cidade, CEP e forma de pagamento do checkout. */
 export default function DeliveryFields({ deliveryForm, onDeliveryChange }: DeliveryFieldsProps) {
+  // Retirada na loja (Item 14): endereço/cidade/CEP saem de cena — só nome
+  // (de quem retira) e forma de pagamento importam.
+  const isPickup = deliveryForm.isPickup
   return (
     <div className="space-y-3">
       {(
         [
-          { id: 'nome', label: 'Seu nome', key: 'name', autoComplete: 'name' },
-          { id: 'endereco', label: 'Endereço', key: 'address', autoComplete: 'street-address' },
+          {
+            id: 'nome',
+            label: isPickup ? 'Quem vai retirar' : 'Quem vai receber',
+            key: 'name',
+            autoComplete: 'name',
+          },
+          ...(isPickup
+            ? []
+            : [{ id: 'endereco', label: 'Endereço', key: 'address', autoComplete: 'street-address' } as const]),
         ] as const
       ).map((field) => (
         <div key={field.id}>
@@ -32,6 +42,7 @@ export default function DeliveryFields({ deliveryForm, onDeliveryChange }: Deliv
         </div>
       ))}
 
+      {isPickup ? null : (
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label htmlFor="cidade" className="text-sm font-semibold text-ink">
@@ -60,6 +71,7 @@ export default function DeliveryFields({ deliveryForm, onDeliveryChange }: Deliv
           />
         </div>
       </div>
+      )}
 
       <fieldset>
         <legend className="text-sm font-semibold text-ink">Forma de pagamento</legend>

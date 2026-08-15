@@ -27,7 +27,7 @@ describe('etapa de pagamento', () => {
     await waitForCatalog()
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     if (method === 'Cartão') {
       fireEvent.click(screen.getByRole('button', { name: 'Cartão' }))
     }
@@ -70,7 +70,7 @@ describe('etapa de pagamento', () => {
     await waitForCatalog()
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: 'Cartão' }))
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
     expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()
@@ -91,7 +91,7 @@ describe('etapa de pagamento', () => {
     await waitForCatalog()
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: 'Cartão' }))
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
     expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()
@@ -224,7 +224,7 @@ describe('feature flag: pagamento sem chaves no ambiente', () => {
     await waitForCatalog()
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
     // Fluxo pré-Fase 2: nenhuma etapa de pagamento aparece — vai direto pro histórico.
@@ -240,7 +240,7 @@ describe('feature flag: pagamento sem chaves no ambiente', () => {
     await waitForCatalog()
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
     expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()

@@ -54,6 +54,11 @@ export default function OrdersPanel({ orders, pendingOrderIds, onChangeStatus }:
                 {orderStatusLabel(order.status)}
               </span>
             </div>
+            {order.isPickup ? (
+              <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">
+                Cliente vai retirar na loja
+              </p>
+            ) : null}
             {order.isGift ? (
               <div className="mt-3 rounded-[16px] bg-primary/10 p-3 text-sm">
                 <p className="flex items-center gap-2 font-semibold text-ink">

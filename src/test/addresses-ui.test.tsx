@@ -1,6 +1,6 @@
 import { HttpResponse, http } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 
 import MarketplaceApp from '../MarketplaceApp'
 import AddressesScreen from '../screens/AddressesScreen'
@@ -177,6 +177,34 @@ describe('enderecos ponta a ponta', () => {
     expect(screen.getByLabelText('CEP')).toHaveValue('12345-678')
   })
 
+  it('editar o endereco ja selecionado no checkout re-sincroniza a entrega', async () => {
+    seedLoggedInStorage()
+    goTo(ROUTES.addresses)
+    render(<MarketplaceApp />)
+
+    await fillAddress(casa)
+    await screen.findByRole('list', { name: /endereços salvos/i })
+    fireEvent.click(screen.getByRole('link', { name: /voltar às ofertas/i }))
+    await waitForCatalog()
+
+    // Abre a entrega — o padrão entra selecionado e preenche o formulário.
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+    expect(screen.getByLabelText('Endereço')).toHaveValue('Rua das Flores, 45')
+
+    // Volta para /enderecos e edita a rua do endereço selecionado.
+    goTo(ROUTES.addresses)
+    const list = await screen.findByRole('list', { name: /endereços salvos/i })
+    fireEvent.click(within(list).getByRole('button', { name: /editar/i }))
+    fireEvent.change(screen.getByLabelText('Rua'), { target: { value: 'Rua Nova' } })
+    fireEvent.click(screen.getByRole('button', { name: /salvar altera/i }))
+    await within(list).findByText(/rua nova, 45/i)
+
+    // A gaveta de checkout segue aberta por baixo — a entrega deve refletir
+    // o endereço editado sem precisar reselecionar.
+    await waitFor(() => expect(screen.getByLabelText('Endereço')).toHaveValue('Rua Nova, 45'))
+  })
+
   it('sem endereco salvo, o checkout convida a cadastrar em vez de fingir', async () => {
     seedLoggedInStorage()
     render(<MarketplaceApp />)
@@ -200,7 +228,7 @@ describe('enderecos ponta a ponta', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
 
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.change(screen.getByLabelText('Endereço'), { target: { value: 'Rua 1' } })
     fireEvent.change(screen.getByLabelText('Cidade'), { target: { value: 'Centro' } })
     fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '123' } })

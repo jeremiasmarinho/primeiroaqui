@@ -133,7 +133,7 @@ describe('historico ponta a ponta', () => {
     add()
 
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
     // POST /api/orders cria o pedido (PENDING) e abre a etapa de pagamento
@@ -169,7 +169,7 @@ describe('historico ponta a ponta', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
     expect(await screen.findByRole('heading', { name: /pagamento/i })).toBeInTheDocument()

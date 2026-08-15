@@ -168,7 +168,7 @@ export interface ApiOrder {
   id: string
   buyerId: string
   storeId: string
-  addressId: string
+  addressId: string | null
   totalCents: number
   status: ApiOrderStatus
   createdAt: string
@@ -176,6 +176,8 @@ export interface ApiOrder {
   items: ApiOrderItem[]
   /** Ausente em fixtures antigas de teste; a UI trata como 'NONE'. */
   paymentStatus?: ApiPaymentStatus
+  /** Item 14 — retirada na loja. Quando true, `addressId` vem nulo do backend. */
+  isPickup?: boolean
   /** Item 8 — comprar para presente. addressId acima já é o endereço do presenteado quando isGift=true. */
   isGift?: boolean
   giftRecipientName?: string | null

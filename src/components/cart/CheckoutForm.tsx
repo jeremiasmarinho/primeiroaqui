@@ -3,6 +3,7 @@ import AddressPicker from './AddressPicker'
 import CartOrderSummary from './CartOrderSummary'
 import DeliveryFields from './DeliveryFields'
 import GiftOptionField from './GiftOptionField'
+import PickupOptionField from './PickupOptionField'
 
 interface CheckoutFormProps {
   itemsCount: number
@@ -17,6 +18,10 @@ interface CheckoutFormProps {
   selectedAddressId: string
   /** Se a loja do carrinho oferece embalagem para presente (Item 9) — controla o toggle "É um presente?". */
   storeGiftWrapAvailable: boolean
+  /** Se toda loja do carrinho aceita retirada presencial (Item 14) — controla o toggle "Retirar na loja". */
+  storePickupAvailable: boolean
+  /** Endereço de retirada da loja (só quando o carrinho tem uma loja). */
+  storePickupAddress?: string | null
   onSelectAddress: (id: string) => void
   onDeliveryChange: (patch: Partial<DeliveryForm>) => void
   onCouponCodeChange: (code: string) => void
@@ -37,6 +42,8 @@ export default function CheckoutForm({
   addresses,
   selectedAddressId,
   storeGiftWrapAvailable,
+  storePickupAvailable,
+  storePickupAddress,
   onSelectAddress,
   onDeliveryChange,
   onConfirm,
@@ -50,11 +57,20 @@ export default function CheckoutForm({
           servidor recalcula o total real no POST /orders — o cliente veria um valor
           que o pedido nao honra. Religar quando houver cupom no backend. */}
 
-      <AddressPicker
-        addresses={addresses}
-        selectedAddressId={selectedAddressId}
-        onSelectAddress={onSelectAddress}
+      <PickupOptionField
+        storePickupAvailable={storePickupAvailable}
+        storePickupAddress={storePickupAddress}
+        deliveryForm={deliveryForm}
+        onDeliveryChange={onDeliveryChange}
       />
+
+      {deliveryForm.isPickup ? null : (
+        <AddressPicker
+          addresses={addresses}
+          selectedAddressId={selectedAddressId}
+          onSelectAddress={onSelectAddress}
+        />
+      )}
 
       <GiftOptionField
         storeGiftWrapAvailable={storeGiftWrapAvailable}
@@ -71,7 +87,9 @@ export default function CheckoutForm({
       ) : null}
 
       <div className="rounded-[24px] border border-success/30 bg-success/10 p-4 text-sm text-success">
-        <p className="font-black">Entrega prevista em até 2 horas</p>
+        <p className="font-black">
+          {deliveryForm.isPickup ? 'Retirada combinada com a loja' : 'Entrega prevista em até 2 horas'}
+        </p>
         <p className="mt-1 text-ink-muted">Pagamento confirmado via {deliveryForm.payment} após a confirmação.</p>
       </div>
 

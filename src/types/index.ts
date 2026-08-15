@@ -37,6 +37,10 @@ export interface Product {
   stock?: number
   /** Item 9 — a loja dona deste produto embala para presente; alimenta o toggle "É um presente?" no checkout. */
   storeGiftWrapAvailable?: boolean
+  /** Item 14 — a loja dona deste produto aceita retirada presencial; alimenta a opção "Retirar na loja" no checkout. */
+  storePickupAvailable?: boolean
+  /** Endereço físico da loja para retirada (texto livre), quando cadastrado. */
+  storePickupAddress?: string | null
 }
 
 export interface CartItem {
@@ -104,6 +108,8 @@ export interface Order {
   createdAt?: string
   /** Itens com preço por linha, para a tela de detalhe. Ausente em pedidos mock do painel admin. */
   itemLines?: OrderItemLine[]
+  /** Item 14 — retirada na loja. Quando true, o pedido não tem endereço de entrega. */
+  isPickup?: boolean
   /** Item 8 — comprar para presente. Quando true, `address` é o endereço do presenteado. */
   isGift?: boolean
   giftRecipientName?: string | null
@@ -120,6 +126,8 @@ export interface DeliveryForm {
   city: string
   cep: string
   payment: PaymentMethod
+  /** Item 14 — retirada na loja. Só pode ser marcado se a loja do carrinho tiver pickupAvailable; dispensa endereço de entrega. */
+  isPickup: boolean
   /** Item 8 — comprar para presente. Só pode ser marcado se a loja do carrinho tiver giftWrapAvailable. */
   isGift: boolean
   giftRecipientName: string
@@ -154,6 +162,10 @@ export interface Store {
   logoUrl?: string | null
   /** Item 9 — loja embala o pedido como presente e entrega no endereço do presenteado. */
   giftWrapAvailable?: boolean
+  /** Item 14 — loja aceita retirada presencial do pedido. */
+  pickupAvailable?: boolean
+  /** Endereço físico da loja (texto livre), quando cadastrado. */
+  address?: string | null
 }
 
 export interface Customer {

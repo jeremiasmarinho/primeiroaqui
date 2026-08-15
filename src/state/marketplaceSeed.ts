@@ -27,6 +27,7 @@ export const EMPTY_DELIVERY: DeliveryForm = {
   city: '',
   cep: '',
   payment: 'Pix',
+  isPickup: false,
   isGift: false,
   giftRecipientName: '',
   giftMessage: '',

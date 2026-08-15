@@ -123,6 +123,12 @@ export default function OrderDetailScreen({ orderId, orders, isLoading = false, 
             </p>
           ) : null}
 
+          {order.isPickup ? (
+            <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-sm font-semibold text-success">
+              Retirada na loja
+            </p>
+          ) : null}
+
           {order.isGift ? (
             <div className="mt-3 rounded-[16px] bg-primary/10 p-3 text-sm">
               <p className="flex items-center gap-2 font-semibold text-ink">

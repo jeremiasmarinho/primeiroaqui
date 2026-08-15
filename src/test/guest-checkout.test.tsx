@@ -189,7 +189,7 @@ describe('visitante — checkout', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /entrar como cliente/i }))
 
-    expect(screen.getByLabelText('Seu nome')).toBeInTheDocument()
+    expect(screen.getByLabelText('Quem vai receber')).toBeInTheDocument()
     expect(within(bottomNav()).getByRole('button', { name: /carrinho — 1 itens/i })).toBeInTheDocument()
   })
 
@@ -219,7 +219,7 @@ describe('visitante — checkout', () => {
     // renderiza BottomNav — diferente do fluxo "continuar no carrinho", que
     // parte e retorna para `/`. Por isso confirmamos o carrinho intacto pela
     // gaveta de entrega (que já está aberta), não pela barra inferior.
-    expect(screen.getByLabelText('Seu nome')).toBeInTheDocument()
+    expect(screen.getByLabelText('Quem vai receber')).toBeInTheDocument()
     const deliveryDrawer = screen.getByRole('dialog', { name: /dados de entrega/i })
     expect(within(deliveryDrawer).getByText('Itens').nextElementSibling).toHaveTextContent(/^1$/)
   })

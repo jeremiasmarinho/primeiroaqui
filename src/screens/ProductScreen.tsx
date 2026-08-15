@@ -17,8 +17,8 @@ interface ProductScreenProps {
   allProducts: Product[]
   favorites: Product[]
   onToggleFavorite: (product: Product) => void
-  onAddToCart: (product: Product) => void
-  onBuyNow: (product: Product) => void
+  onAddToCart: (product: Product, quantity?: number) => void
+  onBuyNow: (product: Product, quantity?: number) => void
 }
 
 /**
@@ -41,6 +41,7 @@ export default function ProductScreen({
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  const [quantity, setQuantityValue] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -55,7 +56,15 @@ export default function ProductScreen({
         const storeDto = await api.getStore(dto.storeId).catch(() => null)
         if (cancelled) return
         setStore(storeDto ? toViewStore(storeDto.store) : null)
-        setProduct(toViewProduct(dto, storeDto?.store.name))
+        setProduct(
+          toViewProduct(
+            dto,
+            storeDto?.store.name,
+            storeDto?.store.giftWrapAvailable,
+            storeDto?.store.pickupAvailable,
+            storeDto?.store.address,
+          ),
+        )
       })
       .catch((err: unknown) => {
         if (cancelled) return
@@ -214,10 +223,47 @@ export default function ProductScreen({
               ) : null}
             </div>
 
+            {!outOfStock && (
+              <div className="mt-4 flex items-center gap-3">
+                <span id="quantidade-label" className="text-sm font-semibold text-ink">
+                  Quantidade
+                </span>
+                <div
+                  role="group"
+                  aria-labelledby="quantidade-label"
+                  className="inline-flex items-center rounded-full border border-line bg-surface"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setQuantityValue((value) => Math.max(1, value - 1))}
+                    disabled={quantity <= 1}
+                    aria-label="Diminuir quantidade"
+                    className="grid h-11 w-11 place-items-center rounded-full text-lg font-bold text-ink-muted disabled:opacity-40"
+                  >
+                    −
+                  </button>
+                  <span aria-live="polite" className="min-w-8 text-center text-sm font-bold text-ink">
+                    {quantity}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQuantityValue((value) => Math.min(product.stock ?? 99, 99, value + 1))
+                    }
+                    disabled={quantity >= Math.min(product.stock ?? 99, 99)}
+                    aria-label="Aumentar quantidade"
+                    className="grid h-11 w-11 place-items-center rounded-full text-lg font-bold text-ink-muted disabled:opacity-40"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="mt-5 flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => onBuyNow(product)}
+                onClick={() => onBuyNow(product, quantity)}
                 disabled={outOfStock}
                 className="btn-primary min-h-[48px] flex-1 motion-safe:active:scale-[0.98] disabled:opacity-50"
               >
@@ -225,7 +271,7 @@ export default function ProductScreen({
               </button>
               <button
                 type="button"
-                onClick={() => onAddToCart(product)}
+                onClick={() => onAddToCart(product, quantity)}
                 disabled={outOfStock}
                 className="min-h-[48px] flex-1 rounded-full border border-primary bg-surface px-5 text-sm font-bold text-primary-active transition-colors duration-150 hover:bg-primary/10 disabled:opacity-50"
               >

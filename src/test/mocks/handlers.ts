@@ -677,14 +677,24 @@ export const handlers = [
       isGift?: boolean
       giftRecipientName?: string
       giftMessage?: string
+      pickupStoreIds?: string[]
     }
-    if (!body?.items?.length || !body.addressId) {
+    const pickupStoreIds = new Set(body?.pickupStoreIds ?? [])
+    // Como o backend real: addressId só é obrigatório se alguma loja NÃO é retirada.
+    if (!body?.items?.length) {
+      return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
+    }
+    const needsAddress = body.items.some((item) => {
+      const product = db.products.find((candidate) => candidate.id === item.productId)
+      return product ? !pickupStoreIds.has(product.storeId) : true
+    })
+    if (needsAddress && !body.addressId) {
       return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
     }
     if (body.isGift && !body.giftRecipientName) {
       return HttpResponse.json({ error: 'Dados invalidos' }, { status: 400 })
     }
-    if (!db.addresses.some((address) => address.id === body.addressId)) {
+    if (body.addressId && !db.addresses.some((address) => address.id === body.addressId)) {
       return HttpResponse.json({ error: 'Endereco nao encontrado' }, { status: 404 })
     }
 
@@ -722,7 +732,8 @@ export const handlers = [
         id: orderId,
         buyerId: mockUser.id,
         storeId,
-        addressId: body.addressId!,
+        addressId: pickupStoreIds.has(storeId) ? null : body.addressId!,
+        isPickup: pickupStoreIds.has(storeId),
         totalCents: items.reduce((sum, item) => sum + item.unitPriceCents * item.quantity, 0),
         status: 'PENDING' as const,
         createdAt: now,

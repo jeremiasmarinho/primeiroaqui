@@ -35,15 +35,24 @@ export function useCartCheckoutState() {
   const cartItemsCount = getCartItemsCount(cartState)
   const subtotal = getCartSubtotal(cartState)
 
-  const handleAddToCart = (product: Product) => {
+  /** Soma `quantity` unidades ao que já existe no carrinho (reducer clampa em 99). */
+  const addWithQuantity = (product: Product, quantity: number) => {
     dispatchCart(addToCart(product))
+    if (quantity > 1) {
+      const existing = cartState.items.find((entry) => entry.product.id === product.id)
+      dispatchCart(setQuantity(product.id, (existing?.quantity ?? 0) + quantity))
+    }
+  }
+
+  const handleAddToCart = (product: Product, quantity = 1) => {
+    addWithQuantity(product, quantity)
     setIsCartOpen(true)
     pushToast('Adicionado ao carrinho', 'success')
   }
 
   /** Comprar agora: adiciona e ja abre o passo de entrega, pulando o carrinho. */
-  const handleBuyNow = (product: Product) => {
-    dispatchCart(addToCart(product))
+  const handleBuyNow = (product: Product, quantity = 1) => {
+    addWithQuantity(product, quantity)
     setCheckoutStep('delivery')
     setIsCartOpen(true)
   }

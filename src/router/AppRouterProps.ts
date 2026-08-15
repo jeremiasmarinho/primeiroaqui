@@ -83,8 +83,8 @@ export interface AppRouterProps {
   searchRef?: React.RefObject<HTMLInputElement | null>
   favorites: Product[]
   onToggleFavorite: (product: Product) => void
-  onAddToCart: (product: Product) => void
-  onBuyNow: (product: Product) => void
+  onAddToCart: (product: Product, quantity?: number) => void
+  onBuyNow: (product: Product, quantity?: number) => void
   cartCount: number
   notifications: Notification[]
   notificationCount: number

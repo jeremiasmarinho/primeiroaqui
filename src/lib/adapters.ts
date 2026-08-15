@@ -14,7 +14,13 @@ import type { Address, Order, Product, Store } from '../types'
  * este arquivo.
  */
 
-export const toViewProduct = (dto: ApiProduct, storeName?: string, storeGiftWrapAvailable?: boolean): Product => {
+export const toViewProduct = (
+  dto: ApiProduct,
+  storeName?: string,
+  storeGiftWrapAvailable?: boolean,
+  storePickupAvailable?: boolean,
+  storePickupAddress?: string | null,
+): Product => {
   const price = centsToReais(dto.priceCents)
   return {
     id: dto.id,
@@ -37,6 +43,8 @@ export const toViewProduct = (dto: ApiProduct, storeName?: string, storeGiftWrap
     image: dto.photoUrl ?? localImage(dto.title),
     stock: dto.stock,
     storeGiftWrapAvailable,
+    storePickupAvailable,
+    storePickupAddress,
   }
 }
 
@@ -73,6 +81,8 @@ export const toViewStore = (dto: ApiStore): Store => ({
   cover: localImage(dto.name),
   logoUrl: dto.logoUrl,
   giftWrapAvailable: dto.giftWrapAvailable,
+  pickupAvailable: dto.pickupAvailable,
+  address: dto.address,
 })
 
 /** cep exibido = zipCode do backend; lat/lng ficam no backend, a UI não usa. */
@@ -114,6 +124,7 @@ export const toViewOrder = (
   storeName: storeNameById.get(dto.storeId),
   paymentStatus: dto.paymentStatus ?? 'NONE',
   createdAt: dto.createdAt,
+  isPickup: dto.isPickup,
   isGift: dto.isGift,
   giftRecipientName: dto.giftRecipientName,
   giftMessage: dto.giftMessage,

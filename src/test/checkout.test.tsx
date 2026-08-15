@@ -1,6 +1,8 @@
+import { HttpResponse, http } from 'msw'
 import { fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { enterAsClient, waitForCatalog } from './authTestHelpers'
-import { db, seedAddress } from './mocks/handlers'
+import { db, mockStores, seedAddress } from './mocks/handlers'
+import { server } from './mocks/server'
 import { ROUTES } from '../router/routes'
 
 describe('checkout', () => {
@@ -48,7 +50,7 @@ describe('checkout', () => {
 
     // Com nome mas sem endereco salvo, o backend nao teria addressId — o
     // checkout barra antes de chamar a API.
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
     expect(screen.getByText(/cadastre e selecione um endereço/i)).toBeInTheDocument()
@@ -60,7 +62,7 @@ describe('checkout', () => {
 
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.change(screen.getByLabelText('CEP'), { target: { value: '123' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
@@ -75,7 +77,7 @@ describe('checkout', () => {
 
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
 
     // POST /api/orders cria o pedido (PENDING) e a gaveta avanca para a
@@ -116,7 +118,7 @@ describe('comprar para presente (Item 8)', () => {
 
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
 
     fireEvent.click(screen.getByLabelText(/é um presente\?/i))
     fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
@@ -131,7 +133,7 @@ describe('comprar para presente (Item 8)', () => {
 
     addFirstProduct()
     fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
-    fireEvent.change(screen.getByLabelText('Seu nome'), { target: { value: 'Ana' } })
+    fireEvent.change(screen.getByLabelText('Quem vai receber'), { target: { value: 'Ana' } })
 
     fireEvent.click(screen.getByLabelText(/é um presente\?/i))
     fireEvent.change(screen.getByLabelText(/nome de quem vai receber/i), {
@@ -147,6 +149,17 @@ describe('comprar para presente (Item 8)', () => {
     expect(db.orders[0]?.giftMessage).toBe('Parabéns!')
   })
 
+  it('loja sem pickupAvailable não mostra a opção de retirada', async () => {
+    seedAddress()
+    enterAsClient()
+    await waitForCatalog()
+
+    addFirstProduct()
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+
+    expect(screen.queryByLabelText(/retirar na loja/i)).not.toBeInTheDocument()
+  })
+
   it('loja sem giftWrapAvailable mostra o aviso e não deixa marcar presente', async () => {
     seedAddress()
     enterAsClient()
@@ -158,5 +171,55 @@ describe('comprar para presente (Item 8)', () => {
 
     expect(screen.getByText(/esta loja não oferece embalagem para presente/i)).toBeInTheDocument()
     expect(screen.queryByLabelText(/é um presente\?/i)).not.toBeInTheDocument()
+  })
+})
+
+describe('retirada na loja (Item 14)', () => {
+  const addFirstProduct = () => {
+    fireEvent.click(screen.getAllByRole('button', { name: /adicionar .+ ao carrinho/i })[0] as HTMLElement)
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    // Todas as lojas do catálogo mock aceitam retirada neste describe.
+    server.use(
+      http.get('/api/stores/:id', ({ params }) => {
+        const store = mockStores.find((item) => item.id === params.id)
+        if (!store) return HttpResponse.json({ error: 'Loja nao encontrada' }, { status: 404 })
+        return HttpResponse.json({
+          store: { ...store, pickupAvailable: true, address: 'Rua da Loja, 10' },
+        })
+      }),
+    )
+  })
+
+  it('marcar "Retirar na loja" esconde o endereço e mostra o ponto de retirada', async () => {
+    seedAddress()
+    enterAsClient()
+    await waitForCatalog()
+
+    addFirstProduct()
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+
+    fireEvent.click(screen.getByLabelText(/retirar na loja/i))
+
+    expect(screen.getByText(/retire em: rua da loja, 10/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Endereço')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('CEP')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Quem vai retirar')).toBeInTheDocument()
+  })
+
+  it('pedido de retirada é criado sem endereço e com isPickup=true — mesmo sem endereço salvo', async () => {
+    enterAsClient()
+    await waitForCatalog()
+
+    addFirstProduct()
+    fireEvent.click(screen.getByRole('button', { name: /continuar/i }))
+    fireEvent.click(screen.getByLabelText(/retirar na loja/i))
+    fireEvent.change(screen.getByLabelText('Quem vai retirar'), { target: { value: 'Ana' } })
+    fireEvent.click(screen.getByRole('button', { name: /confirmar compra/i }))
+
+    await waitFor(() => expect(db.orders[0]?.isPickup).toBe(true))
+    expect(db.orders[0]?.addressId).toBeNull()
   })
 })

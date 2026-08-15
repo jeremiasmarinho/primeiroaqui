@@ -112,6 +112,15 @@ export default function CartDrawer({
   // Carrinho é de 1 loja por pedido (Item 8): o primeiro item já basta para
   // saber se a loja do carrinho embala para presente.
   const storeGiftWrapAvailable = cartState.items[0]?.product.storeGiftWrapAvailable ?? false
+  // Retirada (Item 14) só é oferecida quando TODAS as lojas do carrinho aceitam
+  // retirada — o backend valida por loja, mas a UI não fatia o pedido.
+  const storePickupAvailable =
+    cartState.items.length > 0 && cartState.items.every((item) => item.product.storePickupAvailable)
+  // O endereço de retirada só é exibido quando o carrinho tem UMA loja; com
+  // mais lojas cada pedido tem seu ponto — a mensagem genérica cobre o caso.
+  const cartStoreIds = new Set(cartState.items.map((item) => item.product.storeId))
+  const storePickupAddress =
+    cartStoreIds.size === 1 ? (cartState.items[0]?.product.storePickupAddress ?? null) : null
 
   const titleByStep: Record<CheckoutStep, string> = { cart: 'Carrinho', delivery: 'Entrega', payment: 'Pagamento' }
   const subtitleByStep: Record<CheckoutStep, string> = {
@@ -172,6 +181,8 @@ export default function CartDrawer({
             addresses={addresses}
             selectedAddressId={selectedAddressId}
             storeGiftWrapAvailable={storeGiftWrapAvailable}
+            storePickupAvailable={storePickupAvailable}
+            storePickupAddress={storePickupAddress}
             onSelectAddress={onSelectAddress}
             onDeliveryChange={onDeliveryChange}
             onCouponCodeChange={onCouponCodeChange}

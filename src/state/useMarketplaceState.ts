@@ -260,6 +260,26 @@ export function useMarketplaceState() {
     }))
   }
 
+  // Editar o endereço que já está selecionado no checkout precisa refletir na
+  // entrega: sem isto o pedido seguiria com os dados antigos até reselecionar.
+  // A chave serializada garante que o efeito só dispara quando o CONTEÚDO do
+  // endereço muda (edição real), não em recargas da lista — assim ajustes
+  // manuais feitos no formulário de entrega não são sobrescritos à toa.
+  const selectedAddress = addresses.addresses.find(
+    (item) => item.id === addresses.selectedAddressId,
+  )
+  const selectedAddressPatchKey = selectedAddress
+    ? JSON.stringify(addressToDeliveryPatch(selectedAddress))
+    : ''
+  useEffect(() => {
+    if (!selectedAddressPatchKey) return
+    cartCheckout.setDeliveryForm((prev) => ({
+      ...prev,
+      ...(JSON.parse(selectedAddressPatchKey) as ReturnType<typeof addressToDeliveryPatch>),
+    }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAddressPatchKey])
+
   const handleCartContinue = () => {
     if (cartCheckout.cartItemsCount === 0) return
 
@@ -341,13 +361,13 @@ export function useMarketplaceState() {
     handleCartContinue()
   }
 
-  const guardedBuyNow = (product: Product) => {
+  const guardedBuyNow = (product: Product, quantity = 1) => {
     if (!session.authUser) {
-      cartCheckout.handleAddToCart(product)
+      cartCheckout.handleAddToCart(product, quantity)
       session.redirectToLogin(location, { type: 'resume-checkout' })
       return
     }
-    cartCheckout.handleBuyNow(product)
+    cartCheckout.handleBuyNow(product, quantity)
   }
 
   /**
@@ -564,18 +584,24 @@ export function useMarketplaceState() {
   const handleFinalizePurchase = async () => {
     if (cartCheckout.cartItemsCount === 0 || isConfirmingOrder) return // trava duplo clique
 
+    // Retirada na loja (Item 14): dispensa endereço — o pedido vai com
+    // pickupStoreIds e o backend valida que cada loja realmente oferece.
+    const isPickup = cartCheckout.deliveryForm.isPickup
+
     if (!cartCheckout.deliveryForm.name) {
-      cartCheckout.setCheckoutError('Informe o nome de quem recebe a entrega.')
+      cartCheckout.setCheckoutError(
+        isPickup ? 'Informe o nome de quem vai retirar o pedido.' : 'Informe o nome de quem recebe a entrega.',
+      )
       return
     }
     // O CEP digitado é só informativo (o endereço real vai por addressId),
     // mas CEP visivelmente errado ainda merece correção antes do pedido.
-    if (cartCheckout.deliveryForm.cep && !isValidCep(cartCheckout.deliveryForm.cep)) {
+    if (!isPickup && cartCheckout.deliveryForm.cep && !isValidCep(cartCheckout.deliveryForm.cep)) {
       cartCheckout.setCheckoutError(CEP_ERROR_MESSAGE)
       return
     }
     const addressId = addresses.selectedAddressId || addresses.defaultAddress?.id
-    if (!addressId) {
+    if (!isPickup && !addressId) {
       cartCheckout.setCheckoutError('Cadastre e selecione um endereço de entrega para finalizar.')
       return
     }
@@ -595,7 +621,18 @@ export function useMarketplaceState() {
           productId: item.product.id,
           quantity: item.quantity,
         })),
-        addressId,
+        ...(addressId ? { addressId } : {}),
+        ...(isPickup
+          ? {
+              pickupStoreIds: Array.from(
+                new Set(
+                  cartCheckout.cartState.items
+                    .map((item) => item.product.storeId)
+                    .filter((id): id is string => !!id),
+                ),
+              ),
+            }
+          : {}),
         ...(cartCheckout.deliveryForm.isGift
           ? {
               isGift: true,
