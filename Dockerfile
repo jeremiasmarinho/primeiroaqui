@@ -7,7 +7,9 @@ WORKDIR /app
 # NODE_ENV fica indefinido aqui de proposito: com `production` o `npm ci`
 # pularia devDependencies e nao haveria vite/prisma/tsc para buildar.
 COPY package.json package-lock.json ./
-RUN npm ci
+# --ignore-scripts: o postinstall (prisma generate) precisa do schema, que so
+# chega no COPY abaixo — o generate explicito mais adiante cobre a imagem.
+RUN npm ci --ignore-scripts
 
 COPY . .
 
