@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { prisma } from './lib/prismaClient'
 import { authRoutes } from './routes/auth'
 import { mfaRoutes } from './routes/mfa'
 import { storeRoutes } from './routes/stores'
@@ -29,5 +30,18 @@ app.route('/', meRoutes)
 app.route('/', paymentRoutes)
 app.route('/', notificationRoutes)
 
-// Placeholder minimo — health check completo (banco/storage) e escopo da Fase 8.
-app.get('/health', (c) => c.json({ status: 'ok' }))
+// Health real: toca o banco (SELECT 1) e devolve 503 em falha, para que o
+// HEALTHCHECK do Docker e o monitor de uptime (uptime.yml) detectem Supabase
+// fora do ar — e não só "o processo Node responde". Timeout curto: um banco
+// pendurado não pode segurar o health por mais que alguns segundos.
+app.get('/health', async (c) => {
+  try {
+    await Promise.race([
+      prisma.$queryRaw`SELECT 1`,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('db timeout')), 5000)),
+    ])
+    return c.json({ status: 'ok' })
+  } catch {
+    return c.json({ status: 'degraded', database: 'unreachable' }, 503)
+  }
+})

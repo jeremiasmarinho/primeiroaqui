@@ -390,6 +390,8 @@ describe('enderecos ponta a ponta', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /confirmar exclusão/i }))
 
-    expect(await screen.findByText(/nenhum endereço salvo/i)).toBeInTheDocument()
+    // DELETE + reload (GET /me/addresses) são duas idas à rede — sob a carga
+    // da suíte completa o timeout default de 1s flakeia; 5s dá folga.
+    expect(await screen.findByText(/nenhum endereço salvo/i, {}, { timeout: 5000 })).toBeInTheDocument()
   })
 })

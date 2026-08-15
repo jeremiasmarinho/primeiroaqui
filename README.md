@@ -1,63 +1,46 @@
 # Primeiro Aqui MVP
 
-Marketplace React + Vite com foco em uma experiência local rápida e conversão de vendas.
+Marketplace local: SPA React 19 + Vite servida pelo mesmo container Node que roda a API
+(Hono + Prisma sobre Postgres do Supabase). Um único processo, mesma origem — sem CORS,
+sem `VITE_API_URL`.
 
-## O que tem aqui
+## Stack
 
-- SPA leve em React 19 com navegação interna baseada em estado
-- UI responsiva com Tailwind CSS
-- Tela inicial de vitrine aberta para o usuário explorar antes de logar
-- Mock de produtos e fluxo de carrinho / finalização de compra
-- Asset de logo local (`public/logo.png`)
+- **Front:** React 19, Vite, Tailwind CSS, wouter
+- **API:** Hono (`src/server/`), Prisma 7 (`prisma/`), Supabase (auth/storage), Pagar.me (pagamentos)
+- **Deploy:** Docker (`Dockerfile`, imagem única) em VPS via Coolify — ver `docs/runbook.md`
+
+## Como rodar localmente
+
+```bash
+npm install               # roda prisma generate via postinstall
+cp .env.example .env.local  # preencha as credenciais (Supabase, banco, Pagar.me)
+npm run dev               # front em http://localhost:5173
+npm run dev:server        # API em http://localhost:3333
+```
 
 ## Comandos úteis
 
 ```bash
-npm install
-npm run dev
-npm run build
-npm run preview
-npm run lint
+npm run gate       # lint + typecheck + test:unit + build + check:bundle (portão canônico)
+npm run test:e2e   # Playwright
+npm run test:db    # testes que tocam banco real
+npm run docker:build
 ```
-
-## Como rodar localmente
-
-1. Instale dependências:
-
-```bash
-npm install
-```
-
-2. Inicie o servidor de desenvolvimento:
-
-```bash
-npm run dev
-```
-
-3. Abra `http://localhost:5173`
 
 ## Deploy
 
-### GitHub + Vercel
+**O deploy é Docker + VPS (Coolify) — NÃO Vercel.** O processo completo, incluindo
+migrations (`prisma migrate deploy`), variáveis de ambiente e verificação pós-deploy,
+está em **`docs/runbook.md`** — esse documento é a fonte de verdade operacional.
 
-1. Garanta que o código está no GitHub.
-2. Conecte o repositório no Vercel.
-3. Use `npm run build` como comando de build.
-4. A pasta de saída padrão do Vite é `dist`.
+Ordem resumida: `npm run gate` verde → `npx prisma migrate deploy` (se houver migration
+nova) → push na branch acompanhada pelo Coolify → validar `/api/health` e uma rota
+profunda da SPA.
 
-### GitHub Actions
+## Estrutura
 
-O projeto já tem workflow de build que roda o `npm install` e `npm run build` em cada push para `main`.
-
-## Estrutura básica
-
-- `src/App.jsx` - aplicação principal e navegação entre telas
-- `src/index.css` - estilos globais e Tailwind
-- `public/` - arquivos estáticos, incluindo `logo.png`
-- `tailwind.config.js` - configuração do Tailwind
-- `vite.config.js` - configuração do Vite
-
-## Observações
-
-- A vitrine deve ser a página inicial para reduzir atrito de conversão.
-- O build foi validado com sucesso após as últimas alterações.
+- `src/` — SPA (telas em `src/screens/`, estado em `src/state/`, cliente HTTP em `src/lib/api.ts`)
+- `src/server/` — API Hono (`root.ts` monta `/api` + estáticos; rotas em `src/server/routes/`)
+- `prisma/` — schema e migrations
+- `docs/` — runbook operacional, ADRs e planos

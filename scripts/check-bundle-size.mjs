@@ -65,7 +65,10 @@ checkNodeEnvNotSet()
 // crescimento descontrolado. Racional: entre 01 e 07/08 o app dobrou de
 // escopo (OAuth, toasts, dashboards, CRM) e a soma cega punia code-splitting.
 // Baixar limites é permitido; SUBIR qualquer um exige nova decisão humana.
-const MAX_INITIAL_KB = 330
+// DECISÃO HUMANA (2026-08-15, aprovada pelo dono via AskUserQuestion): teto
+// inicial 330 → 340 kB para acomodar as features de lançamento (retirada na
+// loja no checkout + seletor de quantidade no comprar agora, Itens 13/14).
+const MAX_INITIAL_KB = 340
 const MAX_TOTAL_KB = 450
 const MAX_INITIAL_BYTES = MAX_INITIAL_KB * 1024
 const MAX_TOTAL_BYTES = MAX_TOTAL_KB * 1024

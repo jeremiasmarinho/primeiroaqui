@@ -195,3 +195,15 @@ proteção).
   --env-file /opt/primeiroaqui/.env primeiro-aqui:latest"`.
 - Monitor de uptime: workflow GitHub Actions `uptime.yml` (15 em 15 min,
   falha = e-mail do GitHub ao dono do repo).
+
+## Pendências conhecidas (registradas em 15/08/2026)
+
+- **Geocoding de endereços:** endereços são criados com `latitude/longitude`
+  em `(0,0)` (sem geocoding no front) e o `PATCH /addresses/:id` não atualiza
+  coordenadas. A busca por raio ignora endereços em `(0,0)` de propósito.
+  Resolver na fase de descoberta (geocoding server-side no create/update).
+- **Busca de lojas server-side:** a normalização de acentos na busca de LOJAS
+  só existe no cliente; o endpoint de listagem de lojas não usa
+  `unaccent`/trigram como o de produtos.
+- **Apple Pay:** adiado pós-lançamento (exige conta Apple Developer, merchant
+  registrado e validação de domínio). Google Pay está integrado.

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "postinstall": "prisma generate",
     "prebuild": "node scripts/clean-dist.mjs",
     "build": "vite build",
     "check:bundle": "node scripts/check-bundle-size.mjs",
