@@ -68,7 +68,7 @@ test('lojista cadastra negócio, publica produto e recebe pedido', async ({ brow
   await buyerPage.getByRole('dialog', { name: /carrinho de compras/i }).getByRole('button', { name: /continuar/i }).click()
   await expect(buyerPage.getByRole('dialog', { name: /dados de entrega/i })).toBeVisible()
   await buyerPage.getByLabel('Casa Comprador', { exact: false }).check()
-  await buyerPage.getByLabel('Seu nome').fill(buyerName)
+  await buyerPage.getByLabel('Quem vai receber').fill(buyerName)
   await buyerPage.getByRole('button', { name: /^cartão$/i }).click()
   await buyerPage.getByRole('button', { name: /confirmar compra/i }).click()
 

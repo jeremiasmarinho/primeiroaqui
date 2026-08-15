@@ -22,7 +22,7 @@ test('cliente cria conta, compra com cartão e vê o pedido pago', async ({ page
   const deliveryDialog = page.getByRole('dialog', { name: /dados de entrega/i })
   await expect(deliveryDialog).toBeVisible()
   await page.getByLabel('Casa', { exact: false }).check()
-  await page.getByLabel('Seu nome').fill(name)
+  await page.getByLabel('Quem vai receber').fill(name)
   await page.getByRole('button', { name: /^cartão$/i }).click()
   await page.getByRole('button', { name: /confirmar compra/i }).click()
 
