@@ -210,3 +210,16 @@ proteção).
   `unaccent`/trigram como o de produtos.
 - **Apple Pay:** adiado pós-lançamento (exige conta Apple Developer, merchant
   registrado e validação de domínio). Google Pay está integrado.
+
+## Drift resolvido em 15/08/2026 (registro)
+
+O banco de produção tinha 5 migrations fantasmas de branches antigas
+(`agents_and_schedule`, `coupons`, `add_store_phone_category`,
+`notifications_and_threads`, `store_isactive_default_false`) e a
+`add_notifications` falhou no meio (`NotificationType already exists`).
+Correção aplicada: `scripts/prod-fix-drift.sql` (somente aditivo) +
+`prisma migrate resolve --applied` nas duas migrations. Sobras que FICARAM
+no banco para uma janela de limpeza futura: tabelas `agents`, `coupons`,
+`schedule_items`, `threads`, `thread_messages`; colunas `stores.phone`,
+`orders.couponCode`, `orders.discountCents`. Nada disso é lido pelo app.
+`scripts/migrate-prod.mjs` é o utilitário (status|deploy|diff|exec|resolve-applied).
