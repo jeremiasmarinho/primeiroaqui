@@ -290,6 +290,30 @@ describe('CRUD admin de anuncios', () => {
       const body = (await res.json()) as { ad: { active: boolean } }
       expect(body.ad.active).toBe(false)
     })
+
+    it('PATCH so com endsAt anterior ao startsAt existente retorna 400', async () => {
+      const created = await prisma.adPlacement.create({
+        data: {
+          slot: 'HERO_CAROUSEL',
+          advertiserName: 'Fixture Patch Vigencia',
+          imageUrl: 'https://x.com/vigencia.png',
+          startsAt: hourAgo(),
+          endsAt: hourAhead(),
+          active: true,
+        },
+      })
+
+      // Manda so endsAt, antes do startsAt ja persistido (hourAgo).
+      const res = await app.request(`/admin/ads/${created.id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ endsAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() }),
+      })
+      expect(res.status).toBe(400)
+
+      const untouched = await prisma.adPlacement.findUnique({ where: { id: created.id } })
+      expect(untouched?.endsAt.toISOString()).toBe(created.endsAt.toISOString())
+    })
   })
 
   describe('DELETE /admin/ads/:id', () => {

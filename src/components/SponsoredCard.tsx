@@ -1,5 +1,6 @@
 import { Link } from 'wouter'
 import type { ApiAd } from '../lib/api'
+import { isExternalUrl } from '../lib/adLinks'
 
 /**
  * Card patrocinado no formato do grid de catálogo — mesmo footprint do
@@ -8,10 +9,6 @@ import type { ApiAd } from '../lib/api'
  */
 interface SponsoredCardProps {
   ad: ApiAd
-}
-
-function isExternalUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url)
 }
 
 export default function SponsoredCard({ ad }: SponsoredCardProps) {

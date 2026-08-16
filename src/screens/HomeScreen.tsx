@@ -129,10 +129,11 @@ export default function HomeScreen({
       />
 
       <main className="mx-auto max-w-6xl">
-        {/* Banners de cupom/assinatura, atalhos de fidelidade e "entrega turbo"
-            saíram do MVP: nenhum tinha backend por trás (cupom, pontos, indicação,
-            frete grátis por assinatura, produto "express") e os CTAs não levavam
-            a lugar nenhum — religar quando essas features existirem de verdade. */}
+        {/* Carrossel do topo e faixa de destaque são espaços de anúncio pago
+            (slots HERO_CAROUSEL/HIGHLIGHT_STRIP): quando não há anunciante
+            vigente, caem no fallback institucional estático — nunca ficam
+            vazios nem prometem CTA sem destino. Cupom/assinatura, fidelidade
+            e "entrega turbo" continuam fora do MVP por falta de backend. */}
 
         <BannerCarousel ads={ads.heroCarousel} />
         <HighlightStrip ad={ads.highlightStrip} />

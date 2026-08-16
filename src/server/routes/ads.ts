@@ -97,6 +97,16 @@ adRoutes.patch('/admin/ads/:id', requireUser, requireAdmin, async (c) => {
   const existing = await prisma.adPlacement.findUnique({ where: { id: c.req.param('id') } })
   if (!existing) return c.json({ error: 'Anuncio nao encontrado' }, 404)
 
+  // O refine do zod so valida quando AMBAS as datas vem no body — um PATCH que
+  // manda so uma data (ex.: so endsAt) passa incolume e pode inverter a
+  // vigencia contra o valor ja persistido da outra data. Recalcula a
+  // combinacao efetiva (nova, se veio no body; senao a existente) e barra.
+  const effectiveStartsAt = parsed.data.startsAt ?? existing.startsAt
+  const effectiveEndsAt = parsed.data.endsAt ?? existing.endsAt
+  if (effectiveEndsAt <= effectiveStartsAt) {
+    return c.json({ error: 'Fim da vigencia deve ser apos o inicio' }, 400)
+  }
+
   const ad = await prisma.adPlacement.update({
     where: { id: existing.id },
     data: parsed.data,

@@ -327,7 +327,8 @@ export interface ApiAdInput {
   slot: ApiAdSlot
   advertiserName: string
   imageUrl: string
-  linkUrl?: string
+  /** null limpa o link explicitamente (só faz sentido em PATCH); undefined = não envolvido no payload. */
+  linkUrl?: string | null
   startsAt: string
   endsAt: string
   active?: boolean

@@ -45,8 +45,11 @@ export function deriveAdStatus(
 
 const dateTimeBR = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
 
-/** Converte o valor de um input datetime-local (hora local, sem timezone) para ISO. */
-function localInputToIso(value: string): string {
+/** Converte o valor de um input datetime-local (hora local, sem timezone) para ISO.
+ * Retorna null se vazio — quem chama deve tratar isso bloqueando o submit,
+ * em vez de deixar `new Date('')` estourar RangeError no toISOString(). */
+function localInputToIso(value: string): string | null {
+  if (!value) return null
   return new Date(value).toISOString()
 }
 
@@ -120,18 +123,35 @@ export default function AdminAdsTab({ ads, pendingAdIds, onCreate, onEdit, onSet
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
-    const payload: ApiAdInput = {
-      slot: form.slot,
-      advertiserName: form.advertiserName,
-      imageUrl: form.imageUrl,
-      linkUrl: form.linkUrl || undefined,
-      startsAt: localInputToIso(form.startsAt),
-      endsAt: localInputToIso(form.endsAt),
-      position: Number(form.position) || 0,
-    }
+
+    if (!form.startsAt || !form.endsAt) return
+
+    const startsAt = localInputToIso(form.startsAt)
+    const endsAt = localInputToIso(form.endsAt)
+    if (!startsAt || !endsAt) return
+
     if (editingId) {
-      onEdit(editingId, payload)
+      onEdit(editingId, {
+        slot: form.slot,
+        advertiserName: form.advertiserName,
+        imageUrl: form.imageUrl,
+        // null (nao undefined) para permitir limpar o link no PATCH — undefined
+        // significaria "nao mude este campo".
+        linkUrl: form.linkUrl || null,
+        startsAt,
+        endsAt,
+        position: Number(form.position) || 0,
+      })
     } else {
+      const payload: ApiAdInput = {
+        slot: form.slot,
+        advertiserName: form.advertiserName,
+        imageUrl: form.imageUrl,
+        linkUrl: form.linkUrl || undefined,
+        startsAt,
+        endsAt,
+        position: Number(form.position) || 0,
+      }
       onCreate(payload)
     }
     cancelEdit()
@@ -145,7 +165,7 @@ export default function AdminAdsTab({ ads, pendingAdIds, onCreate, onEdit, onSet
         <h3 className="text-lg font-black text-ink">{editingId ? 'Editar anúncio' : 'Novo anúncio'}</h3>
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm font-semibold text-ink">
-            Posição
+            Espaço
             <select
               value={form.slot}
               onChange={(e) => setForm((f) => ({ ...f, slot: e.target.value as ApiAdSlot }))}

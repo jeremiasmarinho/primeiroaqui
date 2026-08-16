@@ -3,6 +3,7 @@ import { ChevronRight } from 'lucide-react'
 import { Link } from 'wouter'
 import { banners } from '../data/catalog'
 import type { ApiAd } from '../lib/api'
+import { isExternalUrl } from '../lib/adLinks'
 
 type Tone = 'brand' | 'ink' | 'ship'
 
@@ -24,10 +25,6 @@ const tones: Record<Tone, string> = {
   brand: 'bg-gradient-to-br from-brand-soft to-brand text-ink',
   ink: 'bg-gradient-to-br from-ink to-[#2A3138] text-white',
   ship: 'bg-gradient-to-br from-ship to-[#0B7A3B] text-white',
-}
-
-function isExternalUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url)
 }
 
 /** Slide de anúncio: imagem cobrindo o card + selo "Patrocinado", clicável conforme linkUrl. */
@@ -94,8 +91,9 @@ function AdSlide({ ad, index, total }: { ad: ApiAd; index: number; total: number
 export default function BannerCarousel({ ads }: BannerCarouselProps = {}) {
   const railRef = useRef<HTMLDivElement>(null)
   const [active, setActive] = useState(0)
-  const hasAds = Boolean(ads && ads.length > 0)
-  const slideCount = hasAds ? (ads as ApiAd[]).length : banners.length
+  const slides = ads ?? []
+  const hasAds = slides.length > 0
+  const slideCount = hasAds ? slides.length : banners.length
 
   useEffect(() => {
     const rail = railRef.current
@@ -128,7 +126,7 @@ export default function BannerCarousel({ ads }: BannerCarouselProps = {}) {
     <section aria-roledescription="carrossel" aria-label="Promoções em destaque" className="pt-3">
       <div ref={railRef} className="rail no-scrollbar px-3">
         {hasAds
-          ? (ads as ApiAd[]).map((ad, index) => (
+          ? slides.map((ad, index) => (
               <AdSlide key={ad.id} ad={ad} index={index} total={slideCount} />
             ))
           : (banners as Banner[]).map((banner, index) => (
@@ -160,7 +158,7 @@ export default function BannerCarousel({ ads }: BannerCarouselProps = {}) {
 
       <div className="mt-2 flex justify-center gap-1.5">
         {hasAds
-          ? (ads as ApiAd[]).map((ad, index) => (
+          ? slides.map((ad, index) => (
               <button
                 key={ad.id}
                 type="button"

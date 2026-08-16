@@ -1,5 +1,6 @@
 import { Link } from 'wouter'
 import type { ApiAd } from '../lib/api'
+import { isExternalUrl } from '../lib/adLinks'
 
 /**
  * Faixa de destaque vendável: espaço fino (~44px) entre o carrossel de banners
@@ -11,10 +12,6 @@ export const ADVERTISE_WHATSAPP_URL =
 
 interface HighlightStripProps {
   ad: ApiAd | null
-}
-
-function isExternalUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url)
 }
 
 export default function HighlightStrip({ ad }: HighlightStripProps) {
@@ -40,16 +37,12 @@ export default function HighlightStrip({ ad }: HighlightStripProps) {
 
   const content = (
     <>
-      {ad.imageUrl ? (
-        <img
-          src={ad.imageUrl}
-          alt=""
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      ) : null}
-      {ad.imageUrl ? (
-        <div className="absolute inset-0 bg-black/35" aria-hidden="true" />
-      ) : null}
+      <img
+        src={ad.imageUrl}
+        alt=""
+        className="absolute inset-0 h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-black/35" aria-hidden="true" />
       <div className="relative flex w-full items-center justify-between gap-2 px-3 py-2.5">
         <span className="truncate text-sm font-bold text-white drop-shadow">
           {ad.advertiserName}

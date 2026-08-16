@@ -89,6 +89,57 @@ describe('AdminAdsTab', () => {
     expect(payload.endsAt).toBe(new Date('2026-09-30T10:00').toISOString())
   })
 
+  it('Editar carrega o form com os dados do anúncio e Salvar chama onEdit', () => {
+    const onEdit = vi.fn()
+    render(
+      <AdminAdsTab
+        ads={[baseAd]}
+        pendingAdIds={new Set()}
+        onCreate={vi.fn()}
+        onEdit={onEdit}
+        onSetActive={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+
+    expect(screen.getByRole('heading', { name: 'Editar anúncio' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Anunciante')).toHaveValue('Loja X')
+    expect(screen.getByLabelText('URL da imagem')).toHaveValue('https://example.com/x.png')
+    expect(screen.getByLabelText('Link de destino')).toHaveValue('https://example.com')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar edição' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    const id = onEdit.mock.calls[0]?.[0]
+    const payload = onEdit.mock.calls[0]?.[1]
+    expect(id).toBe('ad-1')
+    expect(payload.linkUrl).toBe('https://example.com')
+  })
+
+  it('Editar → limpar link → Salvar chama onEdit com linkUrl: null', () => {
+    const onEdit = vi.fn()
+    render(
+      <AdminAdsTab
+        ads={[baseAd]}
+        pendingAdIds={new Set()}
+        onCreate={vi.fn()}
+        onEdit={onEdit}
+        onSetActive={vi.fn()}
+      />,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Editar' }))
+    fireEvent.change(screen.getByLabelText('Link de destino'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar edição' }))
+
+    expect(onEdit).toHaveBeenCalledTimes(1)
+    const id = onEdit.mock.calls[0]?.[0]
+    const payload = onEdit.mock.calls[0]?.[1]
+    expect(id).toBe('ad-1')
+    expect(payload.linkUrl).toBeNull()
+  })
+
   it('botão Desativar chama onSetActive com {active: false}', () => {
     const onSetActive = vi.fn()
     render(
