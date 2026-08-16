@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { Router } from 'wouter'
 
 import BottomNav from './BottomNav'
 import Countdown from './Countdown'
@@ -9,6 +10,7 @@ import ProductCard from './ProductCard'
 import TopBar from './TopBar'
 import BannerCarousel from './BannerCarousel'
 import { makeProduct } from '../test/factories'
+import type { ApiAd } from '../lib/api'
 
 describe('Price', () => {
   it('mostra reais e centavos separados', () => {
@@ -305,5 +307,91 @@ describe('BannerCarousel', () => {
   it('cada slide se anuncia com posicao', () => {
     render(<BannerCarousel />)
     expect(screen.getByRole('group', { name: /^1 de \d+:/ })).toBeInTheDocument()
+  })
+
+  const heroAdExternal: ApiAd = {
+    id: 'hero-1',
+    slot: 'HERO_CAROUSEL',
+    advertiserName: 'Loja Patrocinadora',
+    imageUrl: 'https://example.com/hero.jpg',
+    linkUrl: 'https://example.com/promo',
+    position: 0,
+  }
+
+  const heroAdInternal: ApiAd = {
+    id: 'hero-2',
+    slot: 'HERO_CAROUSEL',
+    advertiserName: 'Loja Interna',
+    imageUrl: 'https://example.com/hero2.jpg',
+    linkUrl: '/loja/loja-interna',
+    position: 1,
+  }
+
+  const heroAdNoLink: ApiAd = {
+    id: 'hero-3',
+    slot: 'HERO_CAROUSEL',
+    advertiserName: 'Loja Sem Link',
+    imageUrl: 'https://example.com/hero3.jpg',
+    linkUrl: null,
+    position: 2,
+  }
+
+  it('com ads, renderiza imagem e selo "Patrocinado"', () => {
+    render(
+      <Router>
+        <BannerCarousel ads={[heroAdExternal]} />
+      </Router>,
+    )
+
+    expect(screen.getByAltText('Loja Patrocinadora')).toBeInTheDocument()
+    expect(screen.getByText('Patrocinado')).toBeInTheDocument()
+  })
+
+  it('ad externo tem rel="noopener sponsored" e target _blank', () => {
+    render(
+      <Router>
+        <BannerCarousel ads={[heroAdExternal]} />
+      </Router>,
+    )
+
+    const link = screen.getByRole('link', { name: /Loja Patrocinadora.*Patrocinado/i })
+    expect(link).toHaveAttribute('href', heroAdExternal.linkUrl as string)
+    expect(link).toHaveAttribute('target', '_blank')
+    expect(link).toHaveAttribute('rel', 'noopener sponsored')
+  })
+
+  it('ad interno usa Link do wouter, sem abrir nova aba', () => {
+    render(
+      <Router>
+        <BannerCarousel ads={[heroAdInternal]} />
+      </Router>,
+    )
+
+    const link = screen.getByRole('link', { name: /Loja Interna.*Patrocinado/i })
+    expect(link).toHaveAttribute('href', heroAdInternal.linkUrl as string)
+    expect(link).not.toHaveAttribute('target')
+  })
+
+  it('ad sem linkUrl nao e clicavel', () => {
+    render(
+      <Router>
+        <BannerCarousel ads={[heroAdNoLink]} />
+      </Router>,
+    )
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('group', { name: /Loja Sem Link.*Patrocinado/i }),
+    ).toBeInTheDocument()
+  })
+
+  it('sem ads (vazio ou ausente), mantem os banners estaticos', () => {
+    render(
+      <Router>
+        <BannerCarousel ads={[]} />
+      </Router>,
+    )
+    expect(screen.getAllByRole('group', { name: /^1 de \d+:/ }).length).toBeGreaterThan(0)
+    expect(screen.queryByText('Patrocinado')).not.toBeInTheDocument()
   })
 })
