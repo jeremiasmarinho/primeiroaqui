@@ -295,6 +295,46 @@ export interface ApiAdminStore {
   createdAt: string
 }
 
+/** Slots de anúncio — espelha o enum AdSlot do Prisma. */
+export type ApiAdSlot = 'HERO_CAROUSEL' | 'HIGHLIGHT_STRIP' | 'SPONSORED_FEED'
+
+/** Anúncio ativo, projeção pública de GET /ads (sem active/startsAt/endsAt — só o front precisa saber). */
+export interface ApiAd {
+  id: string
+  slot: ApiAdSlot
+  advertiserName: string
+  imageUrl: string
+  linkUrl: string | null
+  position: number
+}
+
+/** Resposta de GET /ads (público) — já separada por slot para a home consumir direto. */
+export interface ApiAdsResponse {
+  heroCarousel: ApiAd[]
+  highlightStrip: ApiAd | null
+  sponsoredFeed: ApiAd[]
+}
+
+/** Linha completa devolvida pelo CRUD admin (POST/GET/PATCH /admin/ads) — inclui campos de agendamento. */
+export interface ApiAdminAd extends ApiAd {
+  active: boolean
+  startsAt: string
+  endsAt: string
+}
+
+/** Input de POST /admin/ads — todos os campos obrigatórios exceto os que o servidor defaulta. */
+export interface ApiAdInput {
+  slot: ApiAdSlot
+  advertiserName: string
+  imageUrl: string
+  /** null limpa o link explicitamente (só faz sentido em PATCH); undefined = não envolvido no payload. */
+  linkUrl?: string | null
+  startsAt: string
+  endsAt: string
+  active?: boolean
+  position?: number
+}
+
 /** Foto de produto criada por POST /products/:id/photos. */
 export interface ApiProductPhoto {
   id: string
@@ -767,4 +807,24 @@ export const api = {
   mfaFactors: () => request<{ factors: ApiMfaFactor[] }>('/mfa/factors'),
 
   mfaUnenroll: (factorId: string) => request<{ ok: true }>(`/mfa/${factorId}`, { method: 'DELETE' }),
+
+  // ------------------------------------------------------------ anúncios
+  // Nota: em adminListAds/adminCreateAd/adminUpdateAd/adminDeleteAd, `token`
+  // só é usado quando NÃO há sessão salva no storage — a sessão logada
+  // sempre tem prioridade (ver `request()`). Não dá pra usar `token` pra
+  // agir como outro admin estando logado; é só o fallback dos demais
+  // fetchers (ex.: chamada logo após logout).
+  /** GET /ads (público, sem auth) — usado pela home; falha é tratada no hook, nunca aqui. */
+  fetchAds: () => request<ApiAdsResponse>('/ads'),
+
+  adminListAds: (token: string) => request<{ ads: ApiAdminAd[] }>('/admin/ads', { token }),
+
+  adminCreateAd: (token: string, input: ApiAdInput) =>
+    request<{ ad: ApiAdminAd }>('/admin/ads', { method: 'POST', body: input, token }),
+
+  adminUpdateAd: (token: string, id: string, input: Partial<ApiAdInput>) =>
+    request<{ ad: ApiAdminAd }>(`/admin/ads/${id}`, { method: 'PATCH', body: input, token }),
+
+  adminDeleteAd: (token: string, id: string) =>
+    request<{ ok: true }>(`/admin/ads/${id}`, { method: 'DELETE', token }),
 }

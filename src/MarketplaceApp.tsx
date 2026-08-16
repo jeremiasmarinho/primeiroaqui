@@ -3,6 +3,7 @@ import CartDrawer from './components/CartDrawer'
 import ToastStack from './components/Toast'
 import AppRouter from './router/AppRouter'
 import { useMarketplaceState } from './state/useMarketplaceState'
+import { useAds } from './state/useAds'
 
 /**
  * Composição raiz do app: todo o estado e os handlers vêm de
@@ -10,6 +11,9 @@ import { useMarketplaceState } from './state/useMarketplaceState'
  */
 export default function MarketplaceApp() {
   const state = useMarketplaceState()
+  // Anúncios são independentes do resto do estado da vitrine (falha
+  // silenciosa, não bloqueia o carregamento do catálogo).
+  const { ads } = useAds()
 
   return (
     <>
@@ -66,6 +70,7 @@ export default function MarketplaceApp() {
         notificationCount={state.notificationCount}
         onNotificationsOpen={state.onNotificationsOpen}
         onOpenCart={state.onOpenCart}
+        ads={ads}
         orders={state.orders}
         ordersLoading={state.ordersLoading}
         ordersError={state.ordersError}

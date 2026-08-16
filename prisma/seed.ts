@@ -28,7 +28,8 @@ loadEnv({ path: envFile, quiet: true })
 const { prisma } = await import('../src/server/lib/prismaClient')
 const { supabaseAdmin } = await import('../src/server/lib/supabaseClient')
 const { productImage, storeImage } = await import('../src/lib/images')
-const { UserRole, OrderStatus, StoreCategory } = await import('@prisma/client')
+const { ROUTES } = await import('../src/router/routes')
+const { UserRole, OrderStatus, StoreCategory, AdSlot } = await import('@prisma/client')
 
 /** Senha forte fixa de seed — apenas ambientes de dev/homolog, nunca producao real de cliente. */
 const SEED_PASSWORD = 'PrimeiroAqui!Seed2026'
@@ -435,6 +436,120 @@ async function main() {
     reviewsCreated += 1
   }
 
+  // 7) Anúncios de demonstração (AdPlacement) — 2 por slot, vigência de 90 dias.
+  // Não há chave natural única no schema (só id), então a idempotência é por
+  // (slot, advertiserName): busca antes de decidir criar ou atualizar.
+  const now = Date.now()
+  const day = 24 * 60 * 60 * 1000
+  const storeBySlug = (slug: string) => createdStores.find((s) => s.slug === slug)
+  const mercearia = storeBySlug('mercearia-do-bairro')
+  const farmacia = storeBySlug('farmacia-vida-nova')
+  const padaria = storeBySlug('padaria-sao-jose')
+  const petshop = storeBySlug('petshop-amigo-fiel')
+
+  type AdPlacementSeed = {
+    slot: (typeof AdSlot)[keyof typeof AdSlot]
+    advertiserName: string
+    imageUrl: string
+    linkUrl: string | null
+    startsAt: Date
+    endsAt: Date
+    active: boolean
+    position: number
+  }
+
+  const AD_PLACEMENT_SEEDS: AdPlacementSeed[] = [
+    // HERO_CAROUSEL — 2 anúncios ativos, vigência corrente de 90 dias.
+    {
+      slot: AdSlot.HERO_CAROUSEL,
+      advertiserName: 'Mercearia do Bairro',
+      imageUrl: storeImage('Supermercado', 'mercearia-do-bairro-hero', 1200, 480),
+      linkUrl: mercearia ? ROUTES.store(mercearia.slug) : null,
+      startsAt: new Date(now - 1 * day),
+      endsAt: new Date(now + 89 * day),
+      active: true,
+      position: 0,
+    },
+    {
+      slot: AdSlot.HERO_CAROUSEL,
+      advertiserName: 'Farmácia Vida Nova',
+      imageUrl: storeImage('Farmácia', 'farmacia-vida-nova-hero', 1200, 480),
+      linkUrl: farmacia ? ROUTES.store(farmacia.slug) : null,
+      startsAt: new Date(now - 1 * day),
+      endsAt: new Date(now + 89 * day),
+      active: true,
+      position: 1,
+    },
+    // HIGHLIGHT_STRIP — só o primeiro em vigência aparece: um ativo agora e
+    // um agendado para o futuro (começa quando o primeiro termina).
+    {
+      slot: AdSlot.HIGHLIGHT_STRIP,
+      advertiserName: 'Padaria São José',
+      imageUrl: storeImage('Padaria', 'padaria-sao-jose-highlight', 800, 400),
+      linkUrl: padaria ? ROUTES.store(padaria.slug) : null,
+      startsAt: new Date(now - 1 * day),
+      endsAt: new Date(now + 44 * day),
+      active: true,
+      position: 0,
+    },
+    {
+      slot: AdSlot.HIGHLIGHT_STRIP,
+      advertiserName: 'Petshop Amigo Fiel',
+      imageUrl: storeImage('Pet', 'petshop-amigo-fiel-highlight', 800, 400),
+      linkUrl: petshop ? ROUTES.store(petshop.slug) : null,
+      startsAt: new Date(now + 44 * day),
+      endsAt: new Date(now + 90 * day),
+      active: true,
+      position: 0,
+    },
+    // SPONSORED_FEED — 2 anúncios ativos; um sem linkUrl (exemplo institucional).
+    {
+      slot: AdSlot.SPONSORED_FEED,
+      advertiserName: 'Mercearia do Bairro',
+      imageUrl: productImage('Mercearia', 'mercearia-do-bairro-feed', 600),
+      linkUrl: mercearia ? ROUTES.store(mercearia.slug) : null,
+      startsAt: new Date(now - 1 * day),
+      endsAt: new Date(now + 89 * day),
+      active: true,
+      position: 0,
+    },
+    {
+      slot: AdSlot.SPONSORED_FEED,
+      advertiserName: 'Primeiro Aqui',
+      imageUrl: productImage('Institucional', 'primeiro-aqui-feed', 600),
+      linkUrl: null,
+      startsAt: new Date(now - 1 * day),
+      endsAt: new Date(now + 89 * day),
+      active: true,
+      position: 1,
+    },
+  ]
+
+  let adPlacementsCreated = 0
+  let adPlacementsUpdated = 0
+  for (const seed of AD_PLACEMENT_SEEDS) {
+    const existing = await prisma.adPlacement.findFirst({
+      where: { slot: seed.slot, advertiserName: seed.advertiserName },
+    })
+    if (existing) {
+      await prisma.adPlacement.update({
+        where: { id: existing.id },
+        data: {
+          imageUrl: seed.imageUrl,
+          linkUrl: seed.linkUrl,
+          startsAt: seed.startsAt,
+          endsAt: seed.endsAt,
+          active: seed.active,
+          position: seed.position,
+        },
+      })
+      adPlacementsUpdated += 1
+    } else {
+      await prisma.adPlacement.create({ data: seed })
+      adPlacementsCreated += 1
+    }
+  }
+
   // Resumo final
   const [userCount, storeCount, productCount, orderCount, reviewCount, addressCount] = await Promise.all([
     prisma.user.count(),
@@ -453,6 +568,9 @@ async function main() {
   console.log(`Endereços: ${addressCount}`)
   console.log(`Pedidos: ${orderCount} (criados agora: ${ordersToCreate})`)
   console.log(`Avaliações: ${reviewCount} (criadas agora: ${reviewsCreated})`)
+  console.log(
+    `Anúncios: ${AD_PLACEMENT_SEEDS.length} (criados agora: ${adPlacementsCreated}, atualizados: ${adPlacementsUpdated})`,
+  )
   console.log(`Senha padrão de todos os usuários de seed: ${SEED_PASSWORD}`)
 }
 

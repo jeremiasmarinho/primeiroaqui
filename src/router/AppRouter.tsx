@@ -126,6 +126,7 @@ export default function AppRouter(props: AppRouterProps) {
       onOpenCart={props.onOpenCart}
       moreHref={moreHref}
       isAuthenticated={!!authUser}
+      ads={props.ads}
     />
   )
 
