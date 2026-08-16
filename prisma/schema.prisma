@@ -249,3 +249,29 @@ model Notification {
   @@index([userId, createdAt])
   @@map("notifications")
 }
+
+/// Onde o anúncio aparece na home. Cada slot tem contrato visual próprio.
+enum AdSlot {
+  HERO_CAROUSEL
+  HIGHLIGHT_STRIP
+  SPONSORED_FEED
+}
+
+/// Espaço publicitário vendido. Sem billing no sistema (venda combinada fora);
+/// `advertiserName` é a rastreabilidade de quem pagou pelo espaço.
+model AdPlacement {
+  id             String   @id @default(cuid())
+  slot           AdSlot
+  advertiserName String
+  imageUrl       String
+  linkUrl        String?
+  startsAt       DateTime
+  endsAt         DateTime
+  active         Boolean  @default(true)
+  position       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([slot, active, startsAt, endsAt])
+  @@map("ad_placements")
+}
