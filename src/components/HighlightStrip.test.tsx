@@ -42,7 +42,7 @@ describe('HighlightStrip', () => {
       </Router>,
     )
 
-    const link = screen.getByRole('link', { name: /Loja Exemplo/i })
+    const link = screen.getByRole('link', { name: /Loja Exemplo.*Publicidade/i })
     expect(link).toHaveAttribute('href', externalAd.linkUrl as string)
     expect(link).toHaveAttribute('target', '_blank')
     expect(link).toHaveAttribute('rel', 'noopener sponsored')
@@ -55,9 +55,29 @@ describe('HighlightStrip', () => {
       </Router>,
     )
 
-    const link = screen.getByRole('link', { name: /Loja Interna/i })
+    const link = screen.getByRole('link', { name: /Loja Interna.*Publicidade/i })
     expect(link).toHaveAttribute('href', internalAd.linkUrl as string)
     expect(link).not.toHaveAttribute('target')
+  })
+
+  it('anuncio sem linkUrl nao e clicavel mas expoe "Publicidade" no nome acessivel', () => {
+    const noLinkAd: ApiAd = {
+      ...externalAd,
+      id: 'ad-3',
+      linkUrl: null,
+    }
+
+    render(
+      <Router>
+        <HighlightStrip ad={noLinkAd} />
+      </Router>,
+    )
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+    expect(
+      screen.getByRole('group', { name: /Loja Exemplo.*Publicidade/i }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Publicidade')).toBeInTheDocument()
   })
 
   it('renderiza fallback "Anuncie aqui" sem ad, linkando para o WhatsApp', () => {

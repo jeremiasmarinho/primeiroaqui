@@ -47,6 +47,9 @@ export default function HighlightStrip({ ad }: HighlightStripProps) {
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : null}
+      {ad.imageUrl ? (
+        <div className="absolute inset-0 bg-black/35" aria-hidden="true" />
+      ) : null}
       <div className="relative flex w-full items-center justify-between gap-2 px-3 py-2.5">
         <span className="truncate text-sm font-bold text-white drop-shadow">
           {ad.advertiserName}
@@ -64,7 +67,11 @@ export default function HighlightStrip({ ad }: HighlightStripProps) {
   if (!ad.linkUrl) {
     return (
       <section className="px-3 pt-4">
-        <div aria-label={ad.advertiserName} className={wrapperClassName}>
+        <div
+          role="group"
+          aria-label={`${ad.advertiserName} — Publicidade`}
+          className={wrapperClassName}
+        >
           {content}
         </div>
       </section>
@@ -80,13 +87,17 @@ export default function HighlightStrip({ ad }: HighlightStripProps) {
           href={ad.linkUrl}
           target="_blank"
           rel="noopener sponsored"
-          aria-label={ad.advertiserName}
+          aria-label={`${ad.advertiserName} — Publicidade`}
           className={wrapperClassName}
         >
           {content}
         </a>
       ) : (
-        <Link href={ad.linkUrl} aria-label={ad.advertiserName} className={wrapperClassName}>
+        <Link
+          href={ad.linkUrl}
+          aria-label={`${ad.advertiserName} — Publicidade`}
+          className={wrapperClassName}
+        >
           {content}
         </Link>
       )}
