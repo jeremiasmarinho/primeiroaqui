@@ -1,5 +1,6 @@
 import type { AuthForm } from '../screens/LoginScreen'
 import type { AddressDraft } from '../state/addresses'
+import type { ApiAdsResponse } from '../lib/api'
 import type {
   Address,
   BusinessProfile,
@@ -90,6 +91,8 @@ export interface AppRouterProps {
   notificationCount: number
   onNotificationsOpen: () => void
   onOpenCart: () => void
+  /** Anúncios reais (GET /ads): carrossel, faixa de destaque e feed patrocinado. */
+  ads: ApiAdsResponse
 
   // pedidos reais (GET /api/me/orders)
   orders: Order[]

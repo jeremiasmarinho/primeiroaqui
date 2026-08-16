@@ -1,11 +1,19 @@
+import { Fragment } from 'react'
 import { PackageSearch } from 'lucide-react'
 import TopBar from '../components/TopBar'
 import ProductCard from '../components/ProductCard'
+import SponsoredCard from '../components/SponsoredCard'
 import StoreRail from '../components/StoreRail'
+import BannerCarousel from '../components/BannerCarousel'
+import HighlightStrip from '../components/HighlightStrip'
 import { Link } from 'wouter'
 import BottomNav from '../components/BottomNav'
 import { ROUTES } from '../router/routes'
+import type { ApiAdsResponse } from '../lib/api'
 import type { Category, Notification, Product } from '../types'
+
+/** A cada 8 produtos, um card patrocinado — sem repetir buraco vazio no grid. */
+const SPONSORED_INTERVAL = 8
 
 interface SectionHeaderProps {
   title: string
@@ -57,6 +65,8 @@ interface HomeScreenProps {
   onOpenCart: () => void
   moreHref?: string
   isAuthenticated: boolean
+  /** Anúncios reais (Task 4/useAds): carrossel, faixa de destaque e feed patrocinado. */
+  ads: ApiAdsResponse
 }
 
 export default function HomeScreen({
@@ -84,6 +94,7 @@ export default function HomeScreen({
   onOpenCart,
   moreHref,
   isAuthenticated,
+  ads,
 }: HomeScreenProps) {
   // "Navegando" = sem busca nem filtro de categoria ativos — mesmo critério
   // usado para o grid de catálogo (título "Ofertas da cidade" vs categoria).
@@ -122,6 +133,9 @@ export default function HomeScreen({
             saíram do MVP: nenhum tinha backend por trás (cupom, pontos, indicação,
             frete grátis por assinatura, produto "express") e os CTAs não levavam
             a lugar nenhum — religar quando essas features existirem de verdade. */}
+
+        <BannerCarousel ads={ads.heroCarousel} />
+        <HighlightStrip ad={ads.highlightStrip} />
 
         {isBrowsing ? <StoreRail /> : null}
 
@@ -176,17 +190,37 @@ export default function HomeScreen({
             </div>
           ) : (
             <ul className="grid grid-cols-2 gap-2 px-3 md:grid-cols-3 lg:grid-cols-4">
-              {products.map((product, index) => (
-                <li key={product.id}>
-                  <ProductCard
-                    product={product}
-                    priority={index < 4}
-                    isFavorite={isFavorite(product)}
-                    onToggleFavorite={onToggleFavorite}
-                    onAddToCart={onAddToCart}
-                  />
-                </li>
-              ))}
+              {products.map((product, index) => {
+                // A cada 8 produtos, intercala um card patrocinado do feed
+                // (round-robin pelo tamanho do array). Sem anúncio no slot,
+                // nenhum card entra — o fallback "Anuncie aqui" fica só na
+                // faixa de destaque, para não poluir o grid de catálogo.
+                const position = index + 1
+                const showSponsored =
+                  position % SPONSORED_INTERVAL === 0 && ads.sponsoredFeed.length > 0
+                const sponsoredAd = showSponsored
+                  ? ads.sponsoredFeed[(position / SPONSORED_INTERVAL - 1) % ads.sponsoredFeed.length]
+                  : null
+
+                return (
+                  <Fragment key={product.id}>
+                    <li>
+                      <ProductCard
+                        product={product}
+                        priority={index < 4}
+                        isFavorite={isFavorite(product)}
+                        onToggleFavorite={onToggleFavorite}
+                        onAddToCart={onAddToCart}
+                      />
+                    </li>
+                    {sponsoredAd && (
+                      <li key={`sponsored-${sponsoredAd.id}-${position}`}>
+                        <SponsoredCard ad={sponsoredAd} />
+                      </li>
+                    )}
+                  </Fragment>
+                )
+              })}
             </ul>
           )}
         </section>
