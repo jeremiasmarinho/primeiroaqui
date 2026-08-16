@@ -1,15 +1,18 @@
+import { useAdminAds } from '../../state/useAdminAds'
 import { useAdminDashboard } from '../../state/useAdminDashboard'
 import type { Role } from '../../types'
+import AdminAdsTab from './AdminAdsTab'
 import AdminOrdersTab from './AdminOrdersTab'
 import AdminOverviewTab from './AdminOverviewTab'
 import AdminStoresTab from './AdminStoresTab'
 
-export type AdminTab = 'overview' | 'orders' | 'stores'
+export type AdminTab = 'overview' | 'orders' | 'stores' | 'ads'
 
 const TAB_LABELS: Record<AdminTab, string> = {
   overview: 'Visão geral',
   orders: 'Pedidos',
   stores: 'Lojas',
+  ads: 'Anúncios',
 }
 
 interface AdminScreenProps {
@@ -28,6 +31,7 @@ interface AdminScreenProps {
 export default function AdminScreen({ userRole, adminTab, onTabChange, onBack }: AdminScreenProps) {
   const isAdmin = userRole === 'ADMIN'
   const dashboard = useAdminDashboard(isAdmin)
+  const ads = useAdminAds(isAdmin)
   // /admin/aba-que-nao-existe cai na visão geral em vez de tela em branco.
   const tab: AdminTab = adminTab in TAB_LABELS ? adminTab : 'overview'
 
@@ -79,14 +83,38 @@ export default function AdminScreen({ userRole, adminTab, onTabChange, onBack }:
           ))}
         </div>
 
-        {dashboard.actionError ? (
+        {(tab === 'ads' ? ads.actionError : dashboard.actionError) ? (
           <p role="alert" className="mt-4 rounded-[16px] bg-error/10 px-4 py-3 text-sm font-semibold text-error">
-            {dashboard.actionError}
+            {tab === 'ads' ? ads.actionError : dashboard.actionError}
           </p>
         ) : null}
 
         <div className="mt-6">
-          {dashboard.isLoading ? (
+          {tab === 'ads' ? (
+            ads.isLoading ? (
+              <div role="status" className="grid min-h-40 place-items-center">
+                <p className="text-sm font-semibold text-ink-muted">Carregando anúncios…</p>
+              </div>
+            ) : ads.loadError ? (
+              <div className="rounded-[24px] border border-line p-6 text-center">
+                <p className="font-semibold text-ink">{ads.loadError}</p>
+                <button
+                  onClick={ads.retry}
+                  className="btn-primary mt-4 min-h-[44px] rounded-[16px] px-4 py-2 text-sm font-semibold"
+                >
+                  Tentar de novo
+                </button>
+              </div>
+            ) : (
+              <AdminAdsTab
+                ads={ads.ads}
+                pendingAdIds={ads.pendingAdIds}
+                onCreate={(input) => void ads.createAd(input)}
+                onEdit={(id, input) => void ads.editAd(id, input)}
+                onSetActive={(id, active) => void ads.setAdActive(id, active)}
+              />
+            )
+          ) : dashboard.isLoading ? (
             <div role="status" className="grid min-h-40 place-items-center">
               <p className="text-sm font-semibold text-ink-muted">Carregando o painel…</p>
             </div>
