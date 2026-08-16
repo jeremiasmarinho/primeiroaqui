@@ -11,12 +11,26 @@ describe('rota publica de anuncios', () => {
   const hourAgo = () => new Date(Date.now() - 60 * 60 * 1000)
   const hourAhead = () => new Date(Date.now() + 60 * 60 * 1000)
 
+  // Ambiente de teste bate no Postgres real (ver vitest.config.js) — o mesmo
+  // banco que recebe o seed de demonstracao (prisma/seed.ts), que grava
+  // anuncios permanentes fora do prefixo "Fixture ". Os testes deste arquivo
+  // isolam efeito filtrando a resposta por advertiserName com esse prefixo,
+  // em vez de assumir uma tabela vazia.
+  const onlyFixtures = <T extends { advertiserName: string }>(items: T[]): T[] =>
+    items.filter((item) => item.advertiserName.startsWith('Fixture '))
+
   describe('GET /ads', () => {
-    it('retorna listas vazias quando nao ha anuncios vigentes', async () => {
+    it('nao inclui anuncios de fixture quando nenhum foi criado', async () => {
       const res = await app.request('/ads')
       expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body).toEqual({ heroCarousel: [], highlightStrip: null, sponsoredFeed: [] })
+      const body = (await res.json()) as {
+        heroCarousel: Array<{ advertiserName: string }>
+        highlightStrip: { advertiserName: string } | null
+        sponsoredFeed: Array<{ advertiserName: string }>
+      }
+      expect(onlyFixtures(body.heroCarousel)).toEqual([])
+      expect(onlyFixtures(body.sponsoredFeed)).toEqual([])
+      expect(body.highlightStrip?.advertiserName.startsWith('Fixture ')).not.toBe(true)
     })
 
     it('filtra anuncio expirado, agendado no futuro e inativo', async () => {
@@ -50,8 +64,8 @@ describe('rota publica de anuncios', () => {
       })
 
       const res = await app.request('/ads')
-      const body = (await res.json()) as { heroCarousel: unknown[] }
-      expect(body.heroCarousel).toEqual([])
+      const body = (await res.json()) as { heroCarousel: Array<{ advertiserName: string }> }
+      expect(onlyFixtures(body.heroCarousel)).toEqual([])
     })
 
     it('agrupa por slot e ordena por position', async () => {
@@ -78,7 +92,7 @@ describe('rota publica de anuncios', () => {
 
       const res = await app.request('/ads')
       const body = (await res.json()) as { sponsoredFeed: Array<{ advertiserName: string }> }
-      expect(body.sponsoredFeed.map((a) => a.advertiserName)).toEqual(['Fixture Feed 1', 'Fixture Feed 2'])
+      expect(onlyFixtures(body.sponsoredFeed).map((a) => a.advertiserName)).toEqual(['Fixture Feed 1', 'Fixture Feed 2'])
     })
 
     it('highlightStrip retorna o de menor position', async () => {
@@ -89,7 +103,9 @@ describe('rota publica de anuncios', () => {
           imageUrl: 'https://x.com/h2.png',
           startsAt: hourAgo(),
           endsAt: hourAhead(),
-          position: 5,
+          // Posicoes negativas garantem que a fixture vença mesmo com
+          // anuncios de demonstracao (seed) ja ativos no mesmo slot.
+          position: -4,
         },
       })
       await prisma.adPlacement.create({
@@ -99,7 +115,7 @@ describe('rota publica de anuncios', () => {
           imageUrl: 'https://x.com/h1.png',
           startsAt: hourAgo(),
           endsAt: hourAhead(),
-          position: 1,
+          position: -5,
         },
       })
 

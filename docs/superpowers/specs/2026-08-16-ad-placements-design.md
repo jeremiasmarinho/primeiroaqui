@@ -1,6 +1,6 @@
 # Espaços publicitários vendáveis na home — Design
 
-**Data:** 2026-08-16 · **Status:** aprovado pelo usuário
+**Data:** 2026-08-16 · **Status:** implementado (2026-08-16)
 
 ## Objetivo
 Monetizar a home do Primeiro Aqui com espaços de anúncio gerenciáveis pelo admin
