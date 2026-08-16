@@ -13,6 +13,7 @@ import { adminRoutes } from './routes/admin'
 import { meRoutes } from './routes/me'
 import { paymentRoutes } from './routes/payments'
 import { notificationRoutes } from './routes/notifications'
+import { adRoutes } from './routes/ads'
 
 export const app = new Hono()
 
@@ -29,6 +30,7 @@ app.route('/', adminRoutes)
 app.route('/', meRoutes)
 app.route('/', paymentRoutes)
 app.route('/', notificationRoutes)
+app.route('/', adRoutes)
 
 // Health real: toca o banco (SELECT 1) e devolve 503 em falha, para que o
 // HEALTHCHECK do Docker e o monitor de uptime (uptime.yml) detectem Supabase
