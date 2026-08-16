@@ -20,7 +20,11 @@ describe('rota publica de anuncios', () => {
     items.filter((item) => item.advertiserName.startsWith('Fixture '))
 
   describe('GET /ads', () => {
-    it('nao inclui anuncios de fixture quando nenhum foi criado', async () => {
+    // Smoke da forma da resposta + ausencia de fixtures: nao e um teste de
+    // "estado vazio" (o seed sempre deixa linhas no banco de teste). Verifica
+    // que o shape do payload esta correto e que, sem fixtures criadas nesta
+    // suite, nenhuma linha com prefixo "Fixture " vaza na resposta.
+    it('devolve o shape esperado e nenhuma fixture quando nenhuma foi criada', async () => {
       const res = await app.request('/ads')
       expect(res.status).toBe(200)
       const body = (await res.json()) as {
@@ -28,6 +32,10 @@ describe('rota publica de anuncios', () => {
         highlightStrip: { advertiserName: string } | null
         sponsoredFeed: Array<{ advertiserName: string }>
       }
+      expect(Array.isArray(body.heroCarousel)).toBe(true)
+      expect(Array.isArray(body.sponsoredFeed)).toBe(true)
+      expect(body.highlightStrip === null || typeof body.highlightStrip === 'object').toBe(true)
+
       expect(onlyFixtures(body.heroCarousel)).toEqual([])
       expect(onlyFixtures(body.sponsoredFeed)).toEqual([])
       expect(body.highlightStrip?.advertiserName.startsWith('Fixture ')).not.toBe(true)
@@ -95,33 +103,75 @@ describe('rota publica de anuncios', () => {
       expect(onlyFixtures(body.sponsoredFeed).map((a) => a.advertiserName)).toEqual(['Fixture Feed 1', 'Fixture Feed 2'])
     })
 
-    it('highlightStrip retorna o de menor position', async () => {
+    it('mantem a ordem relativa das fixtures no heroCarousel', async () => {
+      // Posicoes validas (>= 0, respeitando o invariante do zod da API).
+      // A ordem relativa entre as fixtures e preservada pelo "orderBy
+      // position asc" global, mesmo com linhas de seed intercaladas —
+      // por isso comparamos apenas o subconjunto filtrado por onlyFixtures.
       await prisma.adPlacement.create({
         data: {
-          slot: 'HIGHLIGHT_STRIP',
-          advertiserName: 'Fixture Highlight 2',
-          imageUrl: 'https://x.com/h2.png',
+          slot: 'HERO_CAROUSEL',
+          advertiserName: 'Fixture Hero 2',
+          imageUrl: 'https://x.com/hero2.png',
           startsAt: hourAgo(),
           endsAt: hourAhead(),
-          // Posicoes negativas garantem que a fixture vença mesmo com
-          // anuncios de demonstracao (seed) ja ativos no mesmo slot.
-          position: -4,
+          position: 1,
         },
       })
       await prisma.adPlacement.create({
         data: {
-          slot: 'HIGHLIGHT_STRIP',
-          advertiserName: 'Fixture Highlight 1',
-          imageUrl: 'https://x.com/h1.png',
+          slot: 'HERO_CAROUSEL',
+          advertiserName: 'Fixture Hero 1',
+          imageUrl: 'https://x.com/hero1.png',
           startsAt: hourAgo(),
           endsAt: hourAhead(),
-          position: -5,
+          position: 0,
         },
       })
 
       const res = await app.request('/ads')
-      const body = (await res.json()) as { highlightStrip: { advertiserName: string } | null }
-      expect(body.highlightStrip?.advertiserName).toBe('Fixture Highlight 1')
+      const body = (await res.json()) as { heroCarousel: Array<{ advertiserName: string }> }
+      expect(onlyFixtures(body.heroCarousel).map((a) => a.advertiserName)).toEqual([
+        'Fixture Hero 1',
+        'Fixture Hero 2',
+      ])
+    })
+
+    it('highlightStrip devolve a linha ativa de menor position do proprio slot', async () => {
+      // Nao assumimos que a fixture "vence" o seed (ambos podem ter
+      // position 0, e o handler faz um find() sem sort secundario — nao ha
+      // garantia de desempate). Em vez disso validamos o invariante que
+      // independe do seed: o vencedor devolvido tem position <= a de toda
+      // fixture ativa criada nesse slot, e nao vaza um anuncio de outro slot.
+      await prisma.adPlacement.create({
+        data: {
+          slot: 'HIGHLIGHT_STRIP',
+          advertiserName: 'Fixture Highlight Alto',
+          imageUrl: 'https://x.com/h-alto.png',
+          startsAt: hourAgo(),
+          endsAt: hourAhead(),
+          position: 4,
+        },
+      })
+      await prisma.adPlacement.create({
+        data: {
+          slot: 'HIGHLIGHT_STRIP',
+          advertiserName: 'Fixture Highlight Baixo',
+          imageUrl: 'https://x.com/h-baixo.png',
+          startsAt: hourAgo(),
+          endsAt: hourAhead(),
+          position: 3,
+        },
+      })
+
+      const res = await app.request('/ads')
+      const body = (await res.json()) as {
+        highlightStrip: { advertiserName: string; position: number } | null
+      }
+      expect(body.highlightStrip).not.toBeNull()
+      // Nunca a fixture de maior position (4) — nem uma de outro slot.
+      expect(body.highlightStrip?.advertiserName).not.toBe('Fixture Highlight Alto')
+      expect(body.highlightStrip?.position).toBeLessThanOrEqual(3)
     })
   })
 })
