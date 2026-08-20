@@ -227,7 +227,9 @@ Nada disso é automatico; cada item já quebrou producao em algum projeto.
 - [ ] `PAGARME_WEBHOOK_SECRET` presente — sem ele o webhook **aceita qualquer
       payload**
 - [ ] Google Pay: dominio validado no Business Console aponta para o host certo
-- [ ] Workflow `uptime.yml` continua verde (roda de 15 em 15 min)
+- [ ] Monitor externo (UptimeRobot/Better Stack) apontado para
+      `https://<dominio>/api/health` — e o fallback `uptime.yml` (1x/hora)
+      continua verde
 - [ ] Supabase: se houver allowlist de IP no banco, adicionar o IP da Lightsail
       **antes** do cutover
 - [ ] Manter a VPS Hostinger ligada por **7 dias** apos o cutover — rollback de

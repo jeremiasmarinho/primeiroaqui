@@ -1,11 +1,19 @@
-# Monitor de uptime: checa a producao a cada ~15 min. Se /api/health nao
+# Monitor de uptime FALLBACK: checa a producao 1x/hora. Se /api/health nao
 # responder 200, o job falha e o GitHub notifica por e-mail o dono do repo.
-# Externo a VPS de proposito: se o servidor cair, o alerta ainda dispara.
+#
+# ATENCAO (repo privado, 20/08/2026): cada execucao cobra 1 min da cota de
+# Actions (2.000 min/mes no plano Free). O cron de */15 consumia ~2.880
+# min/mes — mais que a cota inteira — e quando a cota acaba TODOS os
+# workflows param em silencio. Por isso este job virou horario e o monitor
+# primario deve ser EXTERNO (UptimeRobot/Better Stack, tier free, intervalo
+# de 1-5 min): mais externo que o Actions, alerta por push e nao depende de
+# cota. Quando o monitor externo estiver ativo, este workflow pode ser
+# removido.
 name: Uptime
 
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '0 * * * *'
   workflow_dispatch:
 
 jobs:

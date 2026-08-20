@@ -206,8 +206,9 @@ proteção).
   ficam no gerenciador de senhas — **nunca neste arquivo** (repo público).
 - fail2ban ativo (jail sshd) e unattended-upgrades ligado.
 - Deploy: `ssh <usuario>@<ip> "cd /opt/primeiroaqui && ./scripts/deploy.sh"`.
-- Monitor de uptime: workflow GitHub Actions `uptime.yml` (15 em 15 min,
-  falha = e-mail do GitHub ao dono do repo).
+- Monitor de uptime: primario deve ser EXTERNO (UptimeRobot/Better Stack —
+  pendente de configurar); fallback é o workflow `uptime.yml` (1x/hora em repo
+  privado por causa da cota de Actions; falha = e-mail ao dono do repo).
 
 ## Registro histórico — fluxo Hostinger manual (SUPERADO em 20/08/2026)
 
