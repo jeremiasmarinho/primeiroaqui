@@ -179,20 +179,31 @@ PÚBLICO**. Não há mais justificativa para adiar. Nenhum segredo real foi
 versionado no git (auditado nos 134 commits em 20/08/2026; só templates),
 mas este runbook expunha usuário SSH e IP da VPS, removidos na mesma data.
 
-Rotacionar derruba qualquer instância que ainda use a senha velha — se a VPS
-antiga estiver servindo produção, encaixe a rotação na janela de migração:
-depois de provisionar a VPS nova, antes de virar o DNS (ver
-`docs/deploy-aws.md` §8).
+Rotacionar derruba qualquer instância que ainda use a senha velha — e o
+Supabase não dá sobreposição de credencial (senha de banco é uma só;
+rotacionar a service-role invalida a chave antiga na hora). Se rotacionar com
+a VPS antiga ainda servindo 100% do tráfego e esperar o DNS propagar, a
+janela de indisponibilidade é a propagação inteira. **Decisão (20/08/2026):
+rotacionar e atualizar os DOIS `.env` na mesma janela** — a credencial já
+esteve exposta, então encurtar a exposição vale mais que os segundos de
+restart. Ordem: VPS nova provisionada e pronta → rotacionar → senha nova nos
+dois `.env` → restart nos dois lados → validar os dois → virar o DNS. O
+outage cai para o tempo de restart da VPS antiga (segundos), não para a
+propagação de DNS.
 
 Checklist de rotação (nesta ordem):
 
-1. Supabase → Settings → Database: resetar a senha do banco.
-2. Supabase → Settings → API: rotacionar a service-role key.
-3. Gravar os valores novos em `/opt/primeiroaqui/.env` da VPS via scp ou nano
-   direto na VPS (nunca colar segredo em chat): `DATABASE_URL`, `DIRECT_URL`,
+1. Pré-condição: VPS nova provisionada, clonada e com `.env` preenchido
+   (exceto os valores que vão rotacionar).
+2. Supabase → Settings → Database: resetar a senha do banco.
+3. Supabase → Settings → API: rotacionar a service-role key.
+4. Gravar os valores novos nos `.env` das DUAS VPS via scp ou nano direto na
+   VPS (nunca colar segredo em chat): `DATABASE_URL`, `DIRECT_URL`,
    `SUPABASE_SERVICE_ROLE`.
-4. `cd /opt/primeiroaqui && docker compose up -d` (ou `./scripts/deploy.sh`) e
-   validar `/api/health` → 200 + um fluxo autenticado (login) na URL pública.
+5. VPS antiga: restart do container (fluxo histórico: `docker restart
+   primeiroaqui`). VPS nova: `cd /opt/primeiroaqui && ./scripts/deploy.sh`.
+6. Validar `/api/health` → 200 + um fluxo autenticado (login) nos dois hosts.
+7. Virar o DNS (ver `docs/deploy-aws.md` §5).
 5. Apagar o `.env.production` local antigo (contém a senha velha) ou
    regravá-lo com os valores novos.
 

@@ -245,10 +245,19 @@ banco foram expostas em transcricao de sessao de IA em ago/2026, com rotacao
 **pendente**. A troca de servidor é o momento natural para fechar isso: você
 vai preencher um `.env` novo de qualquer jeito.
 
-Ordem: resetar senha do banco no Supabase → rotacionar a service-role key →
-gravar os valores novos direto no `.env` da VPS nova → subir → validar
-`/api/health` e um fluxo autenticado → só então virar o DNS. A `SUPABASE_ANON_KEY`
-não precisa rotacionar (é publica por design; RLS é a protecao).
+**Atencao:** rotacionar invalida a credencial antiga na hora, e a VPS antiga
+ainda esta servindo o trafego. Se so a VPS nova receber a senha nova, o
+outage dura a propagacao de DNS inteira. Por isso os valores novos vao para
+os `.env` das DUAS VPS na mesma janela, com restart nos dois lados.
+
+Ordem: VPS nova pronta (provisionada, clonada, `.env` preenchido) → resetar
+senha do banco no Supabase → rotacionar a service-role key → gravar os
+valores novos nos `.env` das duas VPS → restart nos dois lados (antiga:
+`docker restart primeiroaqui`; nova: `./scripts/deploy.sh`) → validar
+`/api/health` e um fluxo autenticado nos dois hosts → só então virar o DNS.
+Checklist detalhado em `docs/runbook.md`, seção de rotação. A
+`SUPABASE_ANON_KEY` não precisa rotacionar (é publica por design; RLS é a
+protecao).
 
 ---
 
