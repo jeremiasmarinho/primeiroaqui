@@ -3,8 +3,9 @@
 # para receber o Primeiro Aqui: Docker, swap, firewall, fail2ban e o diretorio
 # de deploy. Idempotente — pode rodar de novo sem quebrar nada.
 #
-# Rodar UMA vez, como root ou com sudo, na VPS recem-criada:
-#   curl -fsSL <raw-url>/scripts/provision-vps.sh -o provision.sh
+# Rodar UMA vez, como root ou com sudo, na VPS recem-criada. O repo e privado,
+# entao envie o script por scp a partir da maquina de dev:
+#   scp scripts/provision-vps.sh <user>@<ip>:provision.sh
 #   sudo bash provision.sh deploy   # 'deploy' = usuario que vai operar o app
 #
 # NAO desabilita senha no SSH automaticamente: fazer isso antes de confirmar

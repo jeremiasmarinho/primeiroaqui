@@ -96,12 +96,17 @@ de um MVP de container unico.
 
 ## 3. Provisionar
 
+O repo é **privado**: `curl` no raw e `git clone` HTTPS anonimo nao funcionam.
+O script de provisionamento vai por `scp`, e o clone usa uma deploy key (§4).
+
 ```bash
 chmod 400 ~/Downloads/LightsailDefaultKey.pem
-ssh -i ~/Downloads/LightsailDefaultKey.pem ubuntu@<IP-ESTATICO>
 
+# da maquina de dev: enviar o script (esta no proprio repo local)
+scp -i ~/Downloads/LightsailDefaultKey.pem scripts/provision-vps.sh ubuntu@<IP-ESTATICO>:provision.sh
+
+ssh -i ~/Downloads/LightsailDefaultKey.pem ubuntu@<IP-ESTATICO>
 # na VPS
-curl -fsSL https://raw.githubusercontent.com/jeremiasmarinho/primeiroaqui/main/scripts/provision-vps.sh -o provision.sh
 sudo bash provision.sh deploy
 ```
 
@@ -118,8 +123,21 @@ outro terminal.
 
 ## 4. Codigo e variaveis
 
+Repo privado → o clone (e o `git fetch` que o `deploy.sh` roda a cada deploy)
+precisa de credencial. Use uma **deploy key** read-only, escopada a este repo —
+melhor que PAT: se a VPS for comprometida, a chave nao abre mais nada.
+
 ```bash
-sudo -u deploy git clone https://github.com/jeremiasmarinho/primeiroaqui.git /opt/primeiroaqui
+# na VPS, como o usuario deploy
+sudo -u deploy ssh-keygen -t ed25519 -N "" -f /home/deploy/.ssh/id_ed25519 -C "deploy-key primeiroaqui lightsail"
+sudo -u deploy cat /home/deploy/.ssh/id_ed25519.pub
+```
+
+Cadastre a chave publica em GitHub → repo → **Settings → Deploy keys →
+Add deploy key** (SEM marcar "Allow write access"). Depois:
+
+```bash
+sudo -u deploy git clone git@github.com:jeremiasmarinho/primeiroaqui.git /opt/primeiroaqui
 cd /opt/primeiroaqui
 sudo -u deploy install -m 600 /dev/null .env
 sudo -u deploy nano .env
