@@ -163,15 +163,17 @@ boot (uma vez, ~centenas de ms). Se o boot virar gargalo, o caminho é
 compilar `src/server` com `tsc`/`tsup` e trocar o `CMD` — nada mais no
 deploy muda.
 
-## PENDÊNCIA DE SEGURANÇA — rotação de credenciais (pós-go-live)
+## PENDÊNCIA DE SEGURANÇA — rotação de credenciais (IMEDIATA)
 
-**Status: PENDENTE. Fazer assim que o app estiver rodando estável na VPS.**
+**Status: PENDENTE. Fazer AGORA, antes de qualquer outro passo de deploy.**
 
 Durante as sessões de deploy (ago/2026), a service-role key do Supabase e a
 senha do banco foram exibidas em terminal de sessão de IA (transcrições e
-logs de contexto). Risco aceito temporariamente porque o repo é privado e o
-projeto é MVP pré-lançamento — mas a rotação é obrigatória antes de tráfego
-real.
+logs de contexto). A rotação foi adiada sob a premissa de que o repo era
+privado — **premissa falsa: constatou-se em 20/08/2026 que o repositório é
+PÚBLICO**. Não há mais justificativa para adiar. Nenhum segredo real foi
+versionado no git (auditado nos 134 commits em 20/08/2026; só templates),
+mas este runbook expunha usuário SSH e IP da VPS, removidos na mesma data.
 
 Checklist de rotação (nesta ordem, com o app já no ar):
 
@@ -189,10 +191,11 @@ proteção).
 
 ## Acesso ao servidor (pós-hardening de 08/08/2026)
 
-- SSH: **somente chave**, usuário **koraforce@72.61.131.217** (sudo sem senha,
-  grupo docker). Root e senha estão DESABILITADOS no sshd.
+- SSH: **somente chave**, usuário `<usuario>@<ip-da-vps>` (sudo sem senha,
+  grupo docker). Root e senha estão DESABILITADOS no sshd. Usuário e IP reais
+  ficam no gerenciador de senhas — **nunca neste arquivo** (repo público).
 - fail2ban ativo (jail sshd) e unattended-upgrades ligado.
-- Deploy: `ssh koraforce@... "cd /opt/primeiroaqui && git pull && docker build
+- Deploy: `ssh <usuario>@<ip> "cd /opt/primeiroaqui && git pull && docker build
   -t primeiro-aqui:latest . && docker rm -f primeiroaqui && docker run -d
   --name primeiroaqui --restart unless-stopped -p 127.0.0.1:3333:3333
   --env-file /opt/primeiroaqui/.env primeiro-aqui:latest"`.
