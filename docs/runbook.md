@@ -89,29 +89,33 @@ no `.env.local`.
   `.env.local`, confira primeiro se uma linha `NODE_ENV=` foi reintroduzida
   ali antes de investigar código.
 
-## Deploy — VPS Hostinger via Coolify
+## Deploy
+
+**Fluxo vigente (desde 20/08/2026): Docker Compose + Caddy, descrito em
+`docs/deploy-aws.md`.** Provisionamento com `scripts/provision-vps.sh`, deploy
+com `scripts/deploy.sh` (preflight de `.env`, build, health gate, rollback
+automático). O fluxo antigo de `docker build` + `docker run` manual da VPS
+Hostinger está **superado** — registro histórico no fim deste arquivo. Não
+misture os dois: um container avulso `primeiroaqui` na 3333 coexiste com a
+stack do compose sem erro visível, e o Caddy passa a apontar para o container
+errado.
 
 O app roda como **um único container Node** que serve a API e a SPA já
 buildada. Mesma origem: o front chama `/api/...` relativo, sem CORS e sem
 `VITE_API_URL`. Nada de recurso proprietário de plataforma — a mesma imagem
 sobe em qualquer VPS.
 
-Arquivos que compõem o deploy: `Dockerfile`, `.dockerignore`,
+Arquivos que compõem o deploy: `Dockerfile`, `.dockerignore`, `compose.yml`,
+`deploy/Caddyfile`, `scripts/deploy.sh`, `scripts/provision-vps.sh`,
 `src/server/root.ts` (composição API + estáticos + fallback de SPA).
-
-### Pré-requisitos na VPS
-
-1. Docker instalado (o deploy é `docker build` + `docker run` direto — **não
-   há Coolify nesta VPS**; verificado em 15/08/2026 via `docker ps`).
-2. Domínio do cliente apontando (registro A) para o IP da VPS, com o proxy
-   reverso que já serve o container (ver a seção "Acesso ao servidor").
 
 ### Variáveis de ambiente na VPS
 
 As env vars de produção vivem em `/opt/primeiroaqui/.env` (permissão `0600`,
 fora do git — o `.dockerignore` bloqueia `.env*` de entrar na imagem) e são
-injetadas via `docker run --env-file`. Referência de nomes:
-`.env.production.example`.
+lidas pelo compose (`env_file`). Referência de nomes:
+`.env.production.example` — inclui `DOMAIN` e `ACME_EMAIL`, consumidas pelo
+Caddy.
 
 | Variável | Observação |
 | --- | --- |
@@ -148,8 +152,8 @@ deste runbook.
 
 1. `npm run gate` local (lint + typecheck + testes + build + bundle).
 2. `npx prisma migrate deploy` se houver migration nova.
-3. Push em `main` → na VPS: comando de deploy da seção "Acesso ao servidor"
-   (git pull + docker build + docker run com `--env-file`).
+3. Push em `main` → na VPS:
+   `ssh <usuario>@<ip> "cd /opt/primeiroaqui && ./scripts/deploy.sh"`.
 4. Verificar `https://<dominio>/api/health` → `{"status":"ok"}` e uma rota
    funda da SPA (ex.: `/produto/1`) devolvendo o app, não 404.
 
@@ -175,14 +179,20 @@ PÚBLICO**. Não há mais justificativa para adiar. Nenhum segredo real foi
 versionado no git (auditado nos 134 commits em 20/08/2026; só templates),
 mas este runbook expunha usuário SSH e IP da VPS, removidos na mesma data.
 
-Checklist de rotação (nesta ordem, com o app já no ar):
+Rotacionar derruba qualquer instância que ainda use a senha velha — se a VPS
+antiga estiver servindo produção, encaixe a rotação na janela de migração:
+depois de provisionar a VPS nova, antes de virar o DNS (ver
+`docs/deploy-aws.md` §8).
+
+Checklist de rotação (nesta ordem):
 
 1. Supabase → Settings → Database: resetar a senha do banco.
 2. Supabase → Settings → API: rotacionar a service-role key.
-3. Atualizar `/opt/<app>/.env` na VPS via scp (nunca colar segredo em chat):
-   `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_SERVICE_ROLE`.
-4. `docker restart <container>` e validar `/api/health` → 200 + um fluxo
-   autenticado (login) na URL pública.
+3. Gravar os valores novos em `/opt/primeiroaqui/.env` da VPS via scp ou nano
+   direto na VPS (nunca colar segredo em chat): `DATABASE_URL`, `DIRECT_URL`,
+   `SUPABASE_SERVICE_ROLE`.
+4. `cd /opt/primeiroaqui && docker compose up -d` (ou `./scripts/deploy.sh`) e
+   validar `/api/health` → 200 + um fluxo autenticado (login) na URL pública.
 5. Apagar o `.env.production` local antigo (contém a senha velha) ou
    regravá-lo com os valores novos.
 
@@ -195,12 +205,19 @@ proteção).
   grupo docker). Root e senha estão DESABILITADOS no sshd. Usuário e IP reais
   ficam no gerenciador de senhas — **nunca neste arquivo** (repo público).
 - fail2ban ativo (jail sshd) e unattended-upgrades ligado.
-- Deploy: `ssh <usuario>@<ip> "cd /opt/primeiroaqui && git pull && docker build
-  -t primeiro-aqui:latest . && docker rm -f primeiroaqui && docker run -d
-  --name primeiroaqui --restart unless-stopped -p 127.0.0.1:3333:3333
-  --env-file /opt/primeiroaqui/.env primeiro-aqui:latest"`.
+- Deploy: `ssh <usuario>@<ip> "cd /opt/primeiroaqui && ./scripts/deploy.sh"`.
 - Monitor de uptime: workflow GitHub Actions `uptime.yml` (15 em 15 min,
   falha = e-mail do GitHub ao dono do repo).
+
+## Registro histórico — fluxo Hostinger manual (SUPERADO em 20/08/2026)
+
+Até 20/08/2026 a VPS Hostinger rodava sem compose: proxy reverso na máquina e
+deploy manual com `git pull && docker build -t primeiro-aqui:latest . &&
+docker rm -f primeiroaqui && docker run -d --name primeiroaqui --restart
+unless-stopped -p 127.0.0.1:3333:3333 --env-file /opt/primeiroaqui/.env
+primeiro-aqui:latest` (não havia Coolify; verificado em 15/08/2026). Este
+fluxo NÃO deve mais ser usado — fica registrado só para entender o estado da
+VPS antiga durante os 7 dias de janela de rollback do cutover.
 
 ## Pendências conhecidas (registradas em 15/08/2026)
 
