@@ -207,8 +207,10 @@ proteção).
 - fail2ban ativo (jail sshd) e unattended-upgrades ligado.
 - Deploy: `ssh <usuario>@<ip> "cd /opt/primeiroaqui && ./scripts/deploy.sh"`.
 - Monitor de uptime: primario deve ser EXTERNO (UptimeRobot/Better Stack —
-  pendente de configurar); fallback é o workflow `uptime.yml` (1x/hora em repo
-  privado por causa da cota de Actions; falha = e-mail ao dono do repo).
+  configurar ANTES do cutover de DNS; ~3 min, tier free). Fallback é o
+  workflow `uptime.yml` (1x/hora; falha = e-mail ao dono do repo), com dois
+  limites: schedules são desativados após 60 dias sem atividade no repo, e
+  em repo privado consomem cota de Actions.
 
 ## Registro histórico — fluxo Hostinger manual (SUPERADO em 20/08/2026)
 

@@ -1,14 +1,19 @@
 # Monitor de uptime FALLBACK: checa a producao 1x/hora. Se /api/health nao
 # responder 200, o job falha e o GitHub notifica por e-mail o dono do repo.
 #
-# ATENCAO (repo privado, 20/08/2026): cada execucao cobra 1 min da cota de
-# Actions (2.000 min/mes no plano Free). O cron de */15 consumia ~2.880
+# ATENCAO (20/08/2026): em repo PUBLICO Actions e gratuito; no instante em
+# que o repo virar privado, cada execucao passa a cobrar 1 min da cota
+# (2.000 min/mes no plano Free). O cron antigo de */15 consumiria ~2.880
 # min/mes — mais que a cota inteira — e quando a cota acaba TODOS os
-# workflows param em silencio. Por isso este job virou horario e o monitor
+# workflows param em silencio. Por isso este job virou horario ANTES da
+# mudanca de visibilidade.
+#
+# Este workflow e FALLBACK e tem dois limites conhecidos: o GitHub desativa
+# schedules automaticamente apos 60 dias sem atividade no repo (o fallback
+# morre em silencio), e `schedule` atrasa/pula execucoes sob carga. O monitor
 # primario deve ser EXTERNO (UptimeRobot/Better Stack, tier free, intervalo
-# de 1-5 min): mais externo que o Actions, alerta por push e nao depende de
-# cota. Quando o monitor externo estiver ativo, este workflow pode ser
-# removido.
+# de 1-5 min), configurado ANTES do cutover de DNS. Quando o externo estiver
+# ativo, este workflow pode ser removido.
 name: Uptime
 
 on:
