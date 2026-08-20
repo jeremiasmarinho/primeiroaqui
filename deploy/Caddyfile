@@ -1,0 +1,66 @@
+# Proxy reverso de borda. O Caddy emite e renova o certificado Let's Encrypt
+# sozinho — nao ha certbot, cron de renovacao nem nginx.conf para manter.
+#
+# Pre-requisito: o registro A de {$DOMAIN} ja aponta para o IP da VPS ANTES
+# do primeiro `up`. O desafio HTTP-01 do ACME resolve pelo DNS publico; com o
+# DNS ainda no servidor antigo, a emissao falha e o Caddy entra em backoff.
+{
+	email {$ACME_EMAIL}
+
+	# Descomente para testar a emissao sem gastar o limite de 5 certificados
+	# por dominio por semana do Let's Encrypt. Gera certificado INVALIDO no
+	# browser — e so para validar o caminho ACME antes do cutover de DNS.
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+{$DOMAIN} {
+	encode zstd gzip
+
+	# Upload de foto de produto passa por aqui. O default do Caddy e sem
+	# limite; um teto explicito impede que uma requisicao gigante ocupe
+	# memoria do proxy. Alinhar com o limite aceito por productPhotos.
+	request_body {
+		max_size 12MB
+	}
+
+	header {
+		# HSTS: so ligar depois de confirmar que HTTPS funciona no dominio.
+		# Uma vez enviado, o browser recusa HTTP por 1 ano — inclusive se o
+		# certificado quebrar.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	reverse_proxy app:3333 {
+		# X-Forwarded-For / -Proto / -Host o Caddy ja envia por padrao.
+		# X-Real-IP nao e default e e o que costuma aparecer em log de app.
+		header_up X-Real-IP {remote_host}
+
+		# Webhook do Pagar.me e checkout nao podem cair por timeout curto.
+		transport http {
+			read_timeout 60s
+			write_timeout 60s
+		}
+
+		# Se o app estiver reiniciando (deploy), tenta outra vez antes de
+		# devolver 502 para o usuario.
+		lb_try_duration 5s
+		lb_try_interval 250ms
+	}
+
+	log {
+		output stdout
+		format json
+		# /api/health bate a cada 15 min pelo workflow de uptime; sem isso o
+		# log vira quase so ruido de healthcheck.
+		level INFO
+	}
+}
+
+# Se o dominio tambem responder em www, descomente:
+# www.{$DOMAIN} {
+# 	redir https://{$DOMAIN}{uri} permanent
+# }

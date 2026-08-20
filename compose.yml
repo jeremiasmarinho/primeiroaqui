@@ -1,0 +1,104 @@
+# Stack de producao — um container Node (API Hono + SPA buildada) atras de um
+# Caddy que resolve TLS sozinho via Let's Encrypt.
+#
+# Uso na VPS:
+#   cd /opt/primeiroaqui
+#   docker compose --env-file /opt/primeiroaqui/.env up -d --build
+#
+# O banco NAO vive aqui: e o Postgres gerenciado do Supabase, alcancado pela
+# internet (DATABASE_URL). Por isso a VPS nao precisa de volume de dados nem
+# de rotina de backup de banco — o backup e responsabilidade do Supabase.
+
+name: primeiroaqui
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: primeiro-aqui:latest
+    restart: unless-stopped
+
+    # Todas as variaveis vem deste arquivo (0600, fora do git).
+    # Referencia de nomes: .env.production.example
+    env_file:
+      - .env
+
+    # Sem `ports:` de proposito. O app so e alcancavel pela rede interna do
+    # compose; quem fala com a internet e o Caddy. Isso fecha a porta 3333 no
+    # firewall de fato, nao so por convencao.
+    expose:
+      - "3333"
+
+    environment:
+      NODE_ENV: production
+      PORT: "3333"
+      HOST: "0.0.0.0"
+
+    # O HEALTHCHECK ja existe no Dockerfile; repetido aqui para que o
+    # `depends_on: condition: service_healthy` do Caddy tenha contrato
+    # explicito no compose (e para poder ajustar sem rebuildar a imagem).
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3333/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+    # Teto de memoria: sem isso, um vazamento no Node derruba a VPS inteira
+    # (inclusive o sshd) em vez de so reiniciar o container.
+    deploy:
+      resources:
+        limits:
+          memory: 768M
+
+    # Log sem rotacao enche o disco da VPS em semanas e o sintoma e
+    # "no space left on device" em um deploy qualquer, meses depois.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+    networks:
+      - edge
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"   # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data          # certificados — perder isso = reemitir TLS
+      - caddy_config:/config
+    environment:
+      # Consumidos pelo Caddyfile. Definidos no mesmo .env do app.
+      # `:?` faz o compose abortar com mensagem clara se a variavel faltar,
+      # em vez de o Caddy subir pedindo certificado para o dominio vazio.
+      DOMAIN: "${DOMAIN:?defina DOMAIN no .env, ex primeiroaqui.koraforce.com.br}"
+      ACME_EMAIL: "${ACME_EMAIL:?defina ACME_EMAIL no .env, recebe avisos de expiracao do certificado}"
+    depends_on:
+      app:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - edge
+
+networks:
+  edge:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:

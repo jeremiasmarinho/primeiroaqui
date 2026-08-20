@@ -30,3 +30,4 @@ Dockerfile
 .dockerignore
 compose.yml
 docker-compose.yml
+deploy
